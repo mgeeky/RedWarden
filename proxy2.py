@@ -2,6 +2,8 @@ import sys
 import socket
 import select
 import httplib
+import urlparse
+import threading
 from collections import OrderedDict
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
@@ -13,6 +15,19 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
     timeout = 2
+
+    def __init__(self, *args, **kwargs):
+        self.tls = threading.local()
+        self.tls.conns = {}
+
+        BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+
+    def log_error(self, format, *args):
+        # surpress "Request timed out: timeout('timed out',)"
+        if isinstance(args[0], socket.timeout):
+            return
+
+        return BaseHTTPRequestHandler.log_error(self, format, *args)
 
     def do_CONNECT(self):
         address = self.path.split(':', 1)
@@ -39,14 +54,21 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         s.close()
 
     def do_GET(self):
-        host = self.headers['Host']
         req_headers = self.headers.items()
         req_headers = self.rewrite_headers(req_headers)
         content_length = int(req_headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
 
-        conn = httplib.HTTPConnection(host, timeout=self.timeout)
-        conn.request(self.command, self.path, req_body, req_headers)
+        u = urlparse.urlsplit(self.path)
+        assert u.scheme == 'http'
+        host, path = u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        if host:
+            req_headers['Host'] = host
+        if not host in self.tls.conns:
+            self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
+        conn = self.tls.conns[host]
+        conn.request(self.command, path, req_body, req_headers)
+
         res = conn.getresponse()
         res_headers = res.getheaders()
         res_headers = self.rewrite_headers(res_headers)
@@ -59,8 +81,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(res_body)
         self.wfile.flush()
 
-        conn.close()
-
     do_HEAD = do_GET
     do_POST = do_GET
 
@@ -69,11 +89,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
 
         pairs = [(k.title(), v) for k, v in headers if not k in hop_by_hop]
-        pairs.append(('Connection', 'close'))
         return OrderedDict(pairs)
 
 
-def test(HandlerClass = ProxyRequestHandler, ServerClass = ThreadingHTTPServer, protocol="HTTP/1.0"):
+def test(HandlerClass = ProxyRequestHandler, ServerClass = ThreadingHTTPServer, protocol="HTTP/1.1"):
     if sys.argv[1:]:
         port = int(sys.argv[1])
     else:

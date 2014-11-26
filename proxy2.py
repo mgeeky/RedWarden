@@ -14,7 +14,7 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    timeout = 2
+    timeout = 5
 
     def __init__(self, *args, **kwargs):
         self.tls = threading.local()
@@ -32,7 +32,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def do_CONNECT(self):
         address = self.path.split(':', 1)
         address[1] = int(address[1]) or 443
-        s = socket.create_connection(address)
+        try:
+            s = socket.create_connection(address, timeout=self.timeout)
+        except Exception as e:
+            self.send_response(502, 'Bad Gateway')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            return
         self.send_response(200, 'Connection Established')
         self.send_header('Connection', 'close')
         self.end_headers()
@@ -62,17 +68,26 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         u = urlparse.urlsplit(self.path)
         assert u.scheme == 'http'
         host, path = u.netloc, (u.path + '?' + u.query if u.query else u.path)
-        if host:
-            req_headers['Host'] = host
-        if not host in self.tls.conns:
-            self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
-        conn = self.tls.conns[host]
-        conn.request(self.command, path, req_body, req_headers)
 
-        res = conn.getresponse()
-        res_headers = res.getheaders()
-        res_headers = self.rewrite_headers(res_headers)
-        res_body = res.read()
+        try:
+            if host:
+                req_headers['Host'] = host
+            if not host in self.tls.conns:
+                self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
+            conn = self.tls.conns[host]
+            conn.request(self.command, path, req_body, req_headers)
+            res = conn.getresponse()
+            res_headers = res.getheaders()
+            res_headers = self.rewrite_headers(res_headers)
+            res_body = res.read()
+        except Exception as e:
+            self.send_response(502, 'Bad Gateway')
+            self.send_header('Content-Type', 'text/html')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            print >>self.wfile, "<!DOCTYPE html><title>502 Bad Gateway</title><p>%s: %s</p>" % (type(e).__name__, e)
+            del self.tls.conns[host]
+            return
 
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, res.status, res.reason))
         for k, v in res_headers.iteritems():

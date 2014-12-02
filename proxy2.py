@@ -27,7 +27,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if isinstance(args[0], socket.timeout):
             return
 
-        return BaseHTTPRequestHandler.log_error(self, format, *args)
+        self.log_message(format, *args)
 
     def do_CONNECT(self):
         address = self.path.split(':', 1)

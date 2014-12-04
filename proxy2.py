@@ -60,25 +60,26 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         s.close()
 
     def do_GET(self):
-        req_headers = self.headers.items()
-        req_headers = self.rewrite_headers(req_headers)
+        req_headers = self.headers
         content_length = int(req_headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
+
+        # TODO: add request handler here
 
         u = urlparse.urlsplit(self.path)
         assert u.scheme == 'http'
         host, path = u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        if host:
+            req_headers['Host'] = host
+        req_headers = self.filter_headers(req_headers)
 
         try:
-            if host:
-                req_headers['Host'] = host
             if not host in self.tls.conns:
                 self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
             conn = self.tls.conns[host]
-            conn.request(self.command, path, req_body, req_headers)
+            conn.request(self.command, path, req_body, dict(req_headers))
             res = conn.getresponse()
-            res_headers = res.getheaders()
-            res_headers = self.rewrite_headers(res_headers)
+            res_headers = res.msg
             res_body = res.read()
         except Exception as e:
             self.send_response(502, 'Bad Gateway')
@@ -86,12 +87,19 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             self.send_header('Connection', 'close')
             self.end_headers()
             print >>self.wfile, "<!DOCTYPE html><title>502 Bad Gateway</title><p>%s: %s</p>" % (type(e).__name__, e)
-            del self.tls.conns[host]
+            if host in self.tls.conns:
+                del self.tls.conns[host]
             return
 
+        # TODO: add response body decoder here
+
+        # TODO: add response handler here
+
+        res_headers = self.filter_headers(res_headers)
+
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, res.status, res.reason))
-        for k, v in res_headers.iteritems():
-            self.send_header(k, v)
+        for line in res_headers.headers:
+            self.wfile.write(line)
         self.end_headers()
         self.wfile.write(res_body)
         self.wfile.flush()
@@ -99,12 +107,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
     do_POST = do_GET
 
-    def rewrite_headers(self, headers):
+    def filter_headers(self, headers):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
         hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
-
-        pairs = [(k.title(), v) for k, v in headers if not k in hop_by_hop]
-        return OrderedDict(pairs)
+        for k in hop_by_hop:
+            del headers[k]
+        return headers
 
 
 def test(HandlerClass = ProxyRequestHandler, ServerClass = ThreadingHTTPServer, protocol="HTTP/1.1"):

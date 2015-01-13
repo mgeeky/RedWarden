@@ -164,10 +164,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def save_handler(self, req, req_body, res, res_body):
         version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
 
-        print "%s %s %s" % (req.command, req.path, req.request_version)
-        print req.headers
-        print "%s %d %s" % (version_table[res.version], res.status, res.reason)
-        print res.headers
+        print "%s%s %s %s\n%s%s" % ('\x1b[33m', req.command, req.path, req.request_version, req.headers, '\x1b[0m')
+        if req_body is not None:
+            print "%s%r%s\n" % ('\x1b[32m', req_body[:1024], '\x1b[0m')
+        print "%s%s %d %s\n%s%s" % ('\x1b[36m', version_table[res.version], res.status, res.reason, res.headers, '\x1b[0m')
 
 
 def test(HandlerClass = ProxyRequestHandler, ServerClass = ThreadingHTTPServer, protocol="HTTP/1.1"):

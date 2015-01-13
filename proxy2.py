@@ -1,22 +1,30 @@
 import sys
+import os
 import socket
-import select
+import ssl
 import httplib
 import urlparse
 import threading
 import gzip
 import zlib
-from collections import OrderedDict
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
+from subprocess import Popen, PIPE
 
 
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     address_family = socket.AF_INET6
 
+    def handle_error(self, request, client_address):
+        # surpress SSL related errors
+        pass
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
+    cakey = 'ca.key'
+    cacert = 'ca.crt'
+    certkey = 'cert.key'
+    certdir = 'certs/'
     timeout = 5
     lock = threading.Lock()
 
@@ -34,39 +42,38 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        address = self.path.split(':', 1)
-        address[1] = int(address[1]) or 443
-        try:
-            s = socket.create_connection(address, timeout=self.timeout)
-        except Exception as e:
-            self.send_response(502, 'Bad Gateway')
-            self.send_header('Connection', 'close')
-            self.end_headers()
-            return
-        self.send_response(200, 'Connection Established')
-        self.send_header('Connection', 'close')
+        path = "https://%s/" % self.path.replace(':443', '')
+        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'Connection Established'))
         self.end_headers()
 
-        conns = [self.connection, s]
-        close_connection = False
-        while not close_connection:
-            rlist, wlist, xlist = select.select(conns, [], conns, self.timeout)
-            if xlist or not rlist:
-                break
-            for r in rlist:
-                other = conns[1] if r is conns[0] else conns[0]
-                data = r.recv(8192)
-                if not data:
-                    close_connection = True
-                    break
-                other.sendall(data)
+        if not os.path.isdir(self.certdir):
+            os.makedirs(self.certdir)
+        u = urlparse.urlsplit(path)
+        certpath = "%s/%s.crt" % (self.certdir.rstrip('/'), u.hostname)
 
-        s.close()
+        with self.lock:
+            if not os.path.isfile(certpath):
+                p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % u.hostname], stdout=PIPE)
+                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-CAcreateserial", "-out", certpath], stdin=p1.stdout, stderr=PIPE)
+                p2.communicate()
+
+        self.connection = ssl.wrap_socket(self.connection, keyfile=self.certkey, certfile=certpath, server_side=True)
+        self.rfile = self.connection.makefile("rb", self.rbufsize)
+        self.wfile = self.connection.makefile("wb", self.wbufsize)
+
+        self.https_origin = path.rstrip('/')
 
     def do_GET(self):
+        if self.command == 'GET' and self.path == 'http://proxy2.test/':
+            self.send_cacert()
+            return
+
         req = self
         content_length = int(req.headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
+
+        if hasattr(self, 'https_origin'):
+            req.path = self.https_origin + req.path
 
         req_body_modified = self.request_handler(req, req_body)
         if req_body_modified is not None:
@@ -74,15 +81,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             req.headers['Content-length'] = str(len(req_body))
 
         u = urlparse.urlsplit(self.path)
-        assert u.scheme == 'http'
-        host, path = u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        scheme, host, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        assert scheme in ('http', 'https')
         if host:
             req.headers['Host'] = host
         req_headers = self.filter_headers(req.headers)
 
         try:
             if not host in self.tls.conns:
-                self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
+                if scheme == 'https':
+                    self.tls.conns[host] = httplib.HTTPSConnection(host, timeout=self.timeout)
+                else:
+                    self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
             conn = self.tls.conns[host]
             conn.request(self.command, path, req_body, dict(req_headers))
             res = conn.getresponse()
@@ -154,6 +164,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         else:
             raise Exception("Unknown Content-Encoding: %s" % encoding)
         return text
+
+    def send_cacert(self):
+        with open(self.cacert, 'rb') as f:
+            data = f.read()
+
+        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'OK'))
+        self.send_header('Content-Type', 'application/x-x509-ca-cert')
+        self.send_header('Content-Length', len(data))
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        self.wfile.write(data)
 
     def request_handler(self, req, req_body):
         pass

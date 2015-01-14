@@ -43,27 +43,24 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        path = "https://%s/" % self.path.replace(':443', '')
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'Connection Established'))
         self.end_headers()
 
         if not os.path.isdir(self.certdir):
             os.makedirs(self.certdir)
-        u = urlparse.urlsplit(path)
-        certpath = "%s/%s.crt" % (self.certdir.rstrip('/'), u.hostname)
+        hostname = self.path.split(':')[0]
+        certpath = "%s/%s.crt" % (self.certdir.rstrip('/'), hostname)
 
         with self.lock:
             if not os.path.isfile(certpath):
                 epoch = "%d" % (time.time() * 1000)
-                p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % u.hostname], stdout=PIPE)
+                p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % hostname], stdout=PIPE)
                 p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
                 p2.communicate()
 
         self.connection = ssl.wrap_socket(self.connection, keyfile=self.certkey, certfile=certpath, server_side=True)
         self.rfile = self.connection.makefile("rb", self.rbufsize)
         self.wfile = self.connection.makefile("wb", self.wbufsize)
-
-        self.https_origin = path.rstrip('/')
 
     def do_GET(self):
         if self.command == 'GET' and self.path == 'http://proxy2.test/':
@@ -74,15 +71,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         content_length = int(req.headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
 
-        if hasattr(self, 'https_origin'):
-            req.path = self.https_origin + req.path
+        if req.path[0] == '/':
+            if isinstance(self.connection, ssl.SSLSocket):
+                req.path = "https://%s%s" % (req.headers['Host'], req.path)
+            else:
+                req.path = "http://%s%s" % (req.headers['Host'], req.path)
 
         req_body_modified = self.request_handler(req, req_body)
         if req_body_modified is not None:
             req_body = req_body_modified
             req.headers['Content-length'] = str(len(req_body))
 
-        u = urlparse.urlsplit(self.path)
+        u = urlparse.urlsplit(req.path)
         scheme, host, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
         assert scheme in ('http', 'https')
         if host:

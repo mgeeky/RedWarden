@@ -194,10 +194,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         res_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
         print "\x1b[33m%s\x1b[0m" % req_text
+
         if '?' in req.path:
             u = urlparse.urlsplit(req.path)
             params_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query))
             print "\x1b[32m%s\x1b[0m\n" % params_text
+
+        auth = req.headers.get('Authorization', '')
+        if auth.lower().startswith('basic'):
+            x, y = auth.split()
+            print "\x1b[41mAuthorization: %s [%s]\x1b[0m\n" % (x, y.decode('base64'))
+
         if req_body is not None:
             content_type = req.headers.get('Content-Type', '')
             if content_type.startswith('application/x-www-form-urlencoded'):
@@ -210,6 +217,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 print "\x1b[32m%r\x1b[0m\n" % req_body
 
         print "\x1b[36m%s\x1b[0m" % res_text
+
         if res_body is not None:
             content_type = res.headers.get('Content-Type', '')
             if content_type.startswith('application/json'):

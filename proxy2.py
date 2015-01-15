@@ -111,9 +111,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         content_encoding = res.headers.get('Content-Encoding', 'identity')
         res_body_plain = self.decode_content_body(res_body, content_encoding)
 
-        res_body_modified = self.response_handler(res, res_body_plain)
+        res_body_modified = self.response_handler(req, req_body, res, res_body_plain)
         if res_body_modified is not None:
-            res_body = self.encode_content_body(res_body_modified, content_encoding)
+            res_body_plain = res_body_modified
+            res_body = self.encode_content_body(res_body_plain, content_encoding)
             res.headers['Content-Length'] = str(len(res_body))
 
         res_headers = self.filter_headers(res.headers)
@@ -126,7 +127,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
         with self.lock:
-            self.save_handler(req, req_body, res, res_body)
+            self.save_handler(req, req_body, res, res_body_plain)
 
     do_HEAD = do_GET
     do_POST = do_GET
@@ -179,7 +180,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def request_handler(self, req, req_body):
         pass
 
-    def response_handler(self, res, res_body):
+    def response_handler(self, req, req_body, res, res_body):
         pass
 
     def save_handler(self, req, req_body, res, res_body):

@@ -42,4 +42,4 @@ The ProxyRequestHandler class has 3 methods to customize:
 * response_handler: called before responding to the client
 * save_handler: called after responding to the client with the exclusive lock, so you can safely write out to the terminal or the file system
 
-By default, only save_handler is implemented which outputs the HTTP(S) headers and some of the request body to the standard output.
+By default, only save_handler is implemented which outputs HTTP(S) headers and some useful data to the standard output.

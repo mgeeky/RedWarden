@@ -183,20 +183,14 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def request_handler(self, req, req_body):
-        pass
-
-    def response_handler(self, req, req_body, res, res_body):
-        pass
-
-    def save_handler(self, req, req_body, res, res_body):
+    def print_info(self, req, req_body, res, res_body):
         req_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
         res_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
         print "\x1b[33m%s\x1b[0m" % req_text
 
-        if '?' in req.path:
-            u = urlparse.urlsplit(req.path)
+        u = urlparse.urlsplit(req.path)
+        if u.query:
             params_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query))
             print "\x1b[32m%s\x1b[0m\n" % params_text
 
@@ -226,6 +220,15 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 print "\x1b[32m%s\x1b[0m\n" % params_text
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 print "\x1b[32m%r\x1b[0m\n" % res_body
+
+    def request_handler(self, req, req_body):
+        pass
+
+    def response_handler(self, req, req_body, res, res_body):
+        pass
+
+    def save_handler(self, req, req_body, res, res_body):
+        self.print_info(req, req_body, res, res_body)
 
 
 def test(HandlerClass = ProxyRequestHandler, ServerClass = ThreadingHTTPServer, protocol="HTTP/1.1"):

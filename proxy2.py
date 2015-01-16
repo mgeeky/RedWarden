@@ -8,6 +8,7 @@ import threading
 import gzip
 import zlib
 import time
+import json
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
@@ -98,7 +99,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             conn = self.tls.conns[host]
             conn.request(self.command, path, req_body, dict(req_headers))
             res = conn.getresponse()
-            setattr(res, 'headers', res.msg)
             res_body = res.read()
         except Exception as e:
             self.send_response(502, 'Bad Gateway')
@@ -109,6 +109,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             if host in self.tls.conns:
                 del self.tls.conns[host]
             return
+
+        version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
+        setattr(res, 'headers', res.msg)
+        setattr(res, 'response_version', version_table[res.version])
 
         content_encoding = res.headers.get('Content-Encoding', 'identity')
         res_body_plain = self.decode_content_body(res_body, content_encoding)
@@ -186,12 +190,34 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         pass
 
     def save_handler(self, req, req_body, res, res_body):
-        version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
+        req_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
+        res_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
-        print "%s%s %s %s\n%s%s" % ('\x1b[33m', req.command, req.path, req.request_version, req.headers, '\x1b[0m')
+        print "\x1b[33m%s\x1b[0m" % req_text
+        if '?' in req.path:
+            u = urlparse.urlsplit(req.path)
+            params_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query))
+            print "\x1b[32m%s\x1b[0m\n" % params_text
         if req_body is not None:
-            print "%s%r%s\n" % ('\x1b[32m', req_body[:1024], '\x1b[0m')
-        print "%s%s %d %s\n%s%s" % ('\x1b[36m', version_table[res.version], res.status, res.reason, res.headers, '\x1b[0m')
+            content_type = req.headers.get('Content-Type', '')
+            if content_type.startswith('application/x-www-form-urlencoded'):
+                params_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(req_body))
+                print "\x1b[32m%s\x1b[0m\n" % params_text
+            elif content_type.startswith('application/json'):
+                params_text = json.dumps(json.loads(req_body), indent=2)
+                print "\x1b[32m%s\x1b[0m\n" % params_text
+            elif len(req_body) < 1024:
+                print "\x1b[32m%r\x1b[0m\n" % req_body
+
+        print "\x1b[36m%s\x1b[0m" % res_text
+        if res_body is not None:
+            content_type = res.headers.get('Content-Type', '')
+            if content_type.startswith('application/json'):
+                dec = json.JSONDecoder()
+                params_text = json.dumps(dec.raw_decode(res_body)[0], indent=2)
+                print "\x1b[32m%s\x1b[0m\n" % params_text
+            elif content_type.startswith('text/') and len(res_body) < 1024:
+                print "\x1b[32m%r\x1b[0m\n" % res_body
 
 
 def test(HandlerClass = ProxyRequestHandler, ServerClass = ThreadingHTTPServer, protocol="HTTP/1.1"):

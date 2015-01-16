@@ -184,42 +184,56 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def print_info(self, req, req_body, res, res_body):
-        req_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
-        res_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
+        req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
+        res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
-        print "\x1b[33m%s\x1b[0m" % req_text
+        print "\x1b[33m%s\x1b[0m" % req_header_text
 
         u = urlparse.urlsplit(req.path)
         if u.query:
-            params_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query))
-            print "\x1b[32m%s\x1b[0m\n" % params_text
+            query_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query, keep_blank_values=True))
+            print "\x1b[32m%s\x1b[0m\n" % query_text
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
-            x, y = auth.split()
-            print "\x1b[41mAuthorization: %s [%s]\x1b[0m\n" % (x, y.decode('base64'))
+            t = auth.split()
+            print "\x1b[41mAuthorization: %s [%s]\x1b[0m\n" % (t[0], t[1].decode('base64'))
 
         if req_body is not None:
+            req_body_text = None
             content_type = req.headers.get('Content-Type', '')
-            if content_type.startswith('application/x-www-form-urlencoded'):
-                params_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(req_body))
-                print "\x1b[32m%s\x1b[0m\n" % params_text
-            elif content_type.startswith('application/json'):
-                params_text = json.dumps(json.loads(req_body), indent=2)
-                print "\x1b[32m%s\x1b[0m\n" % params_text
-            elif len(req_body) < 1024:
-                print "\x1b[32m%r\x1b[0m\n" % req_body
 
-        print "\x1b[36m%s\x1b[0m" % res_text
+            if content_type.startswith('application/x-www-form-urlencoded'):
+                req_body_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(req_body))
+            elif content_type.startswith('application/json'):
+                try:
+                    json_obj = json.loads(req_body)
+                    req_body_text = json.dumps(json_obj, indent=2)
+                except ValueError:
+                    req_body_text = req_body
+            elif len(req_body) < 1024:
+                req_body_text = req_body
+
+            if req_body_text:
+                print "\x1b[32m%s\x1b[0m\n" % req_body_text
+
+        print "\x1b[36m%s\x1b[0m" % res_header_text
 
         if res_body is not None:
+            res_body_text = None
             content_type = res.headers.get('Content-Type', '')
+
             if content_type.startswith('application/json'):
-                dec = json.JSONDecoder()
-                params_text = json.dumps(dec.raw_decode(res_body)[0], indent=2)
-                print "\x1b[32m%s\x1b[0m\n" % params_text
+                try:
+                    json_obj = json.loads(res_body)
+                    res_body_text = json.dumps(json_obj, indent=2)
+                except ValueError:
+                    res_body_text = res_body
             elif content_type.startswith('text/') and len(res_body) < 1024:
-                print "\x1b[32m%r\x1b[0m\n" % res_body
+                res_body_text = res_body
+
+            if res_body_text:
+                print "\x1b[32m%s\x1b[0m\n" % res_body_text
 
     def request_handler(self, req, req_body):
         pass

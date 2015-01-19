@@ -19,8 +19,13 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     address_family = socket.AF_INET6
 
     def handle_error(self, request, client_address):
-        # surpress SSL related errors
-        pass
+        # surpress socket/ssl related errors
+        cls, e = sys.exc_info()[:2]
+        if cls is socket.error or cls is ssl.SSLError:
+            pass
+        else:
+            return HTTPServer.handle_error(self, request, client_address)
+
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
     cakey = 'ca.key'

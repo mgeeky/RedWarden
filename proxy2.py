@@ -2,6 +2,7 @@ import sys
 import os
 import socket
 import ssl
+import select
 import httplib
 import urlparse
 import threading
@@ -29,8 +30,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    cakey = ''
-    cacert = ''
+    cakey = 'ca.key'
+    cacert = 'ca.crt'
     certkey = 'cert.key'
     certdir = 'certs/'
     timeout = 5
@@ -50,28 +51,55 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'Connection Established'))
-        self.end_headers()
+        if os.path.isfile(self.cakey) and os.path.isfile(self.cacert) and os.path.isfile(self.certkey) and os.path.isdir(self.certdir):
+            self.connect_intercept()
+        else:
+            self.connect_relay()
 
-        if not os.path.isdir(self.certdir):
-            os.makedirs(self.certdir)
+    def connect_intercept(self):
         hostname = self.path.split(':')[0]
         certpath = "%s/%s.crt" % (self.certdir.rstrip('/'), hostname)
 
         with self.lock:
             if not os.path.isfile(certpath):
-                if self.cakey and self.cacert:
-                    epoch = "%d" % (time.time() * 1000)
-                    p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % hostname], stdout=PIPE)
-                    p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
-                    p2.communicate()
-                else:
-                    p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", self.certkey, "-out", certpath, "-subj", "/CN=%s" % hostname], stdout=PIPE)
-                    p.communicate()
+                epoch = "%d" % (time.time() * 1000)
+                p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % hostname], stdout=PIPE)
+                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
+                p2.communicate()
+
+        self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'Connection Established'))
+        self.end_headers()
 
         self.connection = ssl.wrap_socket(self.connection, keyfile=self.certkey, certfile=certpath, server_side=True)
         self.rfile = self.connection.makefile("rb", self.rbufsize)
         self.wfile = self.connection.makefile("wb", self.wbufsize)
+
+    def connect_relay(self):
+        address = self.path.split(':', 1)
+        address[1] = int(address[1]) or 443
+        try:
+            s = socket.create_connection(address, timeout=self.timeout)
+        except Exception as e:
+            self.send_error(502)
+            return
+        self.send_response(200, 'Connection Established')
+        self.end_headers()
+
+        conns = [self.connection, s]
+        close_connection = False
+        while not close_connection:
+            rlist, wlist, xlist = select.select(conns, [], conns, self.timeout)
+            if xlist or not rlist:
+                break
+            for r in rlist:
+                other = conns[1] if r is conns[0] else conns[0]
+                data = r.recv(8192)
+                if not data:
+                    close_connection = True
+                    break
+                other.sendall(data)
+
+        s.close()
 
     def do_GET(self):
         if self.command == 'GET' and self.path == 'http://proxy2.test/':
@@ -111,13 +139,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             res = conn.getresponse()
             res_body = res.read()
         except Exception as e:
-            self.send_response(502, 'Bad Gateway')
-            self.send_header('Content-Type', 'text/html')
-            self.send_header('Connection', 'close')
-            self.end_headers()
-            print >>self.wfile, "<!DOCTYPE html><title>502 Bad Gateway</title><p>%s: %s</p>" % (type(e).__name__, e)
             if host in self.tls.conns:
                 del self.tls.conns[host]
+            self.send_error(502)
             return
 
         version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}

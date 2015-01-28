@@ -30,7 +30,34 @@ To use another port, specify the port number as the first argument.
 $ python proxy2.py 10443
 ```
 
-Through the proxy, you can access http://proxy2.test/ and install the CA certificate for HTTPS intercept.
+
+## Using the private CA
+
+By letting the browsers trust the private CA, you can intercept all HTTPS connections without any certificate warnings.
+
+Generate a private key and a self-signed CA certificate:
+
+```
+$ openssl genrsa -out ca.key 2048
+$ openssl req -new -x509 -days 3650 -key ca.key -out ca.crt -subj "/CN=proxy2 CA"
+```
+
+`openssl req -new -x509` sets the "CA:TRUE" bit automatically.
+
+Then edit proxy2.py to use them:
+
+```
+ class ProxyRequestHandler(BaseHTTPRequestHandler):
+-    cakey = ''
+-    cacert = ''
++    cakey = 'ca.key'
++    cacert = 'ca.crt'
+     certkey = 'cert.key'
+     certdir = 'certs/'
+     timeout = 5
+```
+
+Through the proxy, you can access http://proxy2.test/ and install the CA certificate in the browsers.
 
 
 ## Customization

@@ -12,7 +12,7 @@ HTTP/HTTPS proxy in a single python script
 * support dynamic certificate generation for HTTPS intercept
 
 This script works on Python 2.7.
-You need to install OpenSSL to use as a HTTPS proxy.
+You need to install OpenSSL to intercept HTTPS connections.
 
 
 ## Usage
@@ -27,34 +27,16 @@ Above command runs the proxy on tcp/8080.
 To use another port, specify the port number as the first argument.
 
 ```
-$ python proxy2.py 10443
+$ python proxy2.py 5000
 ```
 
 
-## Using the private CA
+## Enable HTTPS intercept
 
-By letting the browsers trust the private CA, you can intercept all HTTPS connections without any certificate warnings.
-
-Generate a private key and a self-signed CA certificate:
+To intercept HTTPS connections, generate private keys and a private CA certificate:
 
 ```
-$ openssl genrsa -out ca.key 2048
-$ openssl req -new -x509 -days 3650 -key ca.key -out ca.crt -subj "/CN=proxy2 CA"
-```
-
-`openssl req -new -x509` sets the "CA:TRUE" bit automatically.
-
-Then edit proxy2.py to use them:
-
-```
- class ProxyRequestHandler(BaseHTTPRequestHandler):
--    cakey = ''
--    cacert = ''
-+    cakey = 'ca.key'
-+    cacert = 'ca.crt'
-     certkey = 'cert.key'
-     certdir = 'certs/'
-     timeout = 5
+$ ./setup_https_intercept.sh
 ```
 
 Through the proxy, you can access http://proxy2.test/ and install the CA certificate in the browsers.

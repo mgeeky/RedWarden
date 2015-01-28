@@ -29,8 +29,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    cakey = 'ca.key'
-    cacert = 'ca.crt'
+    cakey = ''
+    cacert = ''
     certkey = 'cert.key'
     certdir = 'certs/'
     timeout = 5
@@ -60,10 +60,14 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         with self.lock:
             if not os.path.isfile(certpath):
-                epoch = "%d" % (time.time() * 1000)
-                p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % hostname], stdout=PIPE)
-                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
-                p2.communicate()
+                if self.cakey and self.cacert:
+                    epoch = "%d" % (time.time() * 1000)
+                    p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % hostname], stdout=PIPE)
+                    p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
+                    p2.communicate()
+                else:
+                    p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", self.certkey, "-out", certpath, "-subj", "/CN=%s" % hostname], stdout=PIPE)
+                    p.communicate()
 
         self.connection = ssl.wrap_socket(self.connection, keyfile=self.certkey, certfile=certpath, server_side=True)
         self.rfile = self.connection.makefile("rb", self.rbufsize)

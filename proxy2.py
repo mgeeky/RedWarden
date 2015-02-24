@@ -74,6 +74,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.rfile = self.connection.makefile("rb", self.rbufsize)
         self.wfile = self.connection.makefile("wb", self.wbufsize)
 
+        conntype = self.headers.get('Proxy-Connection', '')
+        if conntype.lower() == 'close':
+            self.close_connection = 1
+        elif (conntype.lower() == 'keep-alive' and self.protocol_version >= "HTTP/1.1"):
+            self.close_connection = 0
+
     def connect_relay(self):
         address = self.path.split(':', 1)
         address[1] = int(address[1]) or 443
@@ -86,8 +92,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         conns = [self.connection, s]
-        close_connection = False
-        while not close_connection:
+        self.close_connection = 0
+        while not self.close_connection:
             rlist, wlist, xlist = select.select(conns, [], conns, self.timeout)
             if xlist or not rlist:
                 break
@@ -95,11 +101,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 other = conns[1] if r is conns[0] else conns[0]
                 data = r.recv(8192)
                 if not data:
-                    close_connection = True
+                    self.close_connection = 1
                     break
                 other.sendall(data)
-
-        s.close()
 
     def do_GET(self):
         if self.command == 'GET' and self.path == 'http://proxy2.test/':

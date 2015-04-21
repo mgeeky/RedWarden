@@ -16,6 +16,10 @@ from cStringIO import StringIO
 from subprocess import Popen, PIPE
 
 
+def with_color(c, s):
+    return "\x1b[%dm%s\x1b[0m" % (c, s)
+
+
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     address_family = socket.AF_INET6
     daemon_threads = True
@@ -225,17 +229,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
         res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
-        print "\x1b[33m%s\x1b[0m" % req_header_text
+        print with_color(33, req_header_text)
 
         u = urlparse.urlsplit(req.path)
         if u.query:
             query_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query, keep_blank_values=True))
-            print "\x1b[32m%s\x1b[0m\n" % query_text
+            print with_color(32, query_text + "\n")
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
             t = auth.split()
-            print "\x1b[41mAuthorization: %s [%s]\x1b[0m\n" % (t[0], t[1].decode('base64'))
+            print with_color(41, "Authorization: %s [%s]\n" % (t[0], t[1].decode('base64')))
 
         if req_body is not None:
             req_body_text = None
@@ -258,9 +262,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                print "\x1b[32m%s\x1b[0m\n" % req_body_text
+                print with_color(32, req_body_text + "\n")
 
-        print "\x1b[36m%s\x1b[0m" % res_header_text
+        print with_color(36, res_header_text)
 
         if res_body is not None:
             res_body_text = None
@@ -281,7 +285,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 res_body_text = res_body
 
             if res_body_text:
-                print "\x1b[32m%s\x1b[0m\n" % res_body_text
+                print with_color(32, res_body_text + "\n")
 
     def request_handler(self, req, req_body):
         pass

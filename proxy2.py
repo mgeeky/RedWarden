@@ -247,7 +247,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 try:
                     json_obj = json.loads(req_body)
                     json_str = json.dumps(json_obj, indent=2)
-                    req_body_text = ''.join(json_str.splitlines(True)[:50])
+                    if json_str.count('\n') < 50:
+                        req_body_text = json_str
+                    else:
+                        lines = json_str.splitlines()
+                        req_body_text = "%s\n(%d lines)" % ('\n'.join(lines[:50]), len(lines))
                 except ValueError:
                     req_body_text = req_body
             elif len(req_body) < 1024:
@@ -266,7 +270,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 try:
                     json_obj = json.loads(res_body)
                     json_str = json.dumps(json_obj, indent=2)
-                    res_body_text = ''.join(json_str.splitlines(True)[:50])
+                    if json_str.count('\n') < 50:
+                        res_body_text = json_str
+                    else:
+                        lines = json_str.splitlines()
+                        res_body_text = "%s\n(%d lines)" % ('\n'.join(lines[:50]), len(lines))
                 except ValueError:
                     res_body_text = res_body
             elif content_type.startswith('text/') and len(res_body) < 1024:

@@ -10,6 +10,7 @@ import gzip
 import zlib
 import time
 import json
+import re
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
@@ -239,6 +240,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             query_text = parse_qsl(u.query)
             print with_color(32, "==== QUERY PARAMETERS ====\n%s\n" % query_text)
 
+        cookie = req.headers.get('Cookie', '')
+        if cookie:
+            cookie = parse_qsl(re.sub(r';\s*', '&', cookie))
+            print with_color(32, "==== COOKIE ====\n%s\n" % cookie)
+
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
             token = auth.split()[1].decode('base64')
@@ -268,6 +274,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 print with_color(32, "==== REQUEST BODY ====\n%s\n" % req_body_text)
 
         print with_color(36, res_header_text)
+
+        cookie = res.headers.get('Set-Cookie', '')
+        if cookie:
+            cookie = parse_qsl(re.sub(r';\s*', '&', cookie))
+            print with_color(31, "==== SET-COOKIE ====\n%s\n" % cookie)
 
         if res_body is not None:
             res_body_text = None

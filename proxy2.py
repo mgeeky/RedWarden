@@ -15,6 +15,7 @@ from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
 from subprocess import Popen, PIPE
+from HTMLParser import HTMLParser
 
 
 def with_color(c, s):
@@ -295,6 +296,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         res_body_text = "%s\n(%d lines)" % ('\n'.join(lines[:50]), len(lines))
                 except ValueError:
                     res_body_text = res_body
+            elif content_type.startswith('text/html'):
+                m = re.search(r'<title[^>]*>([\s\S]+?)</title>', res_body, re.I)
+                if m:
+                    h = HTMLParser()
+                    print with_color(32, "==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')))
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 res_body_text = res_body
 

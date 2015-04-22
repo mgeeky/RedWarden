@@ -181,6 +181,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     do_HEAD = do_GET
     do_POST = do_GET
+    do_OPTIONS = do_GET
 
     def filter_headers(self, headers):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1

@@ -226,6 +226,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def print_info(self, req, req_body, res, res_body):
+        def parse_qsl(s):
+            return '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(s, keep_blank_values=True))
+
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
         res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
@@ -233,20 +236,20 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         u = urlparse.urlsplit(req.path)
         if u.query:
-            query_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(u.query, keep_blank_values=True))
-            print with_color(32, query_text + "\n")
+            query_text = parse_qsl(u.query)
+            print with_color(32, "==== QUERY PARAMETERS ====\n%s\n" % query_text)
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
-            t = auth.split()
-            print with_color(41, "Authorization: %s [%s]\n" % (t[0], t[1].decode('base64')))
+            token = auth.split()[1].decode('base64')
+            print with_color(31, "==== BASIC AUTH ====\n%s\n" % token)
 
         if req_body is not None:
             req_body_text = None
             content_type = req.headers.get('Content-Type', '')
 
             if content_type.startswith('application/x-www-form-urlencoded'):
-                req_body_text = '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(req_body))
+                req_body_text = parse_qsl(req_body)
             elif content_type.startswith('application/json'):
                 try:
                     json_obj = json.loads(req_body)
@@ -262,7 +265,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                print with_color(32, req_body_text + "\n")
+                print with_color(32, "==== REQUEST BODY ====\n%s\n" % req_body_text)
 
         print with_color(36, res_header_text)
 
@@ -285,7 +288,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 res_body_text = res_body
 
             if res_body_text:
-                print with_color(32, res_body_text + "\n")
+                print with_color(32, "==== RESPONSE BODY ====\n%s\n" % res_body_text)
 
     def request_handler(self, req, req_body):
         pass

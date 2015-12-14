@@ -279,10 +279,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         print with_color(36, res_header_text)
 
-        cookie = res.headers.get('Set-Cookie', '')
-        if cookie:
-            cookie = parse_qsl(re.sub(r';\s*', '&', cookie))
-            print with_color(31, "==== SET-COOKIE ====\n%s\n" % cookie)
+        cookies = res.headers.getheaders('Set-Cookie')
+        if cookies:
+            cookies = '\n'.join(cookies)
+            print with_color(31, "==== SET-COOKIE ====\n%s\n" % cookies)
 
         if res_body is not None:
             res_body_text = None

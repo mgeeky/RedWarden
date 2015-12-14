@@ -193,28 +193,28 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return headers
 
     def encode_content_body(self, text, encoding):
-        if encoding in ('gzip', 'x-gzip'):
+        if encoding == 'identity':
+            data = text
+        elif encoding in ('gzip', 'x-gzip'):
             io = StringIO()
             with gzip.GzipFile(fileobj=io, mode='wb') as f:
                 f.write(text)
             data = io.getvalue()
         elif encoding == 'deflate':
             data = zlib.compress(text)
-        elif encoding == 'identity':
-            data = text
         else:
             raise Exception("Unknown Content-Encoding: %s" % encoding)
         return data
 
     def decode_content_body(self, data, encoding):
-        if encoding in ('gzip', 'x-gzip'):
+        if encoding == 'identity':
+            text = data
+        elif encoding in ('gzip', 'x-gzip'):
             io = StringIO(data)
             with gzip.GzipFile(fileobj=io) as f:
                 text = f.read()
         elif encoding == 'deflate':
             text = zlib.decompress(data)
-        elif encoding == 'identity':
-            text = data
         else:
             raise Exception("Unknown Content-Encoding: %s" % encoding)
         return text

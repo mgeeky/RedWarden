@@ -133,25 +133,26 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             req.headers['Content-length'] = str(len(req_body))
 
         u = urlparse.urlsplit(req.path)
-        scheme, host, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
         assert scheme in ('http', 'https')
-        if host:
-            req.headers['Host'] = host
+        if netloc:
+            req.headers['Host'] = netloc
         req_headers = self.filter_headers(req.headers)
 
         try:
-            if not host in self.tls.conns:
+            origin = (scheme, netloc)
+            if not origin in self.tls.conns:
                 if scheme == 'https':
-                    self.tls.conns[host] = httplib.HTTPSConnection(host, timeout=self.timeout)
+                    self.tls.conns[origin] = httplib.HTTPSConnection(netloc, timeout=self.timeout)
                 else:
-                    self.tls.conns[host] = httplib.HTTPConnection(host, timeout=self.timeout)
-            conn = self.tls.conns[host]
+                    self.tls.conns[origin] = httplib.HTTPConnection(netloc, timeout=self.timeout)
+            conn = self.tls.conns[origin]
             conn.request(self.command, path, req_body, dict(req_headers))
             res = conn.getresponse()
             res_body = res.read()
         except Exception as e:
-            if host in self.tls.conns:
-                del self.tls.conns[host]
+            if origin in self.tls.conns:
+                del self.tls.conns[origin]
             self.send_error(502)
             return
 

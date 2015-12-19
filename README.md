@@ -44,7 +44,7 @@ Through the proxy, you can access http://proxy2.test/ and install the CA certifi
 
 ## Customization
 
-You can easily customize the proxy and rewrite the requests/responses or save something to the files.
+You can easily customize the proxy and modify the requests/responses or save something to the files.
 The ProxyRequestHandler class has 3 methods to customize:
 
 * request_handler: called before accessing the upstream server

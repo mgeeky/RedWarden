@@ -214,7 +214,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             with gzip.GzipFile(fileobj=io) as f:
                 text = f.read()
         elif encoding == 'deflate':
-            text = zlib.decompress(data)
+            try:
+                text = zlib.decompress(data)
+            except zlib.error:
+                text = zlib.decompress(data, -zlib.MAX_WBITS)
         else:
             raise Exception("Unknown Content-Encoding: %s" % encoding)
         return text

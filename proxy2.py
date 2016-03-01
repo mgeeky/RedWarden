@@ -31,7 +31,7 @@ options = {
     'certkey': 'cert.key',
     'certdir': 'certs/',
     'ca_common_name': 'proxy2 CA',
-    'plugins': [''],
+    'plugins': ['plugins/dummy.py', 'plugins/sslstrip.py'],
     'plugin_class_name': 'ProxyHandler',
 }
 

@@ -31,6 +31,8 @@ options = {
     'certkey': 'cert.key',
     'certdir': 'certs/',
     'ca_common_name': 'proxy2 CA',
+    'plugins': [''],
+    'plugin_class_name': 'ProxyHandler',
 }
 
 COLORS_MAP = {
@@ -39,6 +41,11 @@ COLORS_MAP = {
     'white': 37, 'grey': 38
 }
 
+
+# For holding loaded plugins' instances
+plugins = None
+
+# SSL Interception setup status
 ssl_interception_prepared = False
 
 
@@ -75,6 +82,59 @@ def err(txt, color=None, noprefix=False):
     out(txt, 'error', color, noprefix)
 
 
+#
+# Plugin that attempts to load all of the supplied plugins from 
+# program launch options.
+class PluginsLoader:   
+    def __init__(self):
+        self.options = options
+        self.plugins = {}
+        self.called = False
+        plugins_count = len(self.options['plugins'])
+
+        if plugins_count > 0:
+            out('Loading %d plugin%s...' % (plugins_count, '' if plugins_count == 1 else 's'))
+            
+            for plugin in self.options['plugins']:
+                plugin = plugin.strip()
+                instance = None
+                
+                name = os.path.basename(plugin).lower().replace('.py', '')
+                dbg('Attempting to load plugin: %s ("%s")' % (name, plugin))
+               
+                try:
+                    sys.path.append(os.path.dirname(plugin))
+                    __import__(name)
+                    module = sys.modules[name]
+                    dbg('Imported.')
+
+                    try:
+                        handler = getattr(module, options['plugin_class_name'])
+                        instance = handler()
+                        dbg('Found class "%s".' % options['plugin_class_name'])
+
+                    except AttributeError as e:
+                        dbg('Plugin "%s" does not implement class "%s"' % 
+                            (name, options['plugin_class_name']))
+                        continue
+
+                    if not instance:
+                        err('Didn\'t find supported class in module "%s"' % name)
+                    else:
+                        self.plugins[name] = instance
+                        out('Plugin "%s" has been installed.' % name)
+
+                except ImportError as e:
+                    err('Couldn\' load specified plugin: "%s". Error: %s' % (plugin, e))
+
+        self.called = True
+        dbg('Plugins obtained: "%s"' % str(self.plugins))
+        
+    # Output format:
+    #   plugins = {'plugin1': instance, 'plugin2': instance, ...}
+    def get_plugins(self):
+        return self.plugins
+
 
 # Asynchronously serving HTTP server class.
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
@@ -94,13 +154,16 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
+    plugins = {}
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
+        global plugins
 
         self.tls = threading.local()
         self.tls.conns = {}
         self.options = options
+        self.plugins = plugins.get_plugins()
 
         BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
@@ -382,14 +445,43 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, COLORS_MAP['green'], True)
 
     def request_handler(self, req, req_body):
-        pass
+        dbg(str(self.plugins))
+        for plugin_name in self.plugins:
+            instance = self.plugins[plugin_name]
+            try:
+                handler = getattr(instance, 'request_handler')
+                dbg("Calling `request_handler' from plugin %s" % plugin_name)
+                handler(req, req_body)
+            except AttributeError as e:
+                dbg('Plugin "%s" does not implement `request_handler\'')
+                pass
+
 
     def response_handler(self, req, req_body, res, res_body):
-        pass
+        res_body_current = res_body
+        altered = False
+
+        for plugin_name in self.plugins:
+            instance = self.plugins[plugin_name]
+            try:
+                handler = getattr(instance, 'response_handler')
+                dbg("Calling `response_handler' from plugin %s" % plugin_name)
+                res_body_current = handler(req, req_body, res, res_body_current)
+                altered = (res_body_current != res_body)
+                if altered:
+                    dbg('Plugin has altered the response.')
+            except AttributeError as e:
+                dbg('Plugin "%s" does not implement `response_handler\'')
+                pass
+
+        if not altered:
+            return None
+
+        return res_body_current
+
 
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)
-
 
 
 def ssl_interception_setup():
@@ -472,6 +564,7 @@ def ssl_interception_cleanup():
 
 
 def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
+    global plugins
 
     if sys.argv[1:]:
         port = int(sys.argv[1])
@@ -483,6 +576,7 @@ def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, prot
     httpd = ServerClass(server_address, HandlerClass)
 
     try:
+        plugins = PluginsLoader()
         ssl_interception_setup() # optional, based on program arguments
         sa = httpd.socket.getsockname()
         s = sa[0] if not sa[0] else '127.0.0.1'

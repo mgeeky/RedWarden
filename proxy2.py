@@ -16,28 +16,24 @@
 
 #
 # Changelog:
-#   0.1 - original fork from inaz2 repository.
-#   0.2 - added PluginsLoader, ssl interception just-in-time setup,
-#           more elastic logging facilities, separation of program options in form of 
-#           globally accessible dictonary, program's help text with input parameters handling (optparse)
+#   0.1     original fork from inaz2 repository.
+#   0.2     added PluginsLoader, 
+#           ssl interception just-in-time setup,
+#           more elastic logging facilities, 
+#           separation of program options in form of a globally accessible dictonary, 
+#           program's help text with input parameters handling (optparse)
 #
 
 VERSION = '0.2'
 
 
-import sys
-import os
-import socket
-import ssl
-import select
-import httplib
-import urlparse
-import threading
-import gzip
-import zlib
 import time
-import json
-import re
+import sys, os
+import socket, ssl, select
+import httplib, urlparse
+import threading
+import gzip, zlib
+import json, re
 from proxylogger import ProxyLogger
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
@@ -55,7 +51,7 @@ options = {
     'port': 8080,
     'debug': True,                  # Print's out debuging informations
     'trace': True,                  # Displays packets contents
-    'log': 'stdout',                # To be implemented: stdout, none, file, pipe...
+    'log': None,
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
     'cakey': 'ca.key',
@@ -63,7 +59,7 @@ options = {
     'certkey': 'cert.key',
     'certdir': 'certs/',
     'cacn': 'proxy2 CA',
-    'plugins': ['plugins/dummy.py', 'plugins/sslstrip.py'],
+    'plugins': set(),
     'plugin_class_name': 'ProxyHandler',
 }
 
@@ -580,6 +576,10 @@ def parse_options():
         help="Displays verbose output along with packets' contents dumping/tracing.", action="store_true")
     parser.add_option(  "-d", "--debug", dest='debug',
         help="Displays debugging informations (implies verbose output).", action="store_true")
+    parser.add_option(  "-s", "--silent", dest='silent',
+        help="Surpresses all of the output logging.", action="store_true")
+    parser.add_option(  "-w", "--output", dest='log',
+        help="Specifies output log file.", metavar="PATH", type="string")
     parser.add_option(  "-H", "--hostname", dest='hostname', metavar='NAME',
         help="Specifies proxy's binding hostname. Default: "+ options['hostname'] +".", 
         type='string', default=options['hostname'])
@@ -628,37 +628,65 @@ def parse_options():
             if not os.path.isfile(opt):
                 logger.err('Specified plugin: "%s" does not exist.' % opt)
             else:
-                options['plugins'].append(opt)
+                options['plugins'].add(opt)
 
     if params.debug:
         options['trace'] = True
 
+    if params.silent and params.log:
+        parser.error("Options -s and -w are mutually exclusive.")
 
-def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
+    if params.silent:
+        options['log'] = 'none'
+    elif params.log and len(params.log) > 0:
+        try:
+            options['log'] = open(params.log, 'w')
+        except Exception as e:
+            raise '[ERROR] Failed to open log file for writing. Error: "%s"' % e
+    else:
+        options['log'] = sys.stdout
+
+def init():
+    global options
     global plugins
     global logger
 
     parse_options()
-    server_address = (options['hostname'], options['port'])
+    logger = ProxyLogger(options)
+    plugins = PluginsLoader()
+    ssl_interception_setup()
 
-    HandlerClass.protocol_version = protocol
-    httpd = ServerClass(server_address, HandlerClass)
 
+def cleanup():
+    global options
+
+    # Close logging file descriptor unless it's stdout
+    if options['log'] and options['log'] not in (sys.stdout, 'none'):
+        options['log'].close()
+        options['log'] = None
+    
+    ssl_interception_cleanup()
+
+
+def main():
     try:
-        logger = ProxyLogger(options)
-        plugins = PluginsLoader()
+        init()
 
-        ssl_interception_setup() # optional, based on program arguments
+        ProxyRequestHandler.protocol_version = "HTTP/1.1"
+        server_address = (options['hostname'], options['port'])
+        httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
+
         sa = httpd.socket.getsockname()
         s = sa[0] if not sa[0] else '127.0.0.1'
         logger.info("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
+
         httpd.serve_forever()
 
     except KeyboardInterrupt:
         logger.info('\nProxy serving interrupted by user.', noprefix=True)
 
     finally:
-        ssl_interception_cleanup()
+        cleanup()
 
 if __name__ == '__main__':
     main()

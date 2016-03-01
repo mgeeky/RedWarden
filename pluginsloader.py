@@ -84,7 +84,7 @@ class PluginsLoader:
                 handler = getattr(module, self.options['plugin_class_name'])
                 
                 # Call plugin's __init__ with the `logger' instance passed to it.
-                instance = handler(self.logger)
+                instance = handler(self.logger, decomposed)
                 
                 self.logger.dbg('Found class "%s".' % self.options['plugin_class_name'])
 

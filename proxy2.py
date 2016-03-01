@@ -196,7 +196,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req.path = "http://%s%s" % (req.headers['Host'], req.path)
 
 
-        (logger.dbg if self.options['trace'] else logger.info)('Request:\t"%s"' % req.path)
+        (logger.dbg if self.options['trace'] else logger.info)('Request: "%s"' % req.path)
 
         req_body_modified = self.request_handler(req, req_body)
         if req_body_modified is not None:
@@ -443,7 +443,8 @@ def cleanup():
         options['log'].close()
         options['log'] = None
     
-    sslintercept.cleanup()
+    if sslintercept:
+        sslintercept.cleanup()
 
 
 def main():

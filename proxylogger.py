@@ -30,6 +30,10 @@ class ProxyLogger:
 
     def __init__(self, options):
         self.options = options
+
+    @staticmethod
+    def with_color(c, s):
+        return "\x1b[%dm%s\x1b[0m" % (c, s)
         
 
     # Invocation:
@@ -39,7 +43,7 @@ class ProxyLogger:
         if txt == None or fd == 'none':
             return 
         elif fd == None:
-            raise '[ERROR] Logging descriptor has not been specified!'
+            raise Exception('[ERROR] Logging descriptor has not been specified!')
 
         args = {
             'color': None, 
@@ -47,9 +51,6 @@ class ProxyLogger:
             'newline': True,
         }
         args.update(kwargs)
-
-        def with_color(c, s):
-            return "\x1b[%dm%s\x1b[0m" % (c, s)
 
         if args['color']:
             col = args['color']
@@ -60,7 +61,7 @@ class ProxyLogger:
 
         prefix = ''
         if not args['noprefix']:
-            prefix = with_color(ProxyLogger.colors_dict['other'], '[%s] %s: ' 
+            prefix = ProxyLogger.with_color(ProxyLogger.colors_dict['other'], '[%s] %s: ' 
                 % (mode.upper(), tm))
         
         nl = ''
@@ -68,7 +69,7 @@ class ProxyLogger:
             if args['newline']:
                 nl = '\n'
 
-        fd.write(prefix + with_color(col, txt) + nl)
+        fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)
 
     # Info shall be used as an ordinary logging facility, for every desired output.
     def info(self, txt, **kwargs):

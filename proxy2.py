@@ -34,6 +34,7 @@ import threading
 import gzip, zlib
 import json, re
 import optionsparser
+import traceback
 from subprocess import Popen, PIPE
 from proxylogger import ProxyLogger
 from pluginsloader import PluginsLoader
@@ -464,8 +465,11 @@ def main():
         logger.info('\nProxy serving interrupted by user.', noprefix=True)
 
     except Exception as e:
-        logger.err('Fatal error has occured.')
-        logger.err('\t%s' % e)
+        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], 'Fatal error has occured.')
+        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '\t%s\nTraceback:' % e)
+        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '-'*30)
+        traceback.print_exc()
+        print ProxyLogger.with_color(ProxyLogger.colors_map['red'], '-'*30)
 
     finally:
         cleanup()

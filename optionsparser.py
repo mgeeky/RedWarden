@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os, sys
+from pluginsloader import PluginsLoader
 from optparse import OptionParser, OptionGroup
 
 def parse_options(options, version):
@@ -54,7 +55,8 @@ def parse_options(options, version):
     plugins.add_option('-p', '--plugin', dest='plugin', action='append', metavar='PATH', type='string',
                         help="Specifies plugin's path to be loaded. Every plugin's module must implement class `"\
                         "%s' and respectively: `request_handler' and `response_handler' class methods that will get called." \
-                        "One can find example of such plugin in plugins/dummy.py."
+                        "One can find example of such plugin in plugins/dummy.py. One can also specify plugin's parameters " \
+                        "by putting them after a comma.: -p plugin.py,arg1=\"val1\",arg2,arg3=val4"
                         % options['plugin_class_name'])
 
     parser.add_option_group(plugins)
@@ -64,8 +66,9 @@ def parse_options(options, version):
 
     if params.plugin:
         for i, opt in enumerate(params.plugin):
-            if not os.path.isfile(opt):
-                logger.err('Specified plugin: "%s" does not exist.' % opt)
+            decomposed = PluginsLoader.decompose_path(opt)
+            if not os.path.isfile(decomposed['path']):
+                raise Exception('Specified plugin: "%s" does not exist.' % decomposed['path'])
             else:
                 options['plugins'].add(opt)
 
@@ -81,6 +84,6 @@ def parse_options(options, version):
         try:
             options['log'] = open(params.log, 'w')
         except Exception as e:
-            raise '[ERROR] Failed to open log file for writing. Error: "%s"' % e
+            raise Exception('[ERROR] Failed to open log file for writing. Error: "%s"' % e)
     else:
         options['log'] = sys.stdout

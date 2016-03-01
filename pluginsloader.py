@@ -1,6 +1,8 @@
 #!/usr/bin/python
 import os
 import sys
+import StringIO
+import csv
 
 #
 # Plugin that attempts to load all of the supplied plugins from 
@@ -26,10 +28,44 @@ class PluginsLoader:
     def get_plugins(self):
         return self.plugins
 
+    #
+    # Following function parses input plugin path with parameters and decomposes
+    # them to extract plugin's arguments along with it's path.
+    # For instance, having such string:
+    #   -p "plugins/my_plugin.py",argument1="test",argument2,argument3=test2
+    #
+    # It will return:
+    #   {'path':'plugins/my_plugin.py', 'argument1':'t,e,s,t', 'argument2':'', 'argument3':'test2'}
+    #
+    @staticmethod
+    def decompose_path(p):
+        decomposed = {}
+        f = StringIO.StringIO(p)
+        rows = list(csv.reader(f, quoting=csv.QUOTE_ALL, skipinitialspace=True))
+
+        for i in range(len(rows[0])):
+            row = rows[0][i]
+            if i == 0:
+                decomposed['path'] = row
+                continue
+
+            if '=' in row:
+                s = row.split('=')
+                decomposed[s[0]] = s[1].replace('"', '')
+            else:
+                decomposed[row] = ''
+
+        return decomposed
+
+
     def load(self, path):
-        plugin = path.strip()
         instance = None
-        
+
+        self.logger.dbg('Plugin string: "%s"' % path)
+        decomposed = PluginsLoader.decompose_path(path)
+        self.logger.dbg('Decomposed as: %s' % str(decomposed))
+
+        plugin = decomposed['path'].strip()
         name = os.path.basename(plugin).lower().replace('.py', '')
 
         if name in self.plugins:

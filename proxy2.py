@@ -12,6 +12,7 @@ import zlib
 import time
 import json
 import re
+from proxylogger import ProxyLogger
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
@@ -24,6 +25,7 @@ from HTMLParser import HTMLParser
 options = {
     'debug': True,                  # Print's out debuging informations
     'trace': True,                  # Displays packets contents
+    'log': 'stdout',                # To be implemented: stdout, none, file, pipe...
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
     'cakey': 'ca.key',
@@ -35,12 +37,8 @@ options = {
     'plugin_class_name': 'ProxyHandler',
 }
 
-COLORS_MAP = {
-    'red': 31, 'green': 32, 'yellow': 33,
-    'blue': 34, 'magenta': 35, 'cyan': 36,
-    'white': 37, 'grey': 38
-}
-
+# Global instance that will be passed to every loaded plugin at it's __init__.
+logger = None
 
 # For holding loaded plugins' instances
 plugins = None
@@ -48,38 +46,6 @@ plugins = None
 # SSL Interception setup status
 ssl_interception_prepared = False
 
-
-def out(txt, mode='info ', color=None, noprefix=False):
-    if txt == None:
-        return 
-
-    def with_color(c, s):
-        return "\x1b[%dm%s\x1b[0m" % (c, s)
-
-    colors = {
-        'error': COLORS_MAP['red'],
-        'trace': COLORS_MAP['magenta'],
-        'info ': COLORS_MAP['white'],
-        'debug': COLORS_MAP['yellow'],
-        'other': COLORS_MAP['grey']
-    }
-    c = colors.setdefault(mode, COLORS_MAP['grey']) if color == None else color
-    t = str(time.strftime("%H:%M:%S", time.gmtime()))
-    prefix = with_color(colors['other'], '[%s] %s: ' % (mode.upper(), t)) if not noprefix else ''
-    print prefix + with_color(c, txt)
-
-def dbg(txt, color=None, noprefix=False):
-    global options
-    if options['debug']:
-        out(txt, 'debug', color, noprefix)
-
-def trace(txt, color=None, noprefix=False):
-    global options 
-    if options['trace']:   
-        out(txt, 'trace', color, noprefix)
-
-def err(txt, color=None, noprefix=False):
-    out(txt, 'error', color, noprefix)
 
 
 #
@@ -93,47 +59,58 @@ class PluginsLoader:
         plugins_count = len(self.options['plugins'])
 
         if plugins_count > 0:
-            out('Loading %d plugin%s...' % (plugins_count, '' if plugins_count == 1 else 's'))
+            logger.info('Loading %d plugin%s...' % (plugins_count, '' if plugins_count == 1 else 's'))
             
             for plugin in self.options['plugins']:
-                plugin = plugin.strip()
-                instance = None
-                
-                name = os.path.basename(plugin).lower().replace('.py', '')
-                dbg('Attempting to load plugin: %s ("%s")' % (name, plugin))
-               
-                try:
-                    sys.path.append(os.path.dirname(plugin))
-                    __import__(name)
-                    module = sys.modules[name]
-                    dbg('Imported.')
-
-                    try:
-                        handler = getattr(module, options['plugin_class_name'])
-                        instance = handler()
-                        dbg('Found class "%s".' % options['plugin_class_name'])
-
-                    except AttributeError as e:
-                        dbg('Plugin "%s" does not implement class "%s"' % 
-                            (name, options['plugin_class_name']))
-                        continue
-
-                    if not instance:
-                        err('Didn\'t find supported class in module "%s"' % name)
-                    else:
-                        self.plugins[name] = instance
-                        out('Plugin "%s" has been installed.' % name)
-
-                except ImportError as e:
-                    err('Couldn\' load specified plugin: "%s". Error: %s' % (plugin, e))
+                self.load(plugin)
 
         self.called = True
-        dbg('Plugins obtained: "%s"' % str(self.plugins))
         
     # Output format:
     #   plugins = {'plugin1': instance, 'plugin2': instance, ...}
     def get_plugins(self):
         return self.plugins
+
+    def load(self, path):
+        plugin = path.strip()
+        instance = None
+        
+        name = os.path.basename(plugin).lower().replace('.py', '')
+
+        if name in self.plugins:
+            # Plugin already loaded.
+            return
+
+        logger.dbg('Attempting to load plugin: %s ("%s")...' % (name, plugin))
+       
+        try:
+            sys.path.append(os.path.dirname(plugin))
+            __import__(name)
+            module = sys.modules[name]
+            logger.dbg('Module imported.')
+
+            try:
+                handler = getattr(module, self.options['plugin_class_name'])
+                
+                # Call plugin's __init__ with the `logger' instance passed to it.
+                instance = handler(logger)
+                
+                logger.dbg('Found class "%s".' % self.options['plugin_class_name'])
+
+            except AttributeError as e:
+                logger.err('Plugin "%s" loading has failed: "%s".' % 
+                    (name, self.options['plugin_class_name']))
+                logger.err('\tError: %s' % e)
+                return
+
+            if not instance:
+                logger.err('Didn\'t find supported class in module "%s"' % name)
+            else:
+                self.plugins[name] = instance
+                logger.info('Plugin "%s" has been installed.' % name)
+
+        except ImportError as e:
+            logger.err('Couldn\' load specified plugin: "%s". Error: %s' % (plugin, e))
 
 
 # Asynchronously serving HTTP server class.
@@ -176,7 +153,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        dbg('SSL: %s' % str(ssl_interception_prepared))
+        logger.dbg('SSL: %s' % str(ssl_interception_prepared))
         if ssl_interception_prepared:
             self.connect_intercept()
         else:
@@ -185,12 +162,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def connect_intercept(self):
         hostname = self.path.split(':')[0]
 
-        dbg('CONNECT intercepted: "%s"' % self.path)
+        logger.dbg('CONNECT intercepted: "%s"' % self.path)
 
         with self.lock:
             certpath = "%s/%s.crt" % (self.options['certdir'].rstrip('/'), hostname)
             if not os.path.isfile(certpath):
-                dbg('Generating valid SSL certificate...')
+                logger.dbg('Generating valid SSL certificate...')
                 epoch = "%d" % (time.time() * 1000)
                 p1 = Popen(["openssl", "req", "-new", "-key", self.options['certkey'], "-subj", "/CN=%s" % hostname], stdout=PIPE)
                 p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.options['cacert'], "-CAkey", self.options['cakey'], "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
@@ -213,7 +190,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         address = self.path.split(':', 1)
         address[1] = int(address[1]) or 443
 
-        dbg('CONNECT relaying: "%s"' % self.path)
+        logger.dbg('CONNECT relaying: "%s"' % self.path)
 
         try:
             s = socket.create_connection(address, timeout=self.options['timeout'])
@@ -241,7 +218,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == self.options['proxy_self_url']:
-            dbg('Sending CA certificate.')
+            logger.dbg('Sending CA certificate.')
             self.send_cacert()
             return
 
@@ -256,7 +233,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req.path = "http://%s%s" % (req.headers['Host'], req.path)
 
 
-        (dbg if self.options['trace'] else out)('Request:\t"%s"' % req.path)
+        (logger.dbg if self.options['trace'] else logger.info)('Request:\t"%s"' % req.path)
 
         req_body_modified = self.request_handler(req, req_body)
         if req_body_modified is not None:
@@ -371,22 +348,22 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
         res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
-        trace(req_header_text, 33, True)
+        logger.trace(req_header_text, color=ProxyLogger.colors_map['yellow'])
 
         u = urlparse.urlsplit(req.path)
         if u.query:
             query_text = parse_qsl(u.query)
-            trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, COLORS_MAP['green'], True)
+            logger.trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, color=ProxyLogger.colors_map['green'])
 
         cookie = req.headers.get('Cookie', '')
         if cookie:
             cookie = parse_qsl(re.sub(r';\s*', '&', cookie))
-            trace("==== COOKIE ====\n%s\n" % cookie, COLORS_MAP['green'], True)
+            logger.trace("==== COOKIE ====\n%s\n" % cookie, color=ProxyLogger.colors_map['green'])
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
             token = auth.split()[1].decode('base64')
-            trace("==== BASIC AUTH ====\n%s\n" % token, COLORS_MAP['red'], True)
+            logger.trace("==== BASIC AUTH ====\n%s\n" % token, color=ProxyLogger.colors_map['red'])
 
         if req_body is not None:
             req_body_text = None
@@ -409,14 +386,14 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                trace("==== REQUEST BODY ====\n%s\n" % req_body_text, COLORS_MAP['white'], True)
+                logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text, color=ProxyLogger.colors_map['white'])
 
-        trace(res_header_text, 36, True)
+        logger.trace(res_header_text, color=ProxyLogger.colors_map['cyan'])
 
         cookies = res.headers.getheaders('Set-Cookie')
         if cookies:
             cookies = '\n'.join(cookies)
-            trace("==== SET-COOKIE ====\n%s\n" % cookies, COLORS_MAP['yellow'], True)
+            logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
 
         if res_body is not None:
             res_body_text = None
@@ -437,23 +414,23 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body, re.I)
                 if m:
                     h = HTMLParser()
-                    trace("==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')), COLORS_MAP['cyan'], True)
+                    logger.trace("==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')), color=ProxyLogger.colors_map['cyan'])
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 res_body_text = res_body
 
             if res_body_text:
-                trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, COLORS_MAP['green'], True)
+                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
-        dbg(str(self.plugins))
+        logger.dbg(str(self.plugins))
         for plugin_name in self.plugins:
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'request_handler')
-                dbg("Calling `request_handler' from plugin %s" % plugin_name)
+                logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
                 handler(req, req_body)
             except AttributeError as e:
-                dbg('Plugin "%s" does not implement `request_handler\'')
+                logger.dbg('Plugin "%s" does not implement `request_handler\'')
                 pass
 
 
@@ -465,13 +442,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'response_handler')
-                dbg("Calling `response_handler' from plugin %s" % plugin_name)
+                logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
                 res_body_current = handler(req, req_body, res, res_body_current)
                 altered = (res_body_current != res_body)
                 if altered:
-                    dbg('Plugin has altered the response.')
+                    logger.dbg('Plugin has altered the response.')
             except AttributeError as e:
-                dbg('Plugin "%s" does not implement `response_handler\'')
+                logger.dbg('Plugin "%s" does not implement `response_handler\'')
                 pass
 
         if not altered:
@@ -489,64 +466,64 @@ def ssl_interception_setup():
     global options
 
     def setup():
-        dbg('Setting up SSL interception certificates')
+        logger.dbg('Setting up SSL interception certificates')
 
         if not os.path.isabs(options['certdir']):
-            dbg('Certificate directory path was not absolute. Assuming relative to current programs\'s directory')
+            logger.dbg('Certificate directory path was not absolute. Assuming relative to current programs\'s directory')
             path = os.path.join(os.path.dirname(os.path.realpath(__file__)), options['certdir'])
             options['certdir'] = path
-            dbg('Using path: "%s"' % options['certdir'])
+            logger.dbg('Using path: "%s"' % options['certdir'])
 
         # Step 1: Create directory for certificates and asynchronous encryption keys
         if not os.path.isdir(options['certdir']):
             try:
-                dbg("Creating directory for certificate: '%s'" % options['certdir'])
+                logger.dbg("Creating directory for certificate: '%s'" % options['certdir'])
                 os.mkdir(options['certdir'])
             except Exception as e:
-                err("Couldn't make directory for certificates: '%s'" % e)
+                logger.err("Couldn't make directory for certificates: '%s'" % e)
                 return False
 
         # Step 2: Create CA key
         options['cakey'] = os.path.join(options['certdir'], options['cakey'])
         if not os.path.isdir(options['cakey']):
-            dbg("Creating CA key file: '%s'" % options['cakey'])
+            logger.dbg("Creating CA key file: '%s'" % options['cakey'])
             p = Popen(["openssl", "genrsa", "-out", options['cakey'], "2048"], stdout=PIPE, stderr=PIPE)
             (out, error) = p.communicate()
-            dbg(out + error)
+            logger.dbg(out + error)
             
             if not options['cakey']:
-                err('Creating of CA key process has failed.')
+                logger.err('Creating of CA key process has failed.')
                 return False
 
         # Step 3: Create CA certificate
         options['cacert'] = os.path.join(options['certdir'], options['cacert'])
         if not os.path.isdir(options['cacert']):
-            dbg("Creating CA certificate file: '%s'" % options['cacert'])
+            logger.dbg("Creating CA certificate file: '%s'" % options['cacert'])
             p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", options['cakey'], "-out", options['cacert'], "-subj", "/CN="+options['ca_common_name']], stdout=PIPE, stderr=PIPE)
             (out, error) = p.communicate()
-            dbg(out + error)
+            logger.dbg(out + error)
 
             if not options['cacert']:
-                err('Creating of CA certificate process has failed.')
+                logger.err('Creating of CA certificate process has failed.')
                 return False
 
         # Step 4: Create certificate key file
         options['certkey'] = os.path.join(options['certdir'], options['certkey'])
         if not os.path.isdir(options['certkey']):
-            dbg("Creating Certificate key file: '%s'" % options['certkey'])
-            dbg("Creating CA key file: '%s'" % options['cakey'])
+            logger.dbg("Creating Certificate key file: '%s'" % options['certkey'])
+            logger.dbg("Creating CA key file: '%s'" % options['cakey'])
             p = Popen(["openssl", "genrsa", "-out", options['certkey'], "2048"], stdout=PIPE, stderr=PIPE)
             (out, error) = p.communicate()
-            dbg(out + error)
+            logger.dbg(out + error)
 
             if not options['certkey']:
-                err('Creating of Certificate key process has failed.')
+                logger.err('Creating of Certificate key process has failed.')
                 return False
 
-        dbg('SSL interception has been setup.')
+        logger.dbg('SSL interception has been setup.')
         return True
 
-    out('Preparing SSL certificates and keys for https traffic interception...')
+    logger.info('Preparing SSL certificates and keys for https traffic interception...')
     ssl_interception_prepared = setup()
     return ssl_interception_prepared
 
@@ -558,13 +535,14 @@ def ssl_interception_cleanup():
     try:
         import shutil
         shutil.rmtree(options['certdir'])
-        dbg('SSL interception files cleaned up.')
+        logger.dbg('SSL interception files cleaned up.')
     except Exception as e:
-        err("Couldn't perform SSL interception files cleaning: '%s'" % e)
+        logger.err("Couldn't perform SSL interception files cleaning: '%s'" % e)
 
 
 def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
     global plugins
+    global logger
 
     if sys.argv[1:]:
         port = int(sys.argv[1])
@@ -576,15 +554,17 @@ def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, prot
     httpd = ServerClass(server_address, HandlerClass)
 
     try:
+        logger = ProxyLogger(options)
         plugins = PluginsLoader()
+
         ssl_interception_setup() # optional, based on program arguments
         sa = httpd.socket.getsockname()
         s = sa[0] if not sa[0] else '127.0.0.1'
-        out("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
+        logger.info("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
         httpd.serve_forever()
 
     except KeyboardInterrupt:
-        trace('\nProxy serving interrupted by user.', noprefix=True)
+        logger.info('\nProxy serving interrupted by user.', noprefix=True)
 
     finally:
         ssl_interception_cleanup()

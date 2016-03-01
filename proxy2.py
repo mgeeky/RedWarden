@@ -19,12 +19,67 @@ from subprocess import Popen, PIPE
 from HTMLParser import HTMLParser
 
 
-def with_color(c, s):
-    return "\x1b[%dm%s\x1b[0m" % (c, s)
+# Global options dictonary, that will get modified after
+# parsing program arguments. 
+options = {
+    'debug': True,                  # Print's out debuging informations
+    'trace': True,                  # Displays packets contents
+    'proxy_self_url': 'http://proxy2.test/',
+    'timeout': 5,
+    'cakey': 'ca.key',
+    'cacert': 'ca.crt',
+    'certkey': 'cert.key',
+    'certdir': 'certs/',
+    'ca_common_name': 'proxy2 CA',
+}
+
+COLORS_MAP = {
+    'red': 31, 'green': 32, 'yellow': 33,
+    'blue': 34, 'magenta': 35, 'cyan': 36,
+    'white': 37, 'grey': 38
+}
 
 
+def out(txt, mode='info ', color=None, noprefix=False):
+    if txt == None:
+        return 
+
+    def with_color(c, s):
+        return "\x1b[%dm%s\x1b[0m" % (c, s)
+
+    colors = {
+        'error': COLORS_MAP['red'],
+        'trace': COLORS_MAP['magenta'],
+        'info ': COLORS_MAP['white'],
+        'debug': COLORS_MAP['yellow'],
+        'other': COLORS_MAP['grey']
+    }
+    c = colors.setdefault(mode, COLORS_MAP['grey']) if color == None else color
+    t = str(time.strftime("%H:%M:%S", time.gmtime()))
+    prefix = with_color(colors['other'], '[%s] %s: ' % (mode.upper(), t)) if not noprefix else ''
+    print prefix + with_color(c, txt)
+
+def dbg(txt, color=None, noprefix=False):
+    global options
+    if options['debug']:
+        out(txt, 'debug', color, noprefix)
+
+def trace(txt, color=None, noprefix=False):
+    global options 
+    if options['trace']:   
+        out(txt, 'trace', color, noprefix)
+
+def err(txt, color=None, noprefix=False):
+    out(txt, 'error', color, noprefix)
+
+
+
+# Asynchronously serving HTTP server class.
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     address_family = socket.AF_INET6
+
+    # ThreadMixIn, Should the server wait for thread termination?
+    # If True, python will exist despite running server threads.
     daemon_threads = True
 
     def handle_error(self, request, client_address):
@@ -37,47 +92,48 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    cakey = 'ca.key'
-    cacert = 'ca.crt'
-    certkey = 'cert.key'
-    certdir = 'certs/'
-    timeout = 5
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
+
         self.tls = threading.local()
         self.tls.conns = {}
+        self.options = options
 
         BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
 
     def log_error(self, format, *args):
-        # surpress "Request timed out: timeout('timed out',)"
-        if isinstance(args[0], socket.timeout):
+
+        # Surpress "Request timed out: timeout('timed out',)" if not in debug mode.
+        if isinstance(args[0], socket.timeout) and not self.options['debug']:
             return
 
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        if os.path.isfile(self.cakey) and os.path.isfile(self.cacert) and os.path.isfile(self.certkey) and os.path.isdir(self.certdir):
+        if os.path.isfile(self.options['cakey']) and os.path.isfile(self.options['cacert']) and os.path.isfile(self.options['certkey']) and os.path.isdir(self.options['certdir']):
             self.connect_intercept()
         else:
             self.connect_relay()
 
     def connect_intercept(self):
         hostname = self.path.split(':')[0]
-        certpath = "%s/%s.crt" % (self.certdir.rstrip('/'), hostname)
+
+        dbg('CONNECT intercepted: "%s"' % self.path)
 
         with self.lock:
+            certpath = "%s/%s.crt" % (self.options['certdir'].rstrip('/'), hostname)
             if not os.path.isfile(certpath):
+                dbg('Generating valid SSL certificate...')
                 epoch = "%d" % (time.time() * 1000)
-                p1 = Popen(["openssl", "req", "-new", "-key", self.certkey, "-subj", "/CN=%s" % hostname], stdout=PIPE)
-                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.cacert, "-CAkey", self.cakey, "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
+                p1 = Popen(["openssl", "req", "-new", "-key", self.options['certkey'], "-subj", "/CN=%s" % hostname], stdout=PIPE)
+                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.options['cacert'], "-CAkey", self.options['cakey'], "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
                 p2.communicate()
 
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'Connection Established'))
         self.end_headers()
 
-        self.connection = ssl.wrap_socket(self.connection, keyfile=self.certkey, certfile=certpath, server_side=True)
+        self.connection = ssl.wrap_socket(self.connection, keyfile=self.options['certkey'], certfile=certpath, server_side=True)
         self.rfile = self.connection.makefile("rb", self.rbufsize)
         self.wfile = self.connection.makefile("wb", self.wbufsize)
 
@@ -90,18 +146,23 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def connect_relay(self):
         address = self.path.split(':', 1)
         address[1] = int(address[1]) or 443
+
+        dbg('CONNECT relaying: "%s"' % self.path)
+
         try:
-            s = socket.create_connection(address, timeout=self.timeout)
+            s = socket.create_connection(address, timeout=self.options['timeout'])
         except Exception as e:
             self.send_error(502)
             return
+
         self.send_response(200, 'Connection Established')
         self.end_headers()
 
         conns = [self.connection, s]
         self.close_connection = 0
+
         while not self.close_connection:
-            rlist, wlist, xlist = select.select(conns, [], conns, self.timeout)
+            rlist, wlist, xlist = select.select(conns, [], conns, self.options['timeout'])
             if xlist or not rlist:
                 break
             for r in rlist:
@@ -113,7 +174,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 other.sendall(data)
 
     def do_GET(self):
-        if self.path == 'http://proxy2.test/':
+        if self.path == self.options['proxy_self_url']:
+            dbg('Sending CA certificate.')
             self.send_cacert()
             return
 
@@ -126,6 +188,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req.path = "https://%s%s" % (req.headers['Host'], req.path)
             else:
                 req.path = "http://%s%s" % (req.headers['Host'], req.path)
+
+
+        (dbg if self.options['trace'] else out)('Request:\t"%s"' % req.path)
 
         req_body_modified = self.request_handler(req, req_body)
         if req_body_modified is not None:
@@ -143,9 +208,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             origin = (scheme, netloc)
             if not origin in self.tls.conns:
                 if scheme == 'https':
-                    self.tls.conns[origin] = httplib.HTTPSConnection(netloc, timeout=self.timeout)
+                    self.tls.conns[origin] = httplib.HTTPSConnection(netloc, timeout=self.options['timeout'])
                 else:
-                    self.tls.conns[origin] = httplib.HTTPConnection(netloc, timeout=self.timeout)
+                    self.tls.conns[origin] = httplib.HTTPConnection(netloc, timeout=self.options['timeout'])
             conn = self.tls.conns[origin]
             conn.request(self.command, path, req_body, dict(req_headers))
             res = conn.getresponse()
@@ -223,7 +288,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return text
 
     def send_cacert(self):
-        with open(self.cacert, 'rb') as f:
+        with open(self.options['cacert'], 'rb') as f:
             data = f.read()
 
         self.wfile.write("%s %d %s\r\n" % (self.protocol_version, 200, 'OK'))
@@ -240,22 +305,22 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
         res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
 
-        print with_color(33, req_header_text)
+        trace(req_header_text, 33, True)
 
         u = urlparse.urlsplit(req.path)
         if u.query:
             query_text = parse_qsl(u.query)
-            print with_color(32, "==== QUERY PARAMETERS ====\n%s\n" % query_text)
+            trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, COLORS_MAP['green'], True)
 
         cookie = req.headers.get('Cookie', '')
         if cookie:
             cookie = parse_qsl(re.sub(r';\s*', '&', cookie))
-            print with_color(32, "==== COOKIE ====\n%s\n" % cookie)
+            trace("==== COOKIE ====\n%s\n" % cookie, COLORS_MAP['green'], True)
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
             token = auth.split()[1].decode('base64')
-            print with_color(31, "==== BASIC AUTH ====\n%s\n" % token)
+            trace("==== BASIC AUTH ====\n%s\n" % token, COLORS_MAP['red'], True)
 
         if req_body is not None:
             req_body_text = None
@@ -278,14 +343,14 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                print with_color(32, "==== REQUEST BODY ====\n%s\n" % req_body_text)
+                trace("==== REQUEST BODY ====\n%s\n" % req_body_text, COLORS_MAP['white'], True)
 
-        print with_color(36, res_header_text)
+        trace(res_header_text, 36, True)
 
         cookies = res.headers.getheaders('Set-Cookie')
         if cookies:
             cookies = '\n'.join(cookies)
-            print with_color(31, "==== SET-COOKIE ====\n%s\n" % cookies)
+            trace("==== SET-COOKIE ====\n%s\n" % cookies, COLORS_MAP['yellow'], True)
 
         if res_body is not None:
             res_body_text = None
@@ -306,12 +371,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body, re.I)
                 if m:
                     h = HTMLParser()
-                    print with_color(32, "==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')))
+                    trace("==== HTML TITLE ====\n%s\n" % h.unescape(m.group(1).decode('utf-8')), COLORS_MAP['cyan'], True)
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 res_body_text = res_body
 
             if res_body_text:
-                print with_color(32, "==== RESPONSE BODY ====\n%s\n" % res_body_text)
+                trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, COLORS_MAP['green'], True)
 
     def request_handler(self, req, req_body):
         pass
@@ -323,7 +388,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.print_info(req, req_body, res, res_body)
 
 
-def test(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
+def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
+
     if sys.argv[1:]:
         port = int(sys.argv[1])
     else:
@@ -333,10 +399,17 @@ def test(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, prot
     HandlerClass.protocol_version = protocol
     httpd = ServerClass(server_address, HandlerClass)
 
-    sa = httpd.socket.getsockname()
-    print "Serving HTTP Proxy on", sa[0], "port", sa[1], "..."
-    httpd.serve_forever()
+    try:
+        sa = httpd.socket.getsockname()
+        s = sa[0] if not sa[0] else '127.0.0.1'
+        out("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
+        httpd.serve_forever()
 
+    except KeyboardInterrupt:
+        trace('\nProxy serving interrupted by user.', noprefix=True)
+
+    finally:
+        pass
 
 if __name__ == '__main__':
-    test()
+    main()

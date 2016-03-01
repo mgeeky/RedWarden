@@ -34,11 +34,13 @@ import httplib, urlparse
 import threading
 import gzip, zlib
 import json, re
+from subprocess import Popen, PIPE
 from proxylogger import ProxyLogger
+from pluginsloader import PluginsLoader
+from sslintercept import SSLInterception
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
-from subprocess import Popen, PIPE
 from HTMLParser import HTMLParser
 from optparse import OptionParser, OptionGroup
 
@@ -54,6 +56,7 @@ options = {
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
+    'no_ssl': False,
     'cakey': 'ca.key',
     'cacert': 'ca.crt',
     'certkey': 'cert.key',
@@ -69,74 +72,8 @@ logger = None
 # For holding loaded plugins' instances
 plugins = None
 
-# SSL Interception setup status
-ssl_interception_prepared = False
-
-
-
-#
-# Plugin that attempts to load all of the supplied plugins from 
-# program launch options.
-class PluginsLoader:   
-    def __init__(self):
-        self.options = options
-        self.plugins = {}
-        self.called = False
-        plugins_count = len(self.options['plugins'])
-
-        if plugins_count > 0:
-            logger.info('Loading %d plugin%s...' % (plugins_count, '' if plugins_count == 1 else 's'))
-            
-            for plugin in self.options['plugins']:
-                self.load(plugin)
-
-        self.called = True
-        
-    # Output format:
-    #   plugins = {'plugin1': instance, 'plugin2': instance, ...}
-    def get_plugins(self):
-        return self.plugins
-
-    def load(self, path):
-        plugin = path.strip()
-        instance = None
-        
-        name = os.path.basename(plugin).lower().replace('.py', '')
-
-        if name in self.plugins:
-            # Plugin already loaded.
-            return
-
-        logger.dbg('Attempting to load plugin: %s ("%s")...' % (name, plugin))
-       
-        try:
-            sys.path.append(os.path.dirname(plugin))
-            __import__(name)
-            module = sys.modules[name]
-            logger.dbg('Module imported.')
-
-            try:
-                handler = getattr(module, self.options['plugin_class_name'])
-                
-                # Call plugin's __init__ with the `logger' instance passed to it.
-                instance = handler(logger)
-                
-                logger.dbg('Found class "%s".' % self.options['plugin_class_name'])
-
-            except AttributeError as e:
-                logger.err('Plugin "%s" loading has failed: "%s".' % 
-                    (name, self.options['plugin_class_name']))
-                logger.err('\tError: %s' % e)
-                return
-
-            if not instance:
-                logger.err('Didn\'t find supported class in module "%s"' % name)
-            else:
-                self.plugins[name] = instance
-                logger.info('Plugin "%s" has been installed.' % name)
-
-        except ImportError as e:
-            logger.err('Couldn\' load specified plugin: "%s". Error: %s' % (plugin, e))
+# SSL Interception setup object
+sslintercept = None
 
 
 # Asynchronously serving HTTP server class.
@@ -179,8 +116,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        logger.dbg('SSL: %s' % str(ssl_interception_prepared))
-        if ssl_interception_prepared:
+        logger.dbg(str(sslintercept))
+        if sslintercept.status:
             self.connect_intercept()
         else:
             self.connect_relay()
@@ -486,85 +423,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.print_info(req, req_body, res, res_body)
 
 
-def ssl_interception_setup():
-    global ssl_interception_prepared
-    global options
-
-    def setup():
-        logger.dbg('Setting up SSL interception certificates')
-
-        if not os.path.isabs(options['certdir']):
-            logger.dbg('Certificate directory path was not absolute. Assuming relative to current programs\'s directory')
-            path = os.path.join(os.path.dirname(os.path.realpath(__file__)), options['certdir'])
-            options['certdir'] = path
-            logger.dbg('Using path: "%s"' % options['certdir'])
-
-        # Step 1: Create directory for certificates and asynchronous encryption keys
-        if not os.path.isdir(options['certdir']):
-            try:
-                logger.dbg("Creating directory for certificate: '%s'" % options['certdir'])
-                os.mkdir(options['certdir'])
-            except Exception as e:
-                logger.err("Couldn't make directory for certificates: '%s'" % e)
-                return False
-
-        # Step 2: Create CA key
-        options['cakey'] = os.path.join(options['certdir'], options['cakey'])
-        if not os.path.isdir(options['cakey']):
-            logger.dbg("Creating CA key file: '%s'" % options['cakey'])
-            p = Popen(["openssl", "genrsa", "-out", options['cakey'], "2048"], stdout=PIPE, stderr=PIPE)
-            (out, error) = p.communicate()
-            logger.dbg(out + error)
-            
-            if not options['cakey']:
-                logger.err('Creating of CA key process has failed.')
-                return False
-
-        # Step 3: Create CA certificate
-        options['cacert'] = os.path.join(options['certdir'], options['cacert'])
-        if not os.path.isdir(options['cacert']):
-            logger.dbg("Creating CA certificate file: '%s'" % options['cacert'])
-            p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", options['cakey'], "-out", options['cacert'], "-subj", "/CN="+options['cacn']], stdout=PIPE, stderr=PIPE)
-            (out, error) = p.communicate()
-            logger.dbg(out + error)
-
-            if not options['cacert']:
-                logger.err('Creating of CA certificate process has failed.')
-                return False
-
-        # Step 4: Create certificate key file
-        options['certkey'] = os.path.join(options['certdir'], options['certkey'])
-        if not os.path.isdir(options['certkey']):
-            logger.dbg("Creating Certificate key file: '%s'" % options['certkey'])
-            logger.dbg("Creating CA key file: '%s'" % options['cakey'])
-            p = Popen(["openssl", "genrsa", "-out", options['certkey'], "2048"], stdout=PIPE, stderr=PIPE)
-            (out, error) = p.communicate()
-            logger.dbg(out + error)
-
-            if not options['certkey']:
-                logger.err('Creating of Certificate key process has failed.')
-                return False
-
-        logger.dbg('SSL interception has been setup.')
-        return True
-
-    logger.info('Preparing SSL certificates and keys for https traffic interception...')
-    ssl_interception_prepared = setup()
-    return ssl_interception_prepared
-
-
-def ssl_interception_cleanup():
-    if not ssl_interception_prepared:
-        return
-
-    try:
-        import shutil
-        shutil.rmtree(options['certdir'])
-        logger.dbg('SSL interception files cleaned up.')
-    except Exception as e:
-        logger.err("Couldn't perform SSL interception files cleaning: '%s'" % e)
-
-
 def parse_options():
     global options
 
@@ -596,6 +454,8 @@ def parse_options():
 
     # SSL Interception
     sslgroup = OptionGroup(parser, "SSL Interception setup")
+    parser.add_option(  "-S", "--no-ssl", dest='no_ssl',
+        help="Turns off SSL interception routines and falls back on relaying.", action="store_true")
     sslgroup.add_option('', '--ssl-certdir', dest='certdir', metavar='DIR',
         help='Sets the destination for all of the SSL-related files, including keys, certificates (self and of'\
             ' the visited websites). Default: "'+ options['certdir'] +'"', default=options['certdir'])
@@ -650,11 +510,12 @@ def init():
     global options
     global plugins
     global logger
+    global sslintercept
 
     parse_options()
     logger = ProxyLogger(options)
-    plugins = PluginsLoader()
-    ssl_interception_setup()
+    plugins = PluginsLoader(logger, options)
+    sslintercept = SSLInterception(logger, options)
 
 
 def cleanup():
@@ -665,7 +526,7 @@ def cleanup():
         options['log'].close()
         options['log'] = None
     
-    ssl_interception_cleanup()
+    sslintercept.cleanup()
 
 
 def main():

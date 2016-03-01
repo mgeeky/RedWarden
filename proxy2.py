@@ -10,18 +10,17 @@
 # TODO:
 #   - implement dynamic plugins directory scanning method in the PluginsLoader
 #   - perform severe code refactoring as for now it's kinda ugly
-#   - separate PluginsLoader and ssl interception setup code from the main module file.
 #   - add more advanced logging capabilities, redesign packets contents dumping
 #
 
 #
 # Changelog:
 #   0.1     original fork from inaz2 repository.
-#   0.2     added PluginsLoader, 
-#           ssl interception just-in-time setup,
+#   0.2     added plugins loading functionality, 
+#           ssl interception as a just-in-time setup,
 #           more elastic logging facilities, 
 #           separation of program options in form of a globally accessible dictonary, 
-#           program's help text with input parameters handling (optparse)
+#           program's help text with input parameters handling,
 #
 
 VERSION = '0.2'
@@ -46,8 +45,8 @@ from HTMLParser import HTMLParser
 
 
 
-# Global options dictonary, that will get modified after
-# parsing program arguments. 
+# Global options dictonary, that will get modified after parsing 
+# program arguments. Below state represents default values.
 options = {
     'hostname': 'localhost',
     'port': 8080,

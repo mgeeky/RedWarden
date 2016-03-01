@@ -35,11 +35,24 @@ from SocketServer import ThreadingMixIn
 from cStringIO import StringIO
 from subprocess import Popen, PIPE
 from HTMLParser import HTMLParser
+from optparse import OptionParser, OptionGroup
 
+
+#
+# Versions:
+#   0.1 - original fork from inaz2 repository.
+#   0.2 - mgeeky's contribution including PluginsLoader, ssl interception just-in-time setup,
+#           and more elastic logging facilities + separation of program options in form of 
+#           globally accessible dictonary.
+#
+
+VERSION = '0.2'
 
 # Global options dictonary, that will get modified after
 # parsing program arguments. 
 options = {
+    'hostname': 'localhost',
+    'port': 8080,
     'debug': True,                  # Print's out debuging informations
     'trace': True,                  # Displays packets contents
     'log': 'stdout',                # To be implemented: stdout, none, file, pipe...
@@ -49,7 +62,7 @@ options = {
     'cacert': 'ca.crt',
     'certkey': 'cert.key',
     'certdir': 'certs/',
-    'ca_common_name': 'proxy2 CA',
+    'cacn': 'proxy2 CA',
     'plugins': ['plugins/dummy.py', 'plugins/sslstrip.py'],
     'plugin_class_name': 'ProxyHandler',
 }
@@ -439,7 +452,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
-        logger.dbg(str(self.plugins))
         for plugin_name in self.plugins:
             instance = self.plugins[plugin_name]
             try:
@@ -516,7 +528,7 @@ def ssl_interception_setup():
         options['cacert'] = os.path.join(options['certdir'], options['cacert'])
         if not os.path.isdir(options['cacert']):
             logger.dbg("Creating CA certificate file: '%s'" % options['cacert'])
-            p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", options['cakey'], "-out", options['cacert'], "-subj", "/CN="+options['ca_common_name']], stdout=PIPE, stderr=PIPE)
+            p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", options['cakey'], "-out", options['cacert'], "-subj", "/CN="+options['cacn']], stdout=PIPE, stderr=PIPE)
             (out, error) = p.communicate()
             logger.dbg(out + error)
 
@@ -557,15 +569,77 @@ def ssl_interception_cleanup():
         logger.err("Couldn't perform SSL interception files cleaning: '%s'" % e)
 
 
+def parse_options():
+    global options
+
+    usage = "Usage: %prog [options]"
+    parser = OptionParser(usage=usage, version="%prog " + VERSION)
+
+    # General options
+    parser.add_option(  "-v", "--verbose", dest='trace',
+        help="Displays verbose output along with packets' contents dumping/tracing.", action="store_true")
+    parser.add_option(  "-d", "--debug", dest='debug',
+        help="Displays debugging informations (implies verbose output).", action="store_true")
+    parser.add_option(  "-H", "--hostname", dest='hostname', metavar='NAME',
+        help="Specifies proxy's binding hostname. Default: "+ options['hostname'] +".", 
+        type='string', default=options['hostname'])
+    parser.add_option(  "-P", "--port", dest='port', metavar='NUM',
+        help="Specifies proxy's binding port number. Default: "+ str(options['port']) +".", 
+        type='int', default=options['port'])
+    parser.add_option(  "-t", "--timeout", dest='timeout', metavar='SECS',
+        help="Specifies timeout for proxy's response in seconds. Default: "+ str(options['timeout']) +".", 
+        type='int', default=options['timeout'])
+    parser.add_option(  "-u", "--proxy-url", dest='proxy_self_url', metavar='URL',
+        help="Specifies proxy's self url. Default: "+ options['proxy_self_url'] +".", 
+        type='string', default=options['proxy_self_url'])
+    
+
+    # SSL Interception
+    sslgroup = OptionGroup(parser, "SSL Interception setup")
+    sslgroup.add_option('', '--ssl-certdir', dest='certdir', metavar='DIR',
+        help='Sets the destination for all of the SSL-related files, including keys, certificates (self and of'\
+            ' the visited websites). Default: "'+ options['certdir'] +'"', default=options['certdir'])
+    sslgroup.add_option('', '--ssl-cakey', dest='cakey', metavar='NAME',
+        help='Sets the name of a CA key file\'s name. Default: "'+ options['cakey'] +'"', default=options['cakey'])
+    sslgroup.add_option('', '--ssl-cacert', dest='cacert', metavar='NAME',
+        help='Sets the name of a CA certificate file\'s name. Default: "'+ options['cacert'] +'"', default=options['cacert'])
+    sslgroup.add_option('', '--ssl-certkey', dest='certkey', metavar='NAME', 
+        help='Sets the name of a CA certificate key\'s file name. Default: "'+ options['certkey'] +'"', default=options['certkey'])
+    sslgroup.add_option('', '--ssl-cacn', dest='cacn', metavar='CN', 
+        help='Sets the common name of the proxy\'s CA authority. Default: "'+ options['cacn'] +'"', default=options['cacn'])
+
+    parser.add_option_group(sslgroup)
+
+    # Plugins handling
+    plugins = OptionGroup(parser, "Plugins handling")
+    plugins.add_option('-p', '--plugin', dest='plugin', action='append', metavar='PATH', type='string',
+                        help="Specifies plugin's path to be loaded. Every plugin's module must implement class `"\
+                        "%s' and respectively: `request_handler' and `response_handler' class methods that will get called." \
+                        "One can find example of such plugin in plugins/dummy.py."
+                        % options['plugin_class_name'])
+
+    parser.add_option_group(plugins)
+
+    (params, args) = parser.parse_args()
+    options.update(vars(params))
+
+    if params.plugin:
+        for i, opt in enumerate(params.plugin):
+            if not os.path.isfile(opt):
+                logger.err('Specified plugin: "%s" does not exist.' % opt)
+            else:
+                options['plugins'].append(opt)
+
+    if params.debug:
+        options['trace'] = True
+
+
 def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
     global plugins
     global logger
 
-    if sys.argv[1:]:
-        port = int(sys.argv[1])
-    else:
-        port = 8080
-    server_address = ('', port)
+    parse_options()
+    server_address = (options['hostname'], options['port'])
 
     HandlerClass.protocol_version = protocol
     httpd = ServerClass(server_address, HandlerClass)

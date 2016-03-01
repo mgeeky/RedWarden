@@ -1,4 +1,21 @@
+#
+# Proxy2
+#
+
+# 
+# TODO:
+#   - implement dynamic plugins directory scanning method in the PluginsLoader
+#   - perform severe code refactoring as for now it's kinda ugly
+#   - separate PluginsLoader and ssl interception setup code from the main module file.
+#   - add more advanced logging capabilities, redesign packets contents dumping
+#   - add OptionParser along with `options' dictonary update
+#
+
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
+
+
+
 import sys
 import os
 import socket

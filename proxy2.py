@@ -39,6 +39,8 @@ COLORS_MAP = {
     'white': 37, 'grey': 38
 }
 
+ssl_interception_prepared = False
+
 
 def out(txt, mode='info ', color=None, noprefix=False):
     if txt == None:
@@ -111,7 +113,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def do_CONNECT(self):
-        if os.path.isfile(self.options['cakey']) and os.path.isfile(self.options['cacert']) and os.path.isfile(self.options['certkey']) and os.path.isdir(self.options['certdir']):
+        dbg('SSL: %s' % str(ssl_interception_prepared))
+        if ssl_interception_prepared:
             self.connect_intercept()
         else:
             self.connect_relay()
@@ -388,6 +391,86 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.print_info(req, req_body, res, res_body)
 
 
+
+def ssl_interception_setup():
+    global ssl_interception_prepared
+    global options
+
+    def setup():
+        dbg('Setting up SSL interception certificates')
+
+        if not os.path.isabs(options['certdir']):
+            dbg('Certificate directory path was not absolute. Assuming relative to current programs\'s directory')
+            path = os.path.join(os.path.dirname(os.path.realpath(__file__)), options['certdir'])
+            options['certdir'] = path
+            dbg('Using path: "%s"' % options['certdir'])
+
+        # Step 1: Create directory for certificates and asynchronous encryption keys
+        if not os.path.isdir(options['certdir']):
+            try:
+                dbg("Creating directory for certificate: '%s'" % options['certdir'])
+                os.mkdir(options['certdir'])
+            except Exception as e:
+                err("Couldn't make directory for certificates: '%s'" % e)
+                return False
+
+        # Step 2: Create CA key
+        options['cakey'] = os.path.join(options['certdir'], options['cakey'])
+        if not os.path.isdir(options['cakey']):
+            dbg("Creating CA key file: '%s'" % options['cakey'])
+            p = Popen(["openssl", "genrsa", "-out", options['cakey'], "2048"], stdout=PIPE, stderr=PIPE)
+            (out, error) = p.communicate()
+            dbg(out + error)
+            
+            if not options['cakey']:
+                err('Creating of CA key process has failed.')
+                return False
+
+        # Step 3: Create CA certificate
+        options['cacert'] = os.path.join(options['certdir'], options['cacert'])
+        if not os.path.isdir(options['cacert']):
+            dbg("Creating CA certificate file: '%s'" % options['cacert'])
+            p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", options['cakey'], "-out", options['cacert'], "-subj", "/CN="+options['ca_common_name']], stdout=PIPE, stderr=PIPE)
+            (out, error) = p.communicate()
+            dbg(out + error)
+
+            if not options['cacert']:
+                err('Creating of CA certificate process has failed.')
+                return False
+
+        # Step 4: Create certificate key file
+        options['certkey'] = os.path.join(options['certdir'], options['certkey'])
+        if not os.path.isdir(options['certkey']):
+            dbg("Creating Certificate key file: '%s'" % options['certkey'])
+            dbg("Creating CA key file: '%s'" % options['cakey'])
+            p = Popen(["openssl", "genrsa", "-out", options['certkey'], "2048"], stdout=PIPE, stderr=PIPE)
+            (out, error) = p.communicate()
+            dbg(out + error)
+
+            if not options['certkey']:
+                err('Creating of Certificate key process has failed.')
+                return False
+
+        dbg('SSL interception has been setup.')
+        return True
+
+    out('Preparing SSL certificates and keys for https traffic interception...')
+    ssl_interception_prepared = setup()
+    return ssl_interception_prepared
+
+
+def ssl_interception_cleanup():
+    if not ssl_interception_prepared:
+        return
+
+    try:
+        import shutil
+        shutil.rmtree(options['certdir'])
+        dbg('SSL interception files cleaned up.')
+    except Exception as e:
+        err("Couldn't perform SSL interception files cleaning: '%s'" % e)
+
+
 def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, protocol="HTTP/1.1"):
 
     if sys.argv[1:]:
@@ -400,6 +483,7 @@ def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, prot
     httpd = ServerClass(server_address, HandlerClass)
 
     try:
+        ssl_interception_setup() # optional, based on program arguments
         sa = httpd.socket.getsockname()
         s = sa[0] if not sa[0] else '127.0.0.1'
         out("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
@@ -409,7 +493,7 @@ def main(HandlerClass=ProxyRequestHandler, ServerClass=ThreadingHTTPServer, prot
         trace('\nProxy serving interrupted by user.', noprefix=True)
 
     finally:
-        pass
+        ssl_interception_cleanup()
 
 if __name__ == '__main__':
     main()

@@ -1,3 +1,7 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+
 #
 # Proxy2
 #
@@ -8,12 +12,17 @@
 #   - perform severe code refactoring as for now it's kinda ugly
 #   - separate PluginsLoader and ssl interception setup code from the main module file.
 #   - add more advanced logging capabilities, redesign packets contents dumping
-#   - add OptionParser along with `options' dictonary update
 #
 
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#
+# Changelog:
+#   0.1 - original fork from inaz2 repository.
+#   0.2 - added PluginsLoader, ssl interception just-in-time setup,
+#           more elastic logging facilities, separation of program options in form of 
+#           globally accessible dictonary, program's help text with input parameters handling (optparse)
+#
 
+VERSION = '0.2'
 
 
 import sys
@@ -38,15 +47,6 @@ from HTMLParser import HTMLParser
 from optparse import OptionParser, OptionGroup
 
 
-#
-# Versions:
-#   0.1 - original fork from inaz2 repository.
-#   0.2 - mgeeky's contribution including PluginsLoader, ssl interception just-in-time setup,
-#           and more elastic logging facilities + separation of program options in form of 
-#           globally accessible dictonary.
-#
-
-VERSION = '0.2'
 
 # Global options dictonary, that will get modified after
 # parsing program arguments. 

@@ -17,8 +17,9 @@ class ProxyHandler:
     # params =  {'path':'plugins/my_plugin.py', 
     #           'argument1':'test', 'argument2':'', 'argument3':'test2'}
     #
-    def __init__(self, logger, params):
+    def __init__(self, logger, params, proxyOptions):
         self.logger = logger
+        self.proxyOptions = proxyOptions
         logger.info('hello world from __init__ in ProxyHandler.')
         if len(params) > 1:
             logger.info('\tI have received such params: %s' % str(params))

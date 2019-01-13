@@ -5,8 +5,9 @@ import re
 class ProxyHandler:
     replaced_urls = deque(maxlen=1024)
 
-    def __init__(self, logger, params):
+    def __init__(self, logger, params, proxyOptions):
         self.logger = logger
+        self.proxyOptions = proxyOptions
         logger.info('hello world from __init__ in SSLStrip ProxyHandler')
 
     def request_handler(self, req, req_body):

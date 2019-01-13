@@ -33,41 +33,53 @@ class SSLInterception:
                     return False
 
             # Step 2: Create CA key
-            self.options['cakey'] = os.path.join(self.options['certdir'], self.options['cakey'])
-            if not os.path.isdir(self.options['cakey']):
-                self.logger.dbg("Creating CA key file: '%s'" % self.options['cakey'])
-                p = Popen(["openssl", "genrsa", "-out", self.options['cakey'], "2048"], stdout=PIPE, stderr=PIPE)
-                (out, error) = p.communicate()
-                self.logger.dbg(out + error)
-                
-                if not self.options['cakey']:
-                    self.logger.err('Creating of CA key process has failed.')
-                    return False
+            if not self.options['cakey']:
+                self.options['cakey'] = os.path.join(self.options['certdir'], 'ca.key')
+
+                if not os.path.isdir(self.options['cakey']):
+                    self.logger.dbg("Creating CA key file: '%s'" % self.options['cakey'])
+                    p = Popen(["openssl", "genrsa", "-out", self.options['cakey'], "2048"], stdout=PIPE, stderr=PIPE)
+                    (out, error) = p.communicate()
+                    self.logger.dbg(out + error)
+                    
+                    if not self.options['cakey']:
+                        self.logger.err('Creating of CA key process has failed.')
+                        return False
+            else:
+                self.logger.info('Using provided CA key file: {}'.format(self.options['cakey']))
 
             # Step 3: Create CA certificate
-            self.options['cacert'] = os.path.join(self.options['certdir'], self.options['cacert'])
-            if not os.path.isdir(self.options['cacert']):
-                self.logger.dbg("Creating CA certificate file: '%s'" % self.options['cacert'])
-                p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", self.options['cakey'], "-out", self.options['cacert'], "-subj", "/CN="+self.options['cacn']], stdout=PIPE, stderr=PIPE)
-                (out, error) = p.communicate()
-                self.logger.dbg(out + error)
+            if not self.options['cacert']:
+                self.options['cacert'] = os.path.join(self.options['certdir'], 'ca.crt')
 
-                if not self.options['cacert']:
-                    self.logger.err('Creating of CA certificate process has failed.')
-                    return False
+                if not os.path.isdir(self.options['cacert']):
+                    self.logger.dbg("Creating CA certificate file: '%s'" % self.options['cacert'])
+                    p = Popen(["openssl", "req", "-new", "-x509", "-days", "3650", "-key", self.options['cakey'], "-out", self.options['cacert'], "-subj", "/CN="+self.options['cacn']], stdout=PIPE, stderr=PIPE)
+                    (out, error) = p.communicate()
+                    self.logger.dbg(out + error)
+
+                    if not self.options['cacert']:
+                        self.logger.err('Creating of CA certificate process has failed.')
+                        return False
+            else:
+                self.logger.info('Using provided CA certificate file: {}'.format(self.options['cacert']))
 
             # Step 4: Create certificate key file
-            self.options['certkey'] = os.path.join(self.options['certdir'], self.options['certkey'])
-            if not os.path.isdir(self.options['certkey']):
-                self.logger.dbg("Creating Certificate key file: '%s'" % self.options['certkey'])
-                self.logger.dbg("Creating CA key file: '%s'" % self.options['cakey'])
-                p = Popen(["openssl", "genrsa", "-out", self.options['certkey'], "2048"], stdout=PIPE, stderr=PIPE)
-                (out, error) = p.communicate()
-                self.logger.dbg(out + error)
+            if not self.options['certkey']:
+                self.options['certkey'] = os.path.join(self.options['certdir'], 'cert.key')
 
-                if not self.options['certkey']:
-                    self.logger.err('Creating of Certificate key process has failed.')
-                    return False
+                if not os.path.isdir(self.options['certkey']):
+                    self.logger.dbg("Creating Certificate key file: '%s'" % self.options['certkey'])
+                    self.logger.dbg("Creating CA key file: '%s'" % self.options['cakey'])
+                    p = Popen(["openssl", "genrsa", "-out", self.options['certkey'], "2048"], stdout=PIPE, stderr=PIPE)
+                    (out, error) = p.communicate()
+                    self.logger.dbg(out + error)
+
+                    if not self.options['certkey']:
+                        self.logger.err('Creating of Certificate key process has failed.')
+                        return False
+            else:
+                self.logger.info('Using provided Certificate key: {}'.format(self.options['certkey']))
 
             self.logger.dbg('SSL interception has been setup.')
             return True

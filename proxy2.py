@@ -28,6 +28,7 @@ VERSION = '0.2'
 
 import time
 import sys, os
+import brotli
 import socket, ssl, select
 import httplib, urlparse
 import threading
@@ -51,15 +52,16 @@ from HTMLParser import HTMLParser
 options = {
     'hostname': 'localhost',
     'port': 8080,
-    'debug': True,                  # Print's out debuging informations
-    'trace': True,                  # Displays packets contents
+    'debug': False,                  # Print's out debuging informations
+    'verbose': True,
+    'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
     'no_ssl': False,
-    'cakey': 'ca.key',
-    'cacert': 'ca.crt',
-    'certkey': 'cert.key',
+    'cakey': 'ca-cert/ca.key',
+    'cacert': 'ca-cert/ca.crt',
+    'certkey': 'ca-cert/cert.key',
     'certdir': 'certs/',
     'cacn': 'proxy2 CA',
     'plugins': set(),
@@ -105,12 +107,20 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.options = options
         self.plugins = plugins.get_plugins()
 
-        BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+        try:
+            BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+        except Exception as e:
+            logger.dbg('Failure along __init__ of BaseHTTPRequestHandler: {}'.format(str(e)))
+            if options['debug']:
+                raise
 
     def log_error(self, format, *args):
 
         # Surpress "Request timed out: timeout('timed out',)" if not in debug mode.
         if isinstance(args[0], socket.timeout) and not self.options['debug']:
+            return
+
+        if not options['trace'] or not options['debug']:
             return
 
         self.log_message(format, *args)
@@ -158,6 +168,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         try:
             s = socket.create_connection(address, timeout=self.options['timeout'])
         except Exception as e:
+            logger.err("Could not relay connection: ({})".format(str(e)))
             self.send_error(502)
             return
 
@@ -196,7 +207,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req.path = "http://%s%s" % (req.headers['Host'], req.path)
 
 
-        (logger.dbg if self.options['trace'] else logger.info)('Request: "%s"' % req.path)
+        if options['trace'] or options['debug']:
+            (logger.dbg if self.options['trace'] else logger.info)('Request: "%s"' % req.path)
 
         req_body_modified = self.request_handler(req, req_body)
         if req_body_modified is not None:
@@ -205,12 +217,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         u = urlparse.urlsplit(req.path)
         scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
-        assert scheme in ('http', 'https')
-        if netloc:
-            req.headers['Host'] = netloc
-        req_headers = self.filter_headers(req.headers)
 
         try:
+            assert scheme in ('http', 'https')
+            if netloc:
+                req.headers['Host'] = netloc
+            req_headers = self.filter_headers(req.headers)
+
             origin = (scheme, netloc)
             if not origin in self.tls.conns:
                 if scheme == 'https':
@@ -218,12 +231,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 else:
                     self.tls.conns[origin] = httplib.HTTPConnection(netloc, timeout=self.options['timeout'])
             conn = self.tls.conns[origin]
+
+            logger.dbg('Final request headers: ({})'.format(dict(req_headers)))
             conn.request(self.command, path, req_body, dict(req_headers))
             res = conn.getresponse()
             res_body = res.read()
         except Exception as e:
             if origin in self.tls.conns:
                 del self.tls.conns[origin]
+            logger.err("Could not proxy request: ({})".format(str(e)))
+            raise
             self.send_error(502)
             return
 
@@ -249,12 +266,17 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(res_body)
         self.wfile.flush()
 
-        with self.lock:
-            self.save_handler(req, req_body, res, res_body_plain)
+        if options['trace'] and options['debug']:
+            with self.lock:
+                self.save_handler(req, req_body, res, res_body_plain)
 
     do_HEAD = do_GET
     do_POST = do_GET
     do_OPTIONS = do_GET
+    do_DELETE = do_GET
+    do_PUT = do_GET
+    do_TRACE = do_GET
+    do_PATCH = do_GET
 
     def filter_headers(self, headers):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
@@ -289,6 +311,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 text = zlib.decompress(data)
             except zlib.error:
                 text = zlib.decompress(data, -zlib.MAX_WBITS)
+        elif encoding == 'br':
+            # Brotli algorithm
+            try:
+                text = brotli.decompress(data)
+            except Exception as e:
+                raise Exception('Could not decompress Brotli stream: "{}"'.format(str(e)))
         else:
             raise Exception("Unknown Content-Encoding: %s" % encoding)
         return text
@@ -307,6 +335,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def print_info(self, req, req_body, res, res_body):
         def parse_qsl(s):
             return '\n'.join("%-20s %s" % (k, v) for k, v in urlparse.parse_qsl(s, keep_blank_values=True))
+
+        if not options['trace'] or not options['debug']:
+            return
 
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
         res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
@@ -390,10 +421,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             try:
                 handler = getattr(instance, 'request_handler')
                 logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
-                handler(req, req_body)
+                req_body = handler(req, req_body)
             except AttributeError as e:
-                logger.dbg('Plugin "%s" does not implement `request_handler\'')
-                pass
+                if 'object has no attribute' in str(e):
+                    logger.dbg('Plugin "{}" does not implement `request_handler\''.format(plugin_name))
+                    if options['debug']:
+                        raise
+                else:
+                    logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
+                    if options['debug']:
+                        raise
+
+        return req_body
 
 
     def response_handler(self, req, req_body, res, res_body):
@@ -410,8 +449,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if altered:
                     logger.dbg('Plugin has altered the response.')
             except AttributeError as e:
-                logger.dbg('Plugin "%s" does not implement `response_handler\'')
-                pass
+                if 'object has no attribute' in str(e):
+                    logger.dbg('Plugin "{}" does not implement `response_handler\''.format(plugin_name))
+                else:
+                    logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
+                    if options['debug']:
+                        raise
 
         if not altered:
             return None

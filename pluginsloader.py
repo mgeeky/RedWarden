@@ -84,7 +84,7 @@ class PluginsLoader:
                 handler = getattr(module, self.options['plugin_class_name'])
                 
                 # Call plugin's __init__ with the `logger' instance passed to it.
-                instance = handler(self.logger, decomposed)
+                instance = handler(self.logger, decomposed, self.options)
                 
                 self.logger.dbg('Found class "%s".' % self.options['plugin_class_name'])
 
@@ -92,7 +92,8 @@ class PluginsLoader:
                 self.logger.err('Plugin "%s" loading has failed: "%s".' % 
                     (name, self.options['plugin_class_name']))
                 self.logger.err('\tError: %s' % e)
-                return
+                if self.options['debug']:
+                    raise
 
             if not instance:
                 self.logger.err('Didn\'t find supported class in module "%s"' % name)
@@ -101,4 +102,6 @@ class PluginsLoader:
                 self.logger.info('Plugin "%s" has been installed.' % name)
 
         except ImportError as e:
-            self.logger.err('Couldn\' load specified plugin: "%s". Error: %s' % (plugin, e))
+            self.logger.err('Couldn\'t load specified plugin: "%s". Error: %s' % (plugin, e))
+            if self.options['debug']:
+                raise

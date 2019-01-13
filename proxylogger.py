@@ -23,8 +23,8 @@ class ProxyLogger:
     colors_dict = {
         'error': colors_map['red'],
         'trace': colors_map['magenta'],
-        'info ': colors_map['white'],
-        'debug': colors_map['yellow'],
+        'info ': colors_map['green'],
+        'debug': colors_map['grey'],
         'other': colors_map['grey'],
     }
 
@@ -72,8 +72,9 @@ class ProxyLogger:
         fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)
 
     # Info shall be used as an ordinary logging facility, for every desired output.
-    def info(self, txt, **kwargs):
-        ProxyLogger.out(txt, self.options['log'], 'info', **kwargs)
+    def info(self, txt, forced = False, **kwargs):
+        if forced or (self.options['verbose'] or self.options['debug'] or self.options['trace']):
+            ProxyLogger.out(txt, self.options['log'], 'info', **kwargs)
 
     # Trace by default does not uses [TRACE] prefix. Shall be used
     # for dumping packets, headers, metadata and longer technical output.

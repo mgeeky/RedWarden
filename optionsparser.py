@@ -10,8 +10,10 @@ def parse_options(options, version):
     parser = OptionParser(usage=usage, version="%prog " + version)
 
     # General options
-    parser.add_option(  "-v", "--verbose", dest='trace',
-        help="Displays verbose output along with packets' contents dumping/tracing.", action="store_true")
+    parser.add_option(  "-v", "--verbose", dest='verbose',
+        help="Displays verbose output.", action="store_true")
+    parser.add_option(  "-V", "--trace", dest='trace',
+        help="Displays HTTP requests and responses.", action="store_true")
     parser.add_option(  "-d", "--debug", dest='debug',
         help="Displays debugging informations (implies verbose output).", action="store_true")
     parser.add_option(  "-s", "--silent", dest='silent',
@@ -72,8 +74,8 @@ def parse_options(options, version):
             else:
                 options['plugins'].add(opt)
 
-    if params.debug:
-        options['trace'] = True
+    #if params.debug:
+    #   options['trace'] = True
 
     if params.silent and params.log:
         parser.error("Options -s and -w are mutually exclusive.")
@@ -87,3 +89,4 @@ def parse_options(options, version):
             raise Exception('[ERROR] Failed to open log file for writing. Error: "%s"' % e)
     else:
         options['log'] = sys.stdout
+

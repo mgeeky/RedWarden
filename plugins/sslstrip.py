@@ -1,14 +1,25 @@
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from collections import deque
+from IProxyPlugin import IProxyPlugin
+
 import re
 
-class ProxyHandler:
+class ProxyPlugin(IProxyPlugin):
     replaced_urls = deque(maxlen=1024)
 
-    def __init__(self, logger, params, proxyOptions):
+    def __init__(self, logger, proxyOptions):
         self.logger = logger
         self.proxyOptions = proxyOptions
-        logger.info('hello world from __init__ in SSLStrip ProxyHandler')
+        logger.info('hello world from __init__ in SSLStrip ProxyPlugin')
+
+    @staticmethod
+    def get_name():
+        return 'sslstrip'
+
+    @staticmethod
+    def help(parser):
+        pass
 
     def request_handler(self, req, req_body):
         if req.path in self.replaced_urls:

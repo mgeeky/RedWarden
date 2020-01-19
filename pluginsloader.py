@@ -1,7 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import os
 import sys
-import StringIO
+import inspect
+from io import StringIO
 import csv
 
 #
@@ -40,7 +41,7 @@ class PluginsLoader:
     @staticmethod
     def decompose_path(p):
         decomposed = {}
-        f = StringIO.StringIO(p)
+        f = StringIO(p)
         rows = list(csv.reader(f, quoting=csv.QUOTE_ALL, skipinitialspace=True))
 
         for i in range(len(rows[0])):
@@ -68,7 +69,7 @@ class PluginsLoader:
         plugin = decomposed['path'].strip()
         name = os.path.basename(plugin).lower().replace('.py', '')
 
-        if name in self.plugins:
+        if name in self.plugins or name == 'iproxyplugin':
             # Plugin already loaded.
             return
 
@@ -82,9 +83,18 @@ class PluginsLoader:
 
             try:
                 handler = getattr(module, self.options['plugin_class_name'])
+
+                found = False
+                for base in inspect.getmro(handler):
+                    if base.__name__ == 'IProxyPlugin':
+                        found = True
+                        break
+
+                if not found:
+                    raise TypeError('Plugin does not inherit from IProxyPlugin.')
                 
                 # Call plugin's __init__ with the `logger' instance passed to it.
-                instance = handler(self.logger, decomposed, self.options)
+                instance = handler(self.logger, self.options)
                 
                 self.logger.dbg('Found class "%s".' % self.options['plugin_class_name'])
 
@@ -94,6 +104,10 @@ class PluginsLoader:
                 self.logger.err('\tError: %s' % e)
                 if self.options['debug']:
                     raise
+
+            except TypeError as e:
+                self.logger.err('Plugin "{}" instantiation failed due to interface incompatibility.'.format(name))
+                raise
 
             if not instance:
                 self.logger.err('Didn\'t find supported class in module "%s"' % name)

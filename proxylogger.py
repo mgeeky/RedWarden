@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # To be used as a default proxy logging facility.
 
@@ -7,7 +7,12 @@ import sys
 
 
 class ProxyLogger:
-    options = {}
+    options = {
+        'debug': False,
+        'verbose': False,
+        'trace': False,
+        'log': sys.stdout,
+    }
 
     colors_map = {
         'red':      31, 
@@ -28,8 +33,9 @@ class ProxyLogger:
         'other': colors_map['grey'],
     }
 
-    def __init__(self, options):
-        self.options = options
+    def __init__(self, options = None):
+        if options != None:
+            self.options = options
 
     @staticmethod
     def with_color(c, s):

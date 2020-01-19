@@ -2,91 +2,114 @@
 
 import os, sys
 from pluginsloader import PluginsLoader
-from optparse import OptionParser, OptionGroup
+from proxylogger import ProxyLogger
+from argparse import ArgumentParser
 
-def parse_options(options, version):
 
-    usage = "Usage: %prog [options]"
-    parser = OptionParser(usage=usage, version="%prog " + version)
+def parse_options(opts, version):
+
+    usage = "Usage: %%prog [options]"
+    parser = ArgumentParser(usage=usage, prog="%prog " + version)
 
     # General options
-    parser.add_option(  "-v", "--verbose", dest='verbose',
+    parser.add_argument("-v", "--verbose", dest='verbose',
         help="Displays verbose output.", action="store_true")
-    parser.add_option(  "-V", "--trace", dest='trace',
+    parser.add_argument("-V", "--trace", dest='trace',
         help="Displays HTTP requests and responses.", action="store_true")
-    parser.add_option(  "-d", "--debug", dest='debug',
+    parser.add_argument("-d", "--debug", dest='debug',
         help="Displays debugging informations (implies verbose output).", action="store_true")
-    parser.add_option(  "-s", "--silent", dest='silent',
+    parser.add_argument("-s", "--silent", dest='silent',
         help="Surpresses all of the output logging.", action="store_true")
-    parser.add_option(  "-w", "--output", dest='log',
-        help="Specifies output log file.", metavar="PATH", type="string")
-    parser.add_option(  "-H", "--hostname", dest='hostname', metavar='NAME',
-        help="Specifies proxy's binding hostname. Default: "+ options['hostname'] +".", 
-        type='string', default=options['hostname'])
-    parser.add_option(  "-P", "--port", dest='port', metavar='NUM',
-        help="Specifies proxy's binding port number. Default: "+ str(options['port']) +".", 
-        type='int', default=options['port'])
-    parser.add_option(  "-t", "--timeout", dest='timeout', metavar='SECS',
-        help="Specifies timeout for proxy's response in seconds. Default: "+ str(options['timeout']) +".", 
-        type='int', default=options['timeout'])
-    parser.add_option(  "-u", "--proxy-url", dest='proxy_self_url', metavar='URL',
-        help="Specifies proxy's self url. Default: "+ options['proxy_self_url'] +".", 
-        type='string', default=options['proxy_self_url'])
+    parser.add_argument("-w", "--output", dest='log',
+        help="Specifies output log file.", metavar="PATH", type=str)
+    parser.add_argument("-H", "--hostname", dest='hostname', metavar='NAME',
+        help="Specifies proxy's binding hostname. Default: "+ opts['hostname'] +".", 
+        type=str, default=opts['hostname'])
+    parser.add_argument("-P", "--port", dest='port', metavar='NUM',
+        help="Specifies proxy's binding port number(s). Supports multiple binding ports by repeating this option: '--port 80 --port 443'. Default: "+ str(opts['port'][0]) +".", 
+        type=int, action="append")
+    parser.add_argument("-t", "--timeout", dest='timeout', metavar='SECS',
+        help="Specifies timeout for proxy's response in seconds. Default: "+ str(opts['timeout']) +".", 
+        type=int, default=opts['timeout'])
+    parser.add_argument("-u", "--proxy-url", dest='proxy_self_url', metavar='URL',
+        help="Specifies proxy's self url. Default: "+ opts['proxy_self_url'] +".", 
+        type=str, default=opts['proxy_self_url'])
     
 
     # SSL Interception
-    sslgroup = OptionGroup(parser, "SSL Interception setup")
-    parser.add_option(  "-S", "--no-ssl", dest='no_ssl',
+    sslgroup = parser.add_argument_group("SSL Interception setup")
+    sslgroup.add_argument("-S", "--no-ssl", dest='no_ssl',
         help="Turns off SSL interception routines and falls back on relaying.", action="store_true")
-    sslgroup.add_option('', '--ssl-certdir', dest='certdir', metavar='DIR',
+    sslgroup.add_argument('--ssl-certdir', dest='certdir', metavar='DIR',
         help='Sets the destination for all of the SSL-related files, including keys, certificates (self and of'\
-            ' the visited websites). Default: "'+ options['certdir'] +'"', default=options['certdir'])
-    sslgroup.add_option('', '--ssl-cakey', dest='cakey', metavar='NAME',
-        help='Sets the name of a CA key file\'s name. Default: "'+ options['cakey'] +'"', default=options['cakey'])
-    sslgroup.add_option('', '--ssl-cacert', dest='cacert', metavar='NAME',
-        help='Sets the name of a CA certificate file\'s name. Default: "'+ options['cacert'] +'"', default=options['cacert'])
-    sslgroup.add_option('', '--ssl-certkey', dest='certkey', metavar='NAME', 
-        help='Sets the name of a CA certificate key\'s file name. Default: "'+ options['certkey'] +'"', default=options['certkey'])
-    sslgroup.add_option('', '--ssl-cacn', dest='cacn', metavar='CN', 
-        help='Sets the common name of the proxy\'s CA authority. Default: "'+ options['cacn'] +'"', default=options['cacn'])
-
-    parser.add_option_group(sslgroup)
+            ' the visited websites). Default: "'+ opts['certdir'] +'"', default=opts['certdir'])
+    sslgroup.add_argument('--ssl-cakey', dest='cakey', metavar='NAME',
+        help='Sets the name of a CA key file\'s name. Default: "'+ opts['cakey'] +'"', default=opts['cakey'])
+    sslgroup.add_argument('--ssl-cacert', dest='cacert', metavar='NAME',
+        help='Sets the name of a CA certificate file\'s name. Default: "'+ opts['cacert'] +'"', default=opts['cacert'])
+    sslgroup.add_argument('--ssl-certkey', dest='certkey', metavar='NAME', 
+        help='Sets the name of a CA certificate key\'s file name. Default: "'+ opts['certkey'] +'"', default=opts['certkey'])
+    sslgroup.add_argument('--ssl-cacn', dest='cacn', metavar='CN', 
+        help='Sets the common name of the proxy\'s CA authority. Default: "'+ opts['cacn'] +'"', default=opts['cacn'])
 
     # Plugins handling
-    plugins = OptionGroup(parser, "Plugins handling")
-    plugins.add_option('-p', '--plugin', dest='plugin', action='append', metavar='PATH', type='string',
-                        help="Specifies plugin's path to be loaded. Every plugin's module must implement class `"\
-                        "%s' and respectively: `request_handler' and `response_handler' class methods that will get called." \
-                        "One can find example of such plugin in plugins/dummy.py. One can also specify plugin's parameters " \
-                        "by putting them after a comma.: -p plugin.py,arg1=\"val1\",arg2,arg3=val4"
-                        % options['plugin_class_name'])
+    plugins = parser.add_argument_group("Plugins handling")
+    plugins.add_argument('-p', '--plugin', dest='plugin', action='append', metavar='PATH', type=str,
+                        help="Specifies plugin's path to be loaded.")
 
-    parser.add_option_group(plugins)
+    feed_with_plugin_options(opts, parser)
 
-    (params, args) = parser.parse_args()
-    options.update(vars(params))
+    params = parser.parse_args()
+    opts.update(vars(params))
 
     if params.plugin:
         for i, opt in enumerate(params.plugin):
             decomposed = PluginsLoader.decompose_path(opt)
             if not os.path.isfile(decomposed['path']):
-                raise Exception('Specified plugin: "%s" does not exist.' % decomposed['path'])
-            else:
-                options['plugins'].add(opt)
+                opt = opt.replace('.py', '')
+                opt2 = os.path.join(os.getcwd(), 'plugins/{}.py'.format(opt))
+                if not os.path.isfile(opt2):
+                    raise Exception('Specified plugin: "%s" does not exist.' % decomposed['path'])
+                else:
+                    opt = opt2
+            
+            opts['plugins'].add(opt)
 
     #if params.debug:
-    #   options['trace'] = True
+    #   opts['trace'] = True
 
     if params.silent and params.log:
         parser.error("Options -s and -w are mutually exclusive.")
 
     if params.silent:
-        options['log'] = 'none'
+        opts['log'] = 'none'
     elif params.log and len(params.log) > 0:
         try:
-            options['log'] = open(params.log, 'w')
+            opts['log'] = open(params.log, 'w')
         except Exception as e:
             raise Exception('[ERROR] Failed to open log file for writing. Error: "%s"' % e)
     else:
-        options['log'] = sys.stdout
+        opts['log'] = sys.stdout
 
+def feed_with_plugin_options(opts, parser):
+    logger = ProxyLogger()
+    plugins = []
+    with os.scandir(os.path.join(os.getcwd(), 'plugins/')) as it:
+        for entry in it:
+            if entry.name.endswith(".py") and entry.is_file():
+                plugins.append(entry.path)
+
+    options = opts.copy()
+    print(plugins)
+    options['plugins'] = plugins
+
+    plugin_own_options = {}
+
+    pl = PluginsLoader(logger, options)
+    for name, plugin in pl.get_plugins().items():
+        logger.dbg("Fetching plugin {} options.".format(name))
+        if hasattr(plugin, 'help'):
+            plugin_options = parser.add_argument_group("Plugin '{}' options".format(plugin.get_name()))
+
+            help = getattr(plugin, 'help')
+            help(plugin_options)

@@ -3,12 +3,10 @@
 #
 # Proxy2
 #
-# 
 # TODO:
 #   - implement dynamic plugins directory scanning method in the PluginsLoader
 #   - perform severe code refactoring as for now it's kinda ugly
 #   - add more advanced logging capabilities, redesign packets contents dumping
-#
 #
 # Changelog:
 #   0.1     original fork from inaz2 repository.
@@ -17,10 +15,18 @@
 #           more elastic logging facilities, 
 #           separation of program options in form of a globally accessible dictonary, 
 #           program's help text with input parameters handling,
+#   0.3     added python3 support, enhanced https capabilities and added more versatile
+#           plugins support.
+#
+# Author:
+#   Mariusz B. / mgeeky, '16-'20
+#   <mb@binary-offensive.com>
+#
+#   (originally based on: @inaz2 implementation: https://github.com/futuresimple/proxy2)
+#   (now obsoleted)
 #
 
-VERSION = '0.2'
-
+VERSION = '0.3'
 
 import time
 import html

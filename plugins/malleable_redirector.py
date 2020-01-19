@@ -156,8 +156,8 @@ class MalleableParser:
                 matched = 'set'
                 continue
 
-            # Finds: section {
-            m = re.match(r'^\s*([\w-]+)\s+\{', line)
+            # Finds: section { as well as variant-driven: section "variant" {
+            m = re.match(r'^\s*([\w-]+)\s+(?:"[^"]+"\s+)?\{', line)
             if m:
                 self.logger.dbg('Extracted section: [{}] '.format(m.group(1)))
                 depth += 1

@@ -6,19 +6,6 @@ from IProxyPlugin import IProxyPlugin
 # a proxy2 plugin to be loaded correctly.
 
 class ProxyPlugin(IProxyPlugin):
-
-    #
-    # `logger' stands for logging object instance, `params' will be 
-    # a dictonary of input paramerers for the script. Having passed to the
-    # program a string like:
-    #
-    # $ ./proxy2 -p "plugins/my_plugin.py",argument1="test",argument2,argument3=test2
-    #
-    # This plugin shall receive:
-    #
-    # params =  {'path':'plugins/my_plugin.py', 
-    #           'argument1':'test', 'argument2':'', 'argument3':'test2'}
-    #
     def __init__(self, logger, proxyOptions):
         self.logger = logger
         self.proxyOptions = proxyOptions

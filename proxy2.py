@@ -41,15 +41,17 @@ from pluginsloader import PluginsLoader
 from sslintercept import SSLInterception
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from io import StringIO
+import plugins.IProxyPlugin
+from io import StringIO, BytesIO
 from html.parser import HTMLParser
 
 
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # Global options dictonary, that will get modified after parsing 
 # program arguments. Below state represents default values.
 options = {
-    'hostname': '0.0.0.0',
+    'hostname': 'http://0.0.0.0',
     'port': [8080, ],
     'debug': False,                  # Print's out debuging informations
     'verbose': True,
@@ -71,11 +73,10 @@ options = {
 logger = None
 
 # For holding loaded plugins' instances
-plugins = None
+pluginsloaded = None
 
 # SSL Interception setup object
 sslintercept = None
-
 
 # Asynchronously serving HTTP server class.
 class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
@@ -95,23 +96,28 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
-    plugins = {}
     lock = threading.Lock()
 
     def __init__(self, *args, **kwargs):
-        global plugins
+        global pluginsloaded
 
         self.tls = threading.local()
         self.tls.conns = {}
         self.options = options
-        self.plugins = plugins.get_plugins()
+        self.plugins = pluginsloaded.get_plugins()
+
+        for name, plugin in self.plugins.items():
+            plugin.logger = logger
 
         try:
             BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
         except Exception as e:
-            logger.dbg('Failure along __init__ of BaseHTTPRequestHandler: {}'.format(str(e)))
-            if options['debug']:
-                raise
+            if 'Connection reset by peer' in str(e):
+                logger.dbg('Connection reset by peer.')
+            else:
+                logger.dbg('Failure along __init__ of BaseHTTPRequestHandler: {}'.format(str(e)))
+                if options['debug']:
+                    raise
 
     def log_error(self, format, *args):
 
@@ -199,56 +205,105 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         content_length = int(req.headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
 
-        if req.path[0] == '/':
-            if isinstance(self.connection, ssl.SSLSocket):
-                req.path = "https://%s%s" % (req.headers['Host'], req.path)
-            else:
-                req.path = "http://%s%s" % (req.headers['Host'], req.path)
+        req_body_modified = ""
+        dont_fetch_response = False
+        res = None
+        res_body_plain = None
+        content_encoding = 'identity'
+        inbound_origin = req.headers['Host']
+        outbound_origin = inbound_origin
 
-
-        if options['trace'] or options['debug']:
-            (logger.dbg if self.options['trace'] else logger.info)('Request: "%s"' % req.path)
-
-        req_body_modified = self.request_handler(req, req_body)
-        if req_body_modified is not None:
-            req_body = req_body_modified
-            req.headers['Content-length'] = str(len(req_body))
-
-        u = urlparse(req.path)
-        scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        logger.info('[REQUEST] {} {}'.format(self.command, req.path), color=ProxyLogger.colors_map['green'])
+        with self.lock:
+            self.save_handler(req, req_body, None, None)
 
         try:
-            assert scheme in ('http', 'https')
-            if netloc:
-                req.headers['Host'] = netloc
-            req_headers = self.filter_headers(req.headers)
+            req_body_modified = self.request_handler(req, req_body)
+            if 'IProxyPlugin.DropConnectionException' in str(type(req_body_modified)) or \
+                'IProxyPlugin.DontFetchResponseException' in str(type(req_body_modified)):
+                raise req_body_modified
 
-            origin = (scheme, netloc)
-            if not origin in self.tls.conns:
-                if scheme == 'https':
-                    self.tls.conns[origin] = http.client.HTTPSConnection(netloc, timeout=self.options['timeout'])
-                else:
-                    self.tls.conns[origin] = http.client.HTTPConnection(netloc, timeout=self.options['timeout'])
-            conn = self.tls.conns[origin]
+            elif req_body_modified is not None:
+                req_body = req_body_modified
+                req.headers['Content-length'] = str(len(req_body))
 
-            logger.dbg('Final request headers: ({})'.format(dict(req_headers)))
-            conn.request(self.command, path, req_body, dict(req_headers))
-            res = conn.getresponse()
-            res_body = res.read()
+            parsed = urlparse(req.path)
+            if parsed.netloc != inbound_origin:
+                logger.info('Plugin redirected request from [{}] to [{}]'.format(inbound_origin, parsed.netloc))
+                outbound_origin = parsed.netloc
+                req.path = (parsed.path + '?' + parsed.query if parsed.query else parsed.path)
+
         except Exception as e:
-            if origin in self.tls.conns:
-                del self.tls.conns[origin]
-            logger.err("Could not proxy request: ({})".format(str(e)))
-            raise
-            self.send_error(502)
-            return
+            if 'DropConnectionException' in str(e):
+                if origin in self.tls.conns:
+                    del self.tls.conns[origin]
+                logger.err("Plugin demanded to drop the request: ({})".format(str(e)))
+                return
 
-        version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
-        setattr(res, 'headers', res.msg)
-        setattr(res, 'response_version', version_table[res.version])
+            elif 'DontFetchResponseException' in str(e):
+                dont_fetch_response = True
+                res_body_plain = 'DontFetchResponseException'
+                class Response(object):
+                    pass
+                res = Response()
 
-        content_encoding = res.headers.get('Content-Encoding', 'identity')
-        res_body_plain = self.decode_content_body(res_body, content_encoding)
+            else:
+                logger.err('Exception catched in request_handler: {}'.format(str(e)))
+
+        req_path_full = ''
+        if req.path[0] == '/':
+            if isinstance(self.connection, ssl.SSLSocket):
+                req_path_full = "https://%s%s" % (req.headers['Host'], req.path)
+            else:
+                req_path_full = "http://%s%s" % (req.headers['Host'], req.path)
+
+        if not req_path_full: req_path_full = req.path
+        u = urlparse(req_path_full)
+        scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        origin = (scheme, inbound_origin)
+
+        if not dont_fetch_response:
+            try:
+                assert scheme in ('http', 'https')
+                #if netloc:
+                #    req.headers['Host'] = netloc
+                req_headers = self.filter_headers(req.headers)
+
+                if not origin in self.tls.conns:
+                    logger.dbg('Connecting with {}'.format(outbound_origin))
+                    if scheme == 'https':
+                        self.tls.conns[origin] = http.client.HTTPSConnection(outbound_origin, timeout=self.options['timeout'])
+                    else:
+                        self.tls.conns[origin] = http.client.HTTPConnection(outbound_origin, timeout=self.options['timeout'])
+                conn = self.tls.conns[origin]
+
+                if req_body == None: req_body = ''
+                else: req_body = req_body.decode()
+
+                request = '{} {} {}\r\n{}\r\n{}'.format(
+                    self.command, path, 'HTTP/1.1', req_headers, req_body
+                )
+
+                logger.dbg('Reverse-proxy fetch request from [{}]:\n\n{}'.format(outbound_origin, request))
+                conn.request(self.command, path.strip(), req_body.strip(), dict(req_headers))
+                res = conn.getresponse()
+                res_body = res.read()
+                conn.close()
+
+            except Exception as e:
+                if origin in self.tls.conns:
+                    del self.tls.conns[origin]
+                logger.err("Could not proxy request: ({})".format(str(e)))
+                raise
+                self.send_error(502)
+                return
+
+            version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
+            setattr(res, 'headers', res.msg)
+            setattr(res, 'response_version', version_table[res.version])
+
+            content_encoding = res.headers.get('Content-Encoding', 'identity')
+            res_body_plain = self.decode_content_body(res_body, content_encoding)
 
         res_body_modified = self.response_handler(req, req_body, res, res_body_plain)
         if res_body_modified is not None:
@@ -256,8 +311,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             res_body = self.encode_content_body(res_body_plain, content_encoding)
             res.headers['Content-Length'] = str(len(res_body))
 
+        logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
+            
         res_headers = self.filter_headers(res.headers)
-
         o = "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
         self.wfile.write(o.encode())
         for k, v in res_headers.items():
@@ -267,6 +323,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
         except: 
             self.wfile.write(b'\r\n')
+
         self.wfile.write(res_body)
         self.wfile.flush()
 
@@ -286,17 +343,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
         hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
         for k in hop_by_hop:
-            del headers[k]
+            if k in headers.keys():
+                del headers[k]
         return headers
 
     def encode_content_body(self, text, encoding):
         if encoding == 'identity':
             data = text
         elif encoding in ('gzip', 'x-gzip'):
-            io = StringIO()
-            with gzip.GzipFile(fileobj=io, mode='wb') as f:
+            _io = StringIO()
+            with gzip.GzipFile(fileobj=_io, mode='wb') as f:
                 f.write(text)
-            data = io.getvalue()
+            data = _io.getvalue()
         elif encoding == 'deflate':
             data = zlib.compress(text)
         else:
@@ -307,8 +365,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if encoding == 'identity':
             text = data
         elif encoding in ('gzip', 'x-gzip'):
-            io = StringIO(data)
-            with gzip.GzipFile(fileobj=io) as f:
+            _io = BytesIO(data)
+            with gzip.GzipFile(fileobj=_io) as f:
                 text = f.read()
         elif encoding == 'deflate':
             try:
@@ -345,9 +403,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             return
 
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
-        res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, res.headers)
+        if res is not None:
+            reshdrs = res.headers
+            if type(reshdrs) == dict:
+                reshdrs = ''
+                for k, v in res.headers.items():
+                    reshdrs += '{}: {}\n'.format(k, v)
 
-        logger.trace(req_header_text, color=ProxyLogger.colors_map['yellow'])
+            res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, reshdrs)
+
+        logger.trace("==== REQUEST ====\n%s" % req_header_text, color=ProxyLogger.colors_map['yellow'])
 
         u = urlparse(req.path)
         if u.query:
@@ -357,7 +422,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         cookie = req.headers.get('Cookie', '')
         if cookie:
             cookie = _parse_qsl(re.sub(r';\s*', '&', cookie))
-            logger.trace("==== COOKIE ====\n%s\n" % cookie, color=ProxyLogger.colors_map['green'])
+            logger.trace("==== COOKIES ====\n%s\n" % cookie, color=ProxyLogger.colors_map['green'])
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
@@ -385,17 +450,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text, color=ProxyLogger.colors_map['white'])
+                logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text.strip(), color=ProxyLogger.colors_map['white'])
 
-        logger.trace(res_header_text, color=ProxyLogger.colors_map['cyan'])
+        if res is not None:
+            logger.trace("\n==== RESPONSE ====\n%s" % res_header_text, color=ProxyLogger.colors_map['cyan'])
 
-        cookies = res.headers.get('Set-Cookie')
-        if cookies:
-            cookies = '\n'.join(cookies)
-            logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
+            cookies = res.headers.get('Set-Cookie')
+            if cookies:
+                cookies = '\n'.join(cookies)
+                logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
 
         if res_body is not None:
-            res_body_text = None
+            res_body_text = res_body
             content_type = res.headers.get('Content-Type', '')
 
             if content_type.startswith('application/json'):
@@ -417,13 +483,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 res_body_text = res_body
 
             if res_body_text:
-                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text, color=ProxyLogger.colors_map['green'])
+                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text.decode(), color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
         for plugin_name in self.plugins:
             instance = self.plugins[plugin_name]
-            if not hasattr(instance, 'request_handler'):
-                logger.dbg('Plugin %s does not implement `request_handler`' % plugin_name)
             try:
                 handler = getattr(instance, 'request_handler')
                 logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
@@ -446,8 +510,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         for plugin_name in self.plugins:
             instance = self.plugins[plugin_name]
-            if not hasattr(instance, 'response_handler'):
-                logger.dbg('Plugin %s does not implement `response_handler`' % plugin_name)
             try:
                 handler = getattr(instance, 'response_handler')
                 logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
@@ -456,6 +518,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if altered:
                     logger.dbg('Plugin has altered the response.')
             except AttributeError as e:
+                raise
                 if 'object has no attribute' in str(e):
                     logger.dbg('Plugin "{}" does not implement `response_handler\''.format(plugin_name))
                 else:
@@ -471,18 +534,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)
 
-
 def init():
     global options
-    global plugins
+    global pluginsloaded
     global logger
     global sslintercept
 
     optionsparser.parse_options(options, VERSION)
     logger = ProxyLogger(options)
-    plugins = PluginsLoader(logger, options)
+    pluginsloaded = PluginsLoader(logger, options)
     sslintercept = SSLInterception(logger, options)
-
 
 def cleanup():
     global options
@@ -495,14 +556,50 @@ def cleanup():
     if sslintercept:
         sslintercept.cleanup()
 
-def serve_proxy(port):
+def serve_proxy(port, _ssl = False):
     ProxyRequestHandler.protocol_version = "HTTP/1.1"
-    server_address = (options['hostname'], port)
+    scheme = None
+    hostname = None
+
+    if options['hostname'].startswith('http') and '://' in options['hostname']:
+        colon = options['hostname'].find(':')
+        scheme = options['hostname'][:colon].lower()
+        if scheme == 'https' and not _ssl:
+            logger.fatal('You can\'t specify different schemes in bind address (-H) and on the port at the same time! Pick one place for that.\nSTOPPING THIS SERVER.')
+
+        hostname = options['hostname'][colon + 3:].replace('/', '').lower()
+    else:
+        hostname = options['hostname']
+
+    if _ssl: 
+        scheme = 'https'
+
+    if scheme == None: scheme = 'http'
+
+    server_address = (hostname, port)
     httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
 
     sa = httpd.socket.getsockname()
     s = sa[0] if not sa[0] else '127.0.0.1'
-    logger.info("Serving HTTP Proxy on: " + s + ", port: " + str(sa[1]) + "...")
+    logger.info("Serving " + scheme + " proxy on: " + s + ", port: " + str(sa[1]) + "...", 
+        color=ProxyLogger.colors_map['yellow'])
+
+    if scheme == 'https':
+        certpath = "%s/%s.crt" % (options['certdir'].rstrip('/'), hostname)
+        if not os.path.isfile(certpath):
+            logger.dbg('Generating valid SSL certificate...')
+            epoch = "%d" % (time.time() * 1000)
+            p1 = Popen(["openssl", "req", "-new", "-key", options['certkey'], "-subj", "/CN=%s" % hostname], stdout=PIPE)
+            p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", options['cacert'], "-CAkey", options['cakey'], "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
+            p2.communicate()
+        else:
+            logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+
+        context = ssl._create_unverified_context()
+        context.load_cert_chain(certfile=certpath, keyfile=options['certkey'])
+        context.check_hostname=False
+        context.verify_mode=ssl.CERT_NONE
+        httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
 
     httpd.serve_forever()
 
@@ -511,20 +608,27 @@ def main():
         init()
 
         threads = []
+        if len(options['port']) == 0:
+            options['port'].append('8080/http')
+
         for port in options['port']:
             p = 0
+            scheme = 'http'
             try:
-                p = int(port)
+                _port = port
+                if '/http' in port:
+                    _port, scheme = port.split('/')
+                p = int(_port)
                 if p < 0 or p > 65535: raise Exception()
             except:
-                logger.error('Specified port is not a valid number in range of 1-65535!')
+                logger.error('Specified port ({}) is not a valid number in range of 1-65535!'.format(port))
                 return False
-            th = threading.Thread(target=serve_proxy, args = (p, ))
+
+            th = threading.Thread(target=serve_proxy, args = (p, scheme.lower() == 'https'))
             threads.append(th)
             th.daemon = True
             th.start()
         
-        logger.info('\nServing proxy...')
         for t in threads:
             t.join()
 

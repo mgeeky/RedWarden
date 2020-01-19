@@ -96,3 +96,7 @@ class ProxyLogger:
 
     def err(self, txt, **kwargs):
         ProxyLogger.out(txt, self.options['log'], 'error', **kwargs)
+
+    def fatal(self, txt, **kwargs):
+        ProxyLogger.out(txt, self.options['log'], 'error', **kwargs)
+        sys.exit(1)

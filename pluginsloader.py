@@ -3,17 +3,45 @@ import os
 import sys
 import inspect
 from io import StringIO
+from proxylogger import ProxyLogger
 import csv
 
 #
 # Plugin that attempts to load all of the supplied plugins from 
 # program launch options.
 class PluginsLoader:   
-    def __init__(self, logger, options):
+    class InjectedLogger(ProxyLogger):
+        def __init__(self, name, options = None):
+            self.name = name
+            super().__init__(options)
+
+        def _text(self, txt):
+            return '[{}] {}'.format(self.name, txt)
+
+        # Info shall be used as an ordinary logging facility, for every desired output.
+        def info(self, txt, forced = False, **kwargs):
+            super().info(self._text(txt), forced, **kwargs)
+
+        # Trace by default does not uses [TRACE] prefix. Shall be used
+        # for dumping packets, headers, metadata and longer technical output.
+        def trace(self, txt, **kwargs):
+            super().trace(self._text(txt), **kwargs)
+
+        def dbg(self, txt, **kwargs):
+            super().dbg(self._text(txt), **kwargs)
+
+        def err(self, txt, **kwargs):
+            super().err(self._text(txt), **kwargs)
+
+        def fatal(self, txt, **kwargs):
+            super().fatal(self._text(txt), **kwargs)
+
+    def __init__(self, logger, options, instantiate = True):
         self.options = options
         self.plugins = {}
         self.called = False
         self.logger = logger
+        self.instantiate = instantiate
         plugins_count = len(self.options['plugins'])
 
         if plugins_count > 0:
@@ -69,7 +97,7 @@ class PluginsLoader:
         plugin = decomposed['path'].strip()
         name = os.path.basename(plugin).lower().replace('.py', '')
 
-        if name in self.plugins or name == 'iproxyplugin':
+        if name in self.plugins or name in ['iproxyplugin', '__init__']:
             # Plugin already loaded.
             return
 
@@ -94,7 +122,10 @@ class PluginsLoader:
                     raise TypeError('Plugin does not inherit from IProxyPlugin.')
                 
                 # Call plugin's __init__ with the `logger' instance passed to it.
-                instance = handler(self.logger, self.options)
+                if self.instantiate:
+                    instance = handler(PluginsLoader.InjectedLogger(name), self.options)
+                else:
+                    instance = handler
                 
                 self.logger.dbg('Found class "%s".' % self.options['plugin_class_name'])
 

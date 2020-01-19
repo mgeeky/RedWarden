@@ -23,11 +23,11 @@ def parse_options(opts, version):
     parser.add_argument("-w", "--output", dest='log',
         help="Specifies output log file.", metavar="PATH", type=str)
     parser.add_argument("-H", "--hostname", dest='hostname', metavar='NAME',
-        help="Specifies proxy's binding hostname. Default: "+ opts['hostname'] +".", 
+        help="Specifies proxy's binding hostname along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening port number (123/https). Default: "+ opts['hostname'] +".", 
         type=str, default=opts['hostname'])
     parser.add_argument("-P", "--port", dest='port', metavar='NUM',
-        help="Specifies proxy's binding port number(s). Supports multiple binding ports by repeating this option: '--port 80 --port 443'. Default: "+ str(opts['port'][0]) +".", 
-        type=int, action="append")
+        help="Specifies proxy's binding port number(s). A value can be followed with either '/http' or '/https' to specify which type of server to bound on this port. Supports multiple binding ports by repeating this option: '--port 80 --port 443/https'. Default: "+ str(opts['port'][0]) +".", 
+        type=str, action="append", default = [])
     parser.add_argument("-t", "--timeout", dest='timeout', metavar='SECS',
         help="Specifies timeout for proxy's response in seconds. Default: "+ str(opts['timeout']) +".", 
         type=int, default=opts['timeout'])
@@ -38,8 +38,8 @@ def parse_options(opts, version):
 
     # SSL Interception
     sslgroup = parser.add_argument_group("SSL Interception setup")
-    sslgroup.add_argument("-S", "--no-ssl", dest='no_ssl',
-        help="Turns off SSL interception routines and falls back on relaying.", action="store_true")
+    sslgroup.add_argument("-S", "--no-ssl-mitm", dest='no_ssl',
+        help="Turns off SSL interception/MITM and falls back on straight forwarding.", action="store_true")
     sslgroup.add_argument('--ssl-certdir', dest='certdir', metavar='DIR',
         help='Sets the destination for all of the SSL-related files, including keys, certificates (self and of'\
             ' the visited websites). Default: "'+ opts['certdir'] +'"', default=opts['certdir'])
@@ -54,6 +54,7 @@ def parse_options(opts, version):
 
     # Plugins handling
     plugins = parser.add_argument_group("Plugins handling")
+    plugins.add_argument('-L', '--list-plugins', action='store_true', help='List available plugins.')
     plugins.add_argument('-p', '--plugin', dest='plugin', action='append', metavar='PATH', type=str,
                         help="Specifies plugin's path to be loaded.")
 
@@ -61,6 +62,14 @@ def parse_options(opts, version):
 
     params = parser.parse_args()
     opts.update(vars(params))
+
+    if params.list_plugins:
+        with os.scandir(os.path.join(os.getcwd(), 'plugins/')) as it:
+            for entry in it:
+                if entry.name.endswith(".py") and entry.is_file():
+                    print('[+] Plugin: {}'.format(entry.name))
+
+        sys.exit(0)
 
     if params.plugin:
         for i, opt in enumerate(params.plugin):
@@ -100,12 +109,11 @@ def feed_with_plugin_options(opts, parser):
                 plugins.append(entry.path)
 
     options = opts.copy()
-    print(plugins)
     options['plugins'] = plugins
 
     plugin_own_options = {}
 
-    pl = PluginsLoader(logger, options)
+    pl = PluginsLoader(logger, options, False)
     for name, plugin in pl.get_plugins().items():
         logger.dbg("Fetching plugin {} options.".format(name))
         if hasattr(plugin, 'help'):

@@ -3,6 +3,14 @@
 
 from abc import ABC, abstractmethod
 
+class DropConnectionException(Exception):
+	def __init__(self, txt):
+		super().__init__('DropConnectionException: ' + txt)
+
+class DontFetchResponseException(Exception):
+	def __init__(self, txt):
+		super().__init__('DontFetchResponseException: ' + txt)
+
 class IProxyPlugin(ABC):
     def __init__(self, logger, proxyOptions):
         super().__init__()

@@ -196,10 +196,25 @@ class ProxyPlugin(IProxyPlugin):
 
     @staticmethod
     def help(parser):
-        parser.add_argument('--profile', metavar='PATH', help='Path to the Malleable C2 profile file.')
-        parser.add_argument('--teamserver-url', metavar='URL', help='Address where to redirect legitimate beacon requests, a.k.a. TeamServer\'s Listener bind address (in a form of host:port)')
-        parser.add_argument('--drop-action', metavar='PATH', help="What to do with the request originating from anyone else than the beacon: redirect (HTTP 301), reset TCP connection or act as a reverse-proxy? Valid values: 'reset', 'redirect', 'proxy'. Default: redirect", default='redirect', choices = ['reset', 'redirect', 'proxy'])
-        parser.add_argument('--drop-url', metavar='URL', help='If someone who is not a beacon hits the proxy, where to redirect him (or where to proxy his request). Default: https://google.com', default = 'https://google.com')
+        parser.add_argument('--profile', 
+            metavar='PATH', 
+            help='(Required) Path to the Malleable C2 profile file.'
+        )
+        parser.add_argument('--teamserver-url', 
+            metavar='URL', 
+            help='(Required) Address where to redirect legitimate beacon requests, a.k.a. TeamServer\'s Listener bind address (in a form of host:port)'
+        )
+        parser.add_argument('--drop-action', 
+            metavar='PATH', 
+            help="What to do with the request originating from anyone else than the beacon: redirect (HTTP 301), reset TCP connection or act as a reverse-proxy? Valid values: 'reset', 'redirect', 'proxy'. Default: redirect", 
+            default='redirect', 
+            choices = ['reset', 'redirect', 'proxy']
+        )
+        parser.add_argument('--drop-url', 
+            metavar='URL', 
+            help='If someone who is not a beacon hits the proxy, where to redirect him (or where to proxy his request). Default: https://google.com', 
+            default = 'https://google.com'
+        )
 
     def request_handler(self, req, req_body):
         self.is_request = True

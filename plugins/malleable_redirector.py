@@ -312,20 +312,25 @@ class ProxyPlugin(IProxyPlugin):
 
     def drop_action(self, req, req_body, res, res_body):
         if self.proxyOptions['log_dropped'] == True:
-            if req_body == None: req_body = ''
-            else: req_body = req_body.decode()
+            req_headers = req.headers
+            if req_body != None and len(req_body) > 0:
+                req_body = '\r\n' + req_body
+            else:
+                req_body = ''
 
-            req_headers = ProxyRequestHandler.filter_headers(req.headers)
-            request = '{} {} {}\r\n{}\r\n{}'.format(
-                req.command, req.path, 'HTTP/1.1', req_headers, req_body
+            u = urlparse(req.path)
+            scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+
+            request = '{} {} {}\r\n{}{}'.format(
+                req.command, path, 'HTTP/1.1', req_headers, req_body
             )
 
-            self.logger.info('DROPPED REQUEST:\n\n{}'.format(request))
+            self.logger.err('== DROPPED INVALID C2 REQUEST ==:\n\n{}'.format(request))
 
         if self.proxyOptions['drop_action'] == 'reset':
             return DropConnectionException('Not a conformant beacon request.')
 
-        if self.proxyOptions['drop_action'] == 'redirect':
+        elif self.proxyOptions['drop_action'] == 'redirect':
             if self.is_request:
                 return DontFetchResponseException('Not a conformant beacon request.')
 
@@ -347,10 +352,13 @@ The document has moved
 
             return res_body.encode()
 
-        if self.proxyOptions['drop_action'] == 'proxy':
-            req.path = self.proxyOptions['drop_url']
+        elif self.proxyOptions['drop_action'] == 'proxy':
+            self.logger.dbg('Proxying forward...')
 
-        return req_body
+        if self.is_request: 
+            return req_body
+
+        return res_body
 
     def drop_check(self, req, req_body):
         # User-agent conformancy

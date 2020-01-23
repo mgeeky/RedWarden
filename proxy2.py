@@ -299,6 +299,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 logger.err('Exception catched in request_handler: {}'.format(str(e)))
 
         req_path_full = ''
+        if not req.path: req.path = '/'
         if req.path[0] == '/':
             if isinstance(self.connection, ssl.SSLSocket):
                 req_path_full = "https://%s%s" % (req.headers['Host'], req.path)
@@ -326,7 +327,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 conn = self.tls.conns[origin]
 
                 if req_body == None: req_body = ''
-                else: req_body = req_body.decode()
+                else: 
+                    try:
+                        req_body = req_body.decode()
+                    except AttributeError: 
+                        pass
 
                 request = '{} {} {}\r\n{}\r\n{}'.format(
                     self.command, path, 'HTTP/1.1', req_headers, req_body
@@ -336,6 +341,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 conn.request(self.command, path.strip(), req_body.strip(), dict(req_headers))
                 res = conn.getresponse()
                 res_body = res.read()
+                if type(res_body) == str: res_body = str.encode(res_body)
                 conn.close()
 
             except Exception as e:
@@ -372,6 +378,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         except: 
             self.wfile.write(b'\r\n')
 
+        if type(res_body) == str: res_body = str.encode(res_body)
         self.wfile.write(res_body)
         self.wfile.flush()
 
@@ -525,6 +532,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 except ValueError:
                     res_body_text = res_body
             elif content_type.startswith('text/html'):
+                if type(res_body) == str: res_body = str.encode(res_body)
                 m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body.decode(), re.I)
                 if m:
                     logger.trace("==== HTML TITLE ====\n%s\n" % html.unescape(m.group(1)), color=ProxyLogger.colors_map['cyan'])

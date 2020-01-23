@@ -95,6 +95,14 @@ class PluginsLoader:
         self.logger.dbg('Decomposed as: %s' % str(decomposed))
 
         plugin = decomposed['path'].strip()
+
+        if not os.path.isfile(plugin):
+            _plugin = os.path.normpath(os.path.join(os.path.dirname(__file__), 'plugins/{}'.format(plugin)))
+            if os.path.isfile(_plugin):
+                plugin = _plugin
+            elif os.path.isfile(_plugin+'.py'):
+                plugin = _plugin + '.py'
+
         name = os.path.basename(plugin).lower().replace('.py', '')
 
         if name in self.plugins or name in ['iproxyplugin', '__init__']:

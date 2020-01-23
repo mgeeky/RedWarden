@@ -102,8 +102,7 @@ def parse_options(opts, version):
     else:
         opts['log'] = sys.stdout
 
-    if opts['log']: opts['log'] = os.path.normpath(opts['log'])
-    if opts['plugin']: opts['plugin'] = os.path.normpath(opts['plugin'])
+    if opts['log'] and opts['log'] != sys.stdout: opts['log'] = os.path.normpath(opts['log'])
     if opts['cakey']: opts['cakey'] = os.path.normpath(opts['cakey'])
     if opts['certdir']: opts['certdir'] = os.path.normpath(opts['certdir'])
     if opts['certkey']: opts['certkey'] = os.path.normpath(opts['certkey'])

@@ -311,6 +311,27 @@ class ProxyPlugin(IProxyPlugin):
         return res_body
 
     def drop_action(self, req, req_body, res, res_body):
+
+        todo = ''
+        if self.proxyOptions['drop_action'] == 'reset': todo = 'DROPPING'
+        elif self.proxyOptions['drop_action'] == 'redirect': todo = 'REDIRECTING'
+        elif self.proxyOptions['drop_action'] == 'proxy': todo = 'PROXYING'
+
+        u = urlparse(req.path)
+        scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+
+        peer = req.client_address[0]
+
+        try:
+            resolved = socket.gethostbyaddr(req.client_address[0])[0]
+            peer += ' ({})'.format(resolved)
+        except:
+            pass
+
+        self.logger.err('[{} invalid request from {}] {} {}'.format(
+            todo, peer, req.command, path
+        ))
+
         if self.proxyOptions['log_dropped'] == True:
             req_headers = req.headers
             if req_body != None and len(req_body) > 0:
@@ -318,14 +339,11 @@ class ProxyPlugin(IProxyPlugin):
             else:
                 req_body = ''
 
-            u = urlparse(req.path)
-            scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
-
             request = '{} {} {}\r\n{}{}'.format(
                 req.command, path, 'HTTP/1.1', req_headers, req_body
             )
 
-            self.logger.err('== DROPPED INVALID C2 REQUEST ==:\n\n{}'.format(request))
+            self.logger.err('\n\n{}'.format(request))
 
         if self.proxyOptions['drop_action'] == 'reset':
             return DropConnectionException('Not a conformant beacon request.')

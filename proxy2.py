@@ -41,6 +41,7 @@ import optionsparser
 import traceback
 import threading
 import requests
+import urllib3
 from urllib.parse import urlparse, parse_qsl
 from subprocess import Popen, PIPE
 from proxylogger import ProxyLogger
@@ -52,7 +53,7 @@ import plugins.IProxyPlugin
 from io import StringIO, BytesIO
 from html.parser import HTMLParser
 
-
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
 
 normpath = lambda p: os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), p))
@@ -114,6 +115,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.tls.conns = {}
         self.options = options
         self.plugins = pluginsloaded.get_plugins()
+        self.server_address, self.all_server_addresses = ProxyRequestHandler.get_ip()
 
         for name, plugin in self.plugins.items():
             plugin.logger = logger
@@ -127,6 +129,30 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 logger.dbg('Failure along __init__ of BaseHTTPRequestHandler: {}'.format(str(e)))
                 if options['debug']:
                     raise
+
+    @staticmethod
+    def get_ip():
+        all_addresses = sorted([f[4][0] for f in socket.getaddrinfo(socket.gethostname(), None)] + ['127.0.0.1'])
+        if '0.0.0.0' not in options['hostname']:
+            out = urlparse(options['hostname'])
+            if len(out.netloc) > 1: return out.netloc
+            else:
+                return (out.path.replace('/', ''), all_addresses)
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            # doesn't even have to be reachable
+            s.connect(('10.255.255.255', 1))
+            IP = s.getsockname()[0]
+        except:
+            IP = '127.0.0.1'
+        finally:
+            s.close()
+        return (IP, all_addresses)
+
+
+    def version_string(self):
+        return 'nginx'
 
     def log_message(self, format, *args):
         if (self.options['verbose'] or \
@@ -151,7 +177,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def _handle_request(self):
-        return self.do_GET()
+        return self.overloaded_do_GET()
 
     def do_CONNECT(self):
         logger.dbg(str(sslintercept))
@@ -246,7 +272,15 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     break
                 other.sendall(data)
 
-    def do_GET(self):
+    def reverse_proxy_loop_detected(self, command, fetchurl, req_body):
+        logger.err('[Reverse-proxy loop detected from peer {}] {} {}'.format(
+            self.client_address[0], command, fetchurl
+        ))
+
+        self.send_error(500)
+        return
+
+    def overloaded_do_GET(self):
         if self.path == self.options['proxy_self_url']:
             logger.dbg('Sending CA certificate.')
             self.send_cacert()
@@ -332,37 +366,54 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
                 logger.dbg('Reverse-proxy fetch request from [{}]:\n\n{}'.format(outbound_origin, request))
 
+                fetchurl = req_path_full.replace(netloc, outbound_origin)
                 logger.dbg('DEBUG REQUESTS: request("{}", "{}", "{}", ...'.format(
-                    self.command, req_path_full.replace(netloc, outbound_origin), req_body.strip()
+                    self.command, fetchurl, req_body.strip()
                 ))
 
-                myreq = requests.request(
-                    method = self.command, 
-                    url = req_path_full.replace(netloc, outbound_origin), 
-                    data = req_body.strip().encode(),
-                    headers = req_headers,
-                    timeout = self.options['timeout'],
-                    allow_redirects = False,
-                    verify = False
-                )
+                ip = ''
+                try:
+                    ip = socket.gethostbyname(urlparse(fetchurl).netloc)
+                except:
+                    ip = urlparse(fetchurl).netloc
+
+                if ':' in ip:
+                    ip = ip.split(':')[0]
+
+                if ip == self.server_address or ip in self.all_server_addresses:
+                    return self.reverse_proxy_loop_detected(self.command, fetchurl, req_body)
+                else:
+                    myreq = requests.request(
+                        method = self.command, 
+                        url = fetchurl, 
+                        data = req_body.strip().encode(),
+                        headers = req_headers,
+                        timeout = self.options['timeout'],
+                        allow_redirects = False,
+                        verify = False
+                    )
 
                 class MyResponse(http.client.HTTPResponse):
                     def __init__(self, req, origreq):
                         self.status = myreq.status_code
                         self.response_version = origreq.protocol_version
-                        self.headers = myreq.headers
+                        self.headers = myreq.headers.copy()
                         self.reason = myreq.reason
-                        self.msg = myreq.headers
+                        self.msg = self.headers
 
                 res = MyResponse(myreq, self)
                 res_body = myreq.content
-                res.headers['Content-Length'] = str(len(res_body))
+                if 'Content-Length' not in res.headers.keys():
+                    res.headers['Content-Length'] = str(len(res_body))
                 myreq.close()
 
                 if type(res_body) == str: res_body = str.encode(res_body)
 
             except Exception as e:
                 logger.err("Could not proxy request: ({})".format(str(e)))
+                if 'RemoteDisconnected' in str(e):
+                    return
+                    
                 raise
                 self.send_error(502)
                 return

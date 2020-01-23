@@ -276,7 +276,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 req.headers['Content-length'] = str(len(req_body))
 
             parsed = urlparse(req.path)
-            if parsed.netloc != inbound_origin:
+            if parsed.netloc != inbound_origin and parsed.netloc != None and len(parsed.netloc) > 1:
                 logger.info('Plugin redirected request from [{}] to [{}]'.format(inbound_origin, parsed.netloc))
                 outbound_origin = parsed.netloc
                 req.path = (parsed.path + '?' + parsed.query if parsed.query else parsed.path)

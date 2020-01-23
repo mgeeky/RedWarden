@@ -40,6 +40,7 @@ import json, re
 import optionsparser
 import traceback
 import threading
+import requests
 from urllib.parse import urlparse, parse_qsl
 from subprocess import Popen, PIPE
 from proxylogger import ProxyLogger
@@ -140,7 +141,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             logger.out(txt, self.options['log'], '')
 
     def log_error(self, format, *args):
-
         # Surpress "Request timed out: timeout('timed out',)" if not in debug mode.
         if isinstance(args[0], socket.timeout) and not self.options['debug']:
             return
@@ -149,6 +149,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             return
 
         self.log_message(format, *args)
+
+    def _handle_request(self):
+        return self.do_GET()
 
     def do_CONNECT(self):
         logger.dbg(str(sslintercept))
@@ -314,18 +317,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if not dont_fetch_response:
             try:
                 assert scheme in ('http', 'https')
-                #if netloc:
-                #    req.headers['Host'] = netloc
+
                 req_headers = ProxyRequestHandler.filter_headers(req.headers)
-
-                if not origin in self.tls.conns:
-                    logger.dbg('Connecting with {}'.format(outbound_origin))
-                    if scheme == 'https':
-                        self.tls.conns[origin] = http.client.HTTPSConnection(outbound_origin, timeout=self.options['timeout'])
-                    else:
-                        self.tls.conns[origin] = http.client.HTTPConnection(outbound_origin, timeout=self.options['timeout'])
-                conn = self.tls.conns[origin]
-
                 if req_body == None: req_body = ''
                 else: 
                     try:
@@ -338,23 +331,43 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 )
 
                 logger.dbg('Reverse-proxy fetch request from [{}]:\n\n{}'.format(outbound_origin, request))
-                conn.request(self.command, path.strip(), req_body.strip(), dict(req_headers))
-                res = conn.getresponse()
-                res_body = res.read()
+
+                logger.dbg('DEBUG REQUESTS: request("{}", "{}", "{}", ...'.format(
+                    self.command, req_path_full.replace(netloc, outbound_origin), req_body.strip()
+                ))
+
+                myreq = requests.request(
+                    method = self.command, 
+                    url = req_path_full.replace(netloc, outbound_origin), 
+                    data = req_body.strip().encode(),
+                    headers = req_headers,
+                    timeout = self.options['timeout'],
+                    allow_redirects = False,
+                    verify = False
+                )
+
+                class MyResponse(http.client.HTTPResponse):
+                    def __init__(self, req, origreq):
+                        self.status = myreq.status_code
+                        self.response_version = origreq.protocol_version
+                        self.headers = myreq.headers
+                        self.reason = myreq.reason
+                        self.msg = myreq.headers
+
+                res = MyResponse(myreq, self)
+                res_body = myreq.content
+                res.headers['Content-Length'] = str(len(res_body))
+                myreq.close()
+
                 if type(res_body) == str: res_body = str.encode(res_body)
-                conn.close()
 
             except Exception as e:
-                if origin in self.tls.conns:
-                    del self.tls.conns[origin]
                 logger.err("Could not proxy request: ({})".format(str(e)))
                 raise
                 self.send_error(502)
                 return
 
-            version_table = {10: 'HTTP/1.0', 11: 'HTTP/1.1'}
             setattr(res, 'headers', res.msg)
-            setattr(res, 'response_version', version_table[res.version])
 
             content_encoding = res.headers.get('Content-Encoding', 'identity')
             res_body_plain = self.decode_content_body(res_body, content_encoding)
@@ -380,19 +393,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         if type(res_body) == str: res_body = str.encode(res_body)
         self.wfile.write(res_body)
-        self.wfile.flush()
 
         if options['trace'] and options['debug']:
             with self.lock:
                 self.save_handler(req, req_body, res, res_body_plain)
-
-    do_HEAD = do_GET
-    do_POST = do_GET
-    do_OPTIONS = do_GET
-    do_DELETE = do_GET
-    do_PUT = do_GET
-    do_TRACE = do_GET
-    do_PATCH = do_GET
 
     @staticmethod
     def filter_headers(headers):
@@ -590,6 +594,15 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)
+
+    do_HEAD = _handle_request
+    do_GET = _handle_request
+    do_POST = _handle_request
+    do_OPTIONS = _handle_request
+    do_DELETE = _handle_request
+    do_PUT = _handle_request
+    do_TRACE = _handle_request
+    do_PATCH = _handle_request
 
 def init():
     global options

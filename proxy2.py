@@ -66,10 +66,10 @@ options = {
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
     'no_ssl': False,
-    'cakey': 'ca-cert/ca.key',
-    'cacert': 'ca-cert/ca.crt',
-    'certkey': 'ca-cert/cert.key',
-    'certdir': 'certs/',
+    'cakey': os.path.normpath(os.path.join(os.getcwd(), 'ca-cert/ca.key')),
+    'cacert': os.path.normpath(os.path.join(os.getcwd(), 'ca-cert/ca.crt')),
+    'certkey': os.path.normpath(os.path.join(os.getcwd(), 'ca-cert/cert.key')),
+    'certdir': os.path.normpath(os.path.join(os.getcwd(), 'certs/')),
     'cacn': 'proxy2 CA',
     'plugins': set(),
     'plugin_class_name': 'ProxyPlugin',
@@ -125,6 +125,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if options['debug']:
                     raise
 
+    def log_message(self, format, *args):
+        if (self.options['verbose'] or \
+            self.options['debug'] or self.options['trace']) or \
+            (type(self.options['log']) == str and self.options['log'] != 'none'):
+
+            txt = "%s - - [%s] %s\n" % \
+                 (self.address_string(),
+                  self.log_date_time_string(),
+                  format%args)
+
+            logger.out(txt, self.options['log'], '')
+
     def log_error(self, format, *args):
 
         # Surpress "Request timed out: timeout('timed out',)" if not in debug mode.
@@ -143,19 +155,47 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         else:
             self.connect_relay()
 
+    @staticmethod
+    def generate_ssl_certificate(hostname):
+        certpath = os.path.normpath("%s/%s.crt" % (options['certdir'].rstrip('/'), hostname))
+        stdout = stderr = ''
+
+        if not os.path.isfile(certpath):
+            logger.dbg('Generating valid SSL certificate...')
+            epoch = "%d" % (time.time() * 1000)
+
+            # Workaround for the Windows' RANDFILE bug
+            if not 'RANDFILE' in os.environ.keys():
+                os.environ["RANDFILE"] = os.path.normpath("%s/.rnd" % (options['certdir'].rstrip('/')))
+
+            cmd = ["openssl", "req", "-new", "-key", options['certkey'], "-subj", "/CN=%s" % hostname]
+            cmd2 = ["openssl", "x509", "-req", "-days", "3650", "-CA", options['cacert'], "-CAkey", options['cakey'], "-set_serial", epoch, "-out", certpath]
+
+            p1 = Popen(cmd, stdout=PIPE, stderr=PIPE)
+            p2 = Popen(cmd2, stdin=p1.stdout, stdout=PIPE, stderr=PIPE)
+            (stdout, stderr) = p2.communicate()
+
+        else:
+            logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+
+        if not certpath or not os.path.isfile(certpath):
+            if stdout or stderr:
+                logger.err('Openssl x509 crt request failed:\n{}'.format((stdout + stderr).decode()))
+            logger.fatal('Could not create interception Certificate: "{}"'.format(certpath))
+            return ''
+
+        return certpath
+
     def connect_intercept(self):
         hostname = self.path.split(':')[0]
 
         logger.dbg('CONNECT intercepted: "%s"' % self.path)
 
         with self.lock:
-            certpath = "%s/%s.crt" % (self.options['certdir'].rstrip('/'), hostname)
-            if not os.path.isfile(certpath):
-                logger.dbg('Generating valid SSL certificate...')
-                epoch = "%d" % (time.time() * 1000)
-                p1 = Popen(["openssl", "req", "-new", "-key", self.options['certkey'], "-subj", "/CN=%s" % hostname], stdout=PIPE)
-                p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", self.options['cacert'], "-CAkey", self.options['cakey'], "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
-                p2.communicate()
+            certpath = ProxyRequestHandler.generate_ssl_certificate(hostname)
+            if not certpath:
+                self.send_response(500, 'Internal Server Error')
+                self.end_headers()
 
         self.send_response(200, 'Connection Established')
         self.end_headers()
@@ -555,9 +595,9 @@ def cleanup():
     global options
 
     # Close logging file descriptor unless it's stdout
-    if options['log'] and options['log'] not in (sys.stdout, 'none'):
-        options['log'].close()
-        options['log'] = None
+    #if options['log'] and options['log'] not in (sys.stdout, 'none'):
+    #    options['log'].close()
+    #    options['log'] = None
     
     if sslintercept:
         sslintercept.cleanup()
@@ -586,20 +626,15 @@ def serve_proxy(port, _ssl = False):
     httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
 
     sa = httpd.socket.getsockname()
-    s = sa[0] if not sa[0] else '127.0.0.1'
+    s = sa[0] if not sa[0] else options['hostname']
+
     logger.info("Serving " + scheme + " proxy on: " + s + ", port: " + str(sa[1]) + "...", 
         color=ProxyLogger.colors_map['yellow'])
 
     if scheme == 'https':
-        certpath = "%s/%s.crt" % (options['certdir'].rstrip('/'), hostname)
-        if not os.path.isfile(certpath):
-            logger.dbg('Generating valid SSL certificate...')
-            epoch = "%d" % (time.time() * 1000)
-            p1 = Popen(["openssl", "req", "-new", "-key", options['certkey'], "-subj", "/CN=%s" % hostname], stdout=PIPE)
-            p2 = Popen(["openssl", "x509", "-req", "-days", "3650", "-CA", options['cacert'], "-CAkey", options['cakey'], "-set_serial", epoch, "-out", certpath], stdin=p1.stdout, stderr=PIPE)
-            p2.communicate()
-        else:
-            logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+        certpath = ProxyRequestHandler.generate_ssl_certificate(hostname)
+        if not certpath:
+            return False
 
         context = ssl._create_unverified_context()
         context.load_cert_chain(certfile=certpath, keyfile=options['certkey'])
@@ -635,8 +670,8 @@ def main():
             th.daemon = True
             th.start()
         
-        for t in threads:
-            t.join()
+        while True:
+            time.sleep(1)
 
     except KeyboardInterrupt:
         logger.info('\nProxy serving interrupted by user.', noprefix=True)

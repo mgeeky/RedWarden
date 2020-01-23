@@ -66,8 +66,11 @@ class ProxyLogger:
         tm = str(time.strftime("%H:%M:%S", time.gmtime()))
 
         prefix = ''
+        if mode:
+            mode = '[%s] ' % mode
+            
         if not args['noprefix']:
-            prefix = ProxyLogger.with_color(ProxyLogger.colors_dict['other'], '[%s] %s: ' 
+            prefix = ProxyLogger.with_color(ProxyLogger.colors_dict['other'], '%s%s: ' 
                 % (mode.upper(), tm))
         
         nl = ''
@@ -75,20 +78,30 @@ class ProxyLogger:
             if args['newline']:
                 nl = '\n'
 
-        fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)
+        if type(fd) == str:
+            with open(fd, 'a') as f:
+                f.write(prefix + txt + nl)
+                f.flush()
+
+            sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
+            sys.stdout.flush()
+
+        else:
+            fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)
 
     # Info shall be used as an ordinary logging facility, for every desired output.
     def info(self, txt, forced = False, **kwargs):
-        if forced or (self.options['verbose'] or self.options['debug'] or self.options['trace']):
+        if forced or (self.options['verbose'] or \
+            self.options['debug'] or self.options['trace']) or \
+            (type(self.options['log']) == str and self.options['log'] != 'none'):
             ProxyLogger.out(txt, self.options['log'], 'info', **kwargs)
 
     # Trace by default does not uses [TRACE] prefix. Shall be used
     # for dumping packets, headers, metadata and longer technical output.
     def trace(self, txt, **kwargs):
-        if self.options['trace']:   
+        if self.options['trace']:
             kwargs['noprefix'] = True
             ProxyLogger.out(txt, self.options['log'], 'trace', **kwargs)
-
 
     def dbg(self, txt, **kwargs):
         if self.options['debug']:

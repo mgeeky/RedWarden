@@ -30,7 +30,7 @@ class SSLInterception:
                     self.logger.dbg("Creating directory for certificate: '%s'" % self.options['certdir'])
                     os.mkdir(self.options['certdir'])
                 except Exception as e:
-                    self.logger.err("Couldn't make directory for certificates: '%s'" % e)
+                    self.logger.fatal("Couldn't make directory for certificates: '%s'" % e)
                     return False
 
             # Step 2: Create CA key
@@ -44,7 +44,7 @@ class SSLInterception:
                     self.logger.dbg(out + error)
                     
                     if not self.options['cakey']:
-                        self.logger.err('Creating of CA key process has failed.')
+                        self.logger.fatal('Creating of CA key process has failed.')
                         return False
             else:
                 self.logger.info('Using provided CA key file: {}'.format(self.options['cakey']))
@@ -60,7 +60,7 @@ class SSLInterception:
                     self.logger.dbg(out + error)
 
                     if not self.options['cacert']:
-                        self.logger.err('Creating of CA certificate process has failed.')
+                        self.logger.fatal('Creating of CA certificate process has failed.')
                         return False
             else:
                 self.logger.info('Using provided CA certificate file: {}'.format(self.options['cacert']))
@@ -76,8 +76,8 @@ class SSLInterception:
                     (out, error) = p.communicate()
                     self.logger.dbg(out + error)
 
-                    if not self.options['certkey']:
-                        self.logger.err('Creating of Certificate key process has failed.')
+                    if not self.options['certkey'] or not os.path.isfile(self.options['certkey']):
+                        self.logger.fatal('Creating of Certificate key process has failed.')
                         return False
             else:
                 self.logger.info('Using provided Certificate key: {}'.format(self.options['certkey']))
@@ -89,13 +89,12 @@ class SSLInterception:
         self.status = _setup(self)
         return self.status
 
-
     def cleanup(self):
         if not self.status:
             return 
             
         try:
-            shutil.rmtree(self.options['certdir'])
+            #shutil.rmtree(self.options['certdir'])
             self.logger.dbg('SSL interception files cleaned up.')
         except Exception as e:
             self.logger.err("Couldn't perform SSL interception files cleaning: '%s'" % e)

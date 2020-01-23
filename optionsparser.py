@@ -42,7 +42,7 @@ def parse_options(opts, version):
         help="Turns off SSL interception/MITM and falls back on straight forwarding.", action="store_true")
     sslgroup.add_argument('--ssl-certdir', dest='certdir', metavar='DIR',
         help='Sets the destination for all of the SSL-related files, including keys, certificates (self and of'\
-            ' the visited websites). Default: "'+ opts['certdir'] +'"', default=opts['certdir'])
+            ' the visited websites). If not specified, a default value will be used to create a directory and remove it upon script termination. Default: "'+ opts['certdir'] +'"', default=opts['certdir'])
     sslgroup.add_argument('--ssl-cakey', dest='cakey', metavar='NAME',
         help='Sets the name of a CA key file\'s name. Default: "'+ opts['cakey'] +'"', default=opts['cakey'])
     sslgroup.add_argument('--ssl-cacert', dest='cacert', metavar='NAME',
@@ -64,7 +64,7 @@ def parse_options(opts, version):
     opts.update(vars(params))
 
     if params.list_plugins:
-        with os.scandir(os.path.join(os.getcwd(), 'plugins/')) as it:
+        with os.scandir(os.path.normpath(os.path.join(os.getcwd(), 'plugins/'))) as it:
             for entry in it:
                 if entry.name.endswith(".py") and entry.is_file():
                     print('[+] Plugin: {}'.format(entry.name))
@@ -76,7 +76,7 @@ def parse_options(opts, version):
             decomposed = PluginsLoader.decompose_path(opt)
             if not os.path.isfile(decomposed['path']):
                 opt = opt.replace('.py', '')
-                opt2 = os.path.join(os.getcwd(), 'plugins/{}.py'.format(opt))
+                opt2 = os.path.normpath(os.path.join(os.getcwd(), 'plugins/{}.py'.format(opt)))
                 if not os.path.isfile(opt2):
                     raise Exception('Specified plugin: "%s" does not exist.' % decomposed['path'])
                 else:
@@ -94,11 +94,19 @@ def parse_options(opts, version):
         opts['log'] = 'none'
     elif params.log and len(params.log) > 0:
         try:
-            opts['log'] = open(params.log, 'w')
+            with open(params.log, 'w') as f:
+                pass
+            opts['log'] = params.log
         except Exception as e:
             raise Exception('[ERROR] Failed to open log file for writing. Error: "%s"' % e)
     else:
         opts['log'] = sys.stdout
+
+    if opts['log']: opts['log'] = os.path.normpath(opts['log'])
+    if opts['plugin']: opts['plugin'] = os.path.normpath(opts['plugin'])
+    if opts['cakey']: opts['cakey'] = os.path.normpath(opts['cakey'])
+    if opts['certdir']: opts['certdir'] = os.path.normpath(opts['certdir'])
+    if opts['certkey']: opts['certkey'] = os.path.normpath(opts['certkey'])
 
 def feed_with_plugin_options(opts, parser):
     logger = ProxyLogger()

@@ -279,6 +279,10 @@ class ProxyPlugin(IProxyPlugin):
             help='If someone who is not a beacon hits the proxy, where to redirect him (or where to proxy his request). Default: https://google.com', 
             default = 'https://google.com'
         )
+        parser.add_argument('--log-dropped', 
+            help='Logs full dropped requests bodies.', 
+            action = 'store_true'
+        )
 
     def request_handler(self, req, req_body):
         self.is_request = True
@@ -307,6 +311,17 @@ class ProxyPlugin(IProxyPlugin):
         return res_body
 
     def drop_action(self, req, req_body, res, res_body):
+        if self.proxyOptions['log_dropped'] == True:
+            if req_body == None: req_body = ''
+            else: req_body = req_body.decode()
+
+            req_headers = ProxyRequestHandler.filter_headers(req.headers)
+            request = '{} {} {}\r\n{}\r\n{}'.format(
+                req.command, req.path, 'HTTP/1.1', req_headers, req_body
+            )
+
+            self.logger.info('DROPPED REQUEST:\n\n{}'.format(request))
+
         if self.proxyOptions['drop_action'] == 'reset':
             return DropConnectionException('Not a conformant beacon request.')
 

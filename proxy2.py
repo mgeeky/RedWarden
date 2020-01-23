@@ -54,6 +54,8 @@ from html.parser import HTMLParser
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
+normpath = lambda p: os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), p))
+
 # Global options dictonary, that will get modified after parsing 
 # program arguments. Below state represents default values.
 options = {
@@ -66,10 +68,10 @@ options = {
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
     'no_ssl': False,
-    'cakey': os.path.normpath(os.path.join(os.getcwd(), 'ca-cert/ca.key')),
-    'cacert': os.path.normpath(os.path.join(os.getcwd(), 'ca-cert/ca.crt')),
-    'certkey': os.path.normpath(os.path.join(os.getcwd(), 'ca-cert/cert.key')),
-    'certdir': os.path.normpath(os.path.join(os.getcwd(), 'certs/')),
+    'cakey':  normpath('ca-cert/ca.key'),
+    'cacert': normpath('ca-cert/ca.crt'),
+    'certkey': normpath('ca-cert/cert.key'),
+    'certdir': normpath('certs/'),
     'cacn': 'proxy2 CA',
     'plugins': set(),
     'plugin_class_name': 'ProxyPlugin',
@@ -313,7 +315,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 assert scheme in ('http', 'https')
                 #if netloc:
                 #    req.headers['Host'] = netloc
-                req_headers = self.filter_headers(req.headers)
+                req_headers = ProxyRequestHandler.filter_headers(req.headers)
 
                 if not origin in self.tls.conns:
                     logger.dbg('Connecting with {}'.format(outbound_origin))
@@ -359,7 +361,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
             
-        res_headers = self.filter_headers(res.headers)
+        res_headers = ProxyRequestHandler.filter_headers(res.headers)
         o = "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
         self.wfile.write(o.encode())
         for k, v in res_headers.items():
@@ -385,7 +387,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     do_TRACE = do_GET
     do_PATCH = do_GET
 
-    def filter_headers(self, headers):
+    @staticmethod
+    def filter_headers(headers):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
         hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
         for k in hop_by_hop:

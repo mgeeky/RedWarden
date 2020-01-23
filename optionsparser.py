@@ -64,10 +64,10 @@ def parse_options(opts, version):
     opts.update(vars(params))
 
     if params.list_plugins:
-        with os.scandir(os.path.normpath(os.path.join(os.getcwd(), 'plugins/'))) as it:
-            for entry in it:
-                if entry.name.endswith(".py") and entry.is_file():
-                    print('[+] Plugin: {}'.format(entry.name))
+        files = sorted([f for f in os.scandir(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins/'))], key = lambda f: f.name)
+        for _, entry in enumerate(files):
+            if entry.name.endswith(".py") and entry.is_file() and entry.name.lower() not in ['iproxyplugin.py', '__init__.py']:
+                print('[+] Plugin: {}'.format(entry.name))
 
         sys.exit(0)
 
@@ -76,7 +76,7 @@ def parse_options(opts, version):
             decomposed = PluginsLoader.decompose_path(opt)
             if not os.path.isfile(decomposed['path']):
                 opt = opt.replace('.py', '')
-                opt2 = os.path.normpath(os.path.join(os.getcwd(), 'plugins/{}.py'.format(opt)))
+                opt2 = os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins/{}.py'.format(opt)))
                 if not os.path.isfile(opt2):
                     raise Exception('Specified plugin: "%s" does not exist.' % decomposed['path'])
                 else:
@@ -111,10 +111,10 @@ def parse_options(opts, version):
 def feed_with_plugin_options(opts, parser):
     logger = ProxyLogger()
     plugins = []
-    with os.scandir(os.path.join(os.getcwd(), 'plugins/')) as it:
-        for entry in it:
-            if entry.name.endswith(".py") and entry.is_file():
-                plugins.append(entry.path)
+    files = sorted([f for f in os.scandir(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins/'))], key = lambda f: f.name)
+    for _, entry in enumerate(files):
+        if entry.name.endswith(".py") and entry.is_file() and entry.name.lower() not in ['iproxyplugin.py', '__init__.py']:
+            plugins.append(entry.path)
 
     options = opts.copy()
     options['plugins'] = plugins

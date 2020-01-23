@@ -17,6 +17,7 @@
 #           program's help text with input parameters handling,
 #   0.3     added python3 support, enhanced https capabilities and added more versatile
 #           plugins support.
+#   0.4     improved reverse-proxy's capabilities, added logic to avoid inifinite loops
 #
 # Author:
 #   Mariusz B. / mgeeky, '16-'20
@@ -26,7 +27,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.3'
+VERSION = '0.4'
 
 import time
 import html

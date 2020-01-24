@@ -64,11 +64,17 @@
 #
 
 import re, sys
+import os
 import socket
 import os.path
 import ipaddress
 from urllib.parse import urlparse, parse_qsl, parse_qs, urlsplit
 from IProxyPlugin import *
+
+
+
+
+
 
 
 MALLEABLE_BANNED_IPS = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'malleable_banned_ips.txt')
@@ -225,75 +231,78 @@ class ProxyPlugin(IProxyPlugin):
 
         logger.info('Loaded {} blacklisted CIDRs.'.format(len(self.banned_ips)))
 
-        if not proxyOptions['profile']:
-            logger.fatal('Malleable C2 profile path must be specified!')
-
-        self.malleable = MalleableParser(logger)
-        if not self.malleable.parse(proxyOptions['profile']):
-            logger.fatal('Could not parse specified Malleable C2 profile!')
-
-        if not proxyOptions['drop_url']:
-            logger.fatal('Drop URL must be specified!')
-
-        if not proxyOptions['teamserver_url']:
-            logger.fatal('Teamserver URL must be specified!')
-
-        try:
-            u = urlparse(proxyOptions['teamserver_url'])
-            scheme, _host = u.scheme, u.netloc
-            if _host:
-                host, _port = _host.split(':')
-            else:
-                host, _port = proxyOptions['teamserver_url'].split(':')
-            port = int(_port)
-            if port < 1 or port > 65535: raise Exception()
-        except Exception as e:
-            raise
-            logger.fatal('Teamserver\'s URL does not follow <[https?://]host:port> scheme! {}'.format(str(e)))
-
-        if (not proxyOptions['drop_action']) or (proxyOptions['drop_action'] not in ['redirect', 'reset', 'proxy']):
-            logger.fatal('Drop action must be specified as either "reset", redirect" or "proxy"!')
 
     @staticmethod
     def get_name():
         return 'malleable_redirector'
 
-    @staticmethod
-    def help(parser):
-        parser.add_argument('--profile', 
-            metavar='PATH', 
-            help='(Required) Path to the Malleable C2 profile file.'
-        )
-        parser.add_argument('--teamserver-url', 
-            metavar='URL', 
-            help='(Required) Address where to redirect legitimate beacon requests, a.k.a. TeamServer\'s Listener bind address (in a form of host:port)'
-        )
-        parser.add_argument('--drop-action', 
-            metavar='PATH', 
-            help="What to do with the request originating from anyone else than the beacon: redirect (HTTP 301), reset TCP connection or act as a reverse-proxy? Valid values: 'reset', 'redirect', 'proxy'. Default: redirect", 
-            default='redirect', 
-            choices = ['reset', 'redirect', 'proxy']
-        )
-        parser.add_argument('--drop-url', 
-            metavar='URL', 
-            help='If someone who is not a beacon hits the proxy, where to redirect him (or where to proxy his request). Default: https://google.com', 
-            default = 'https://google.com'
-        )
-        parser.add_argument('--log-dropped', 
-            help='Logs full dropped requests bodies.', 
-            action = 'store_true'
-        )
+    def help(self, parser):
+        if parser != None:
+            parser.add_argument('--profile', 
+                metavar='PATH', 
+                help='(Required) Path to the Malleable C2 profile file.'
+            )
+            parser.add_argument('--teamserver-url', 
+                metavar='URL', 
+                help='(Required) Address where to redirect legitimate beacon requests, a.k.a. TeamServer\'s Listener bind address (in a form of host:port)'
+            )
+            parser.add_argument('--drop-action', 
+                metavar='PATH', 
+                help="What to do with the request originating from anyone else than the beacon: redirect (HTTP 301), reset TCP connection or act as a reverse-proxy? Valid values: 'reset', 'redirect', 'proxy'. Default: redirect", 
+                default='redirect', 
+                choices = ['reset', 'redirect', 'proxy']
+            )
+            parser.add_argument('--action-url', 
+                metavar='URL', 
+                help='If someone who is not a beacon hits the proxy, where to redirect him/where to proxy his requests. Default: https://google.com', 
+                default = 'https://google.com'
+            )
+            parser.add_argument('--log-dropped', 
+                help='Logs full dropped requests bodies.', 
+                action = 'store_true'
+            )
 
-    def request_handler(self, req, req_body):
-        self.is_request = True
-        if self.drop_check(req, req_body):
-            return self.drop_action(req, req_body, None, None)
+        else:
+            if not self.proxyOptions['profile']:
+                self.logger.fatal('Malleable C2 profile path must be specified!')
 
+            self.malleable = MalleableParser(self.logger)
+            if not self.malleable.parse(self.proxyOptions['profile']):
+                self.logger.fatal('Could not parse specified Malleable C2 profile!')
+
+            if not self.proxyOptions['action_url']:
+                self.logger.fatal('Drop URL must be specified!')
+
+            if not self.proxyOptions['teamserver_url']:
+                self.logger.fatal('Teamserver URL must be specified!')
+
+            try:
+                u = urlparse(self.proxyOptions['teamserver_url'])
+                scheme, _host = u.scheme, u.netloc
+                if _host:
+                    host, _port = _host.split(':')
+                else:
+                    host, _port = self.proxyOptions['teamserver_url'].split(':')
+                port = int(_port)
+                if port < 1 or port > 65535: raise Exception()
+            except Exception as e:
+                raise
+                self.logger.fatal('Teamserver\'s URL does not follow <[https?://]host:port> scheme! {}'.format(str(e)))
+
+            if (not self.proxyOptions['drop_action']) or (self.proxyOptions['drop_action'] not in ['redirect', 'reset', 'proxy']):
+                self.logger.fatal('Drop action must be specified as either "reset", redirect" or "proxy"!')
+            
+            if self.proxyOptions['drop_action'] == 'proxy':
+                if self.proxyOptions['action_url'] == '':
+                    self.logger.fatal('Drop URL must be specified for proxy action - pointing from which host to fetch responses!')
+                else:
+                    self.logger.info('Will proxy requests from: {}'.format(self.proxyOptions['action_url']), color=self.logger.colors_map['cyan'])
+
+    def redirect(self, req, target):
         # Passing the request forward.
         u = urlparse(req.path)
         scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
 
-        target = self.proxyOptions['teamserver_url']
         if not target.startswith('http'):
             target = 'https://' + target
 
@@ -302,6 +311,16 @@ class ProxyPlugin(IProxyPlugin):
         req.path = '{}://{}{}'.format(scheme2, netloc2, (u.path + '?' + u.query if u.query else u.path))
 
         self.logger.dbg('Redirecting to "{}"'.format(req.path))
+        return None
+
+    def request_handler(self, req, req_body):
+        self.is_request = True
+        if self.drop_check(req, req_body):
+            if self.proxyOptions['drop_action'] == 'proxy' and self.proxyOptions['action_url']:
+                return self.redirect(req, self.proxyOptions['action_url'])  
+            return self.drop_action(req, req_body, None, None)
+
+        return self.redirect(req, self.proxyOptions['teamserver_url'])
 
     def response_handler(self, req, req_body, res, res_body):
         self.is_request = False
@@ -360,11 +379,11 @@ class ProxyPlugin(IProxyPlugin):
 <H1>301 Moved</H1>
 The document has moved
 <A HREF="{}">here</A>.
-</BODY></HTML>'''.format(self.proxyOptions['drop_url'])
+</BODY></HTML>'''.format(self.proxyOptions['action_url'])
 
             res.headers = {
                 'Server' : 'nginx',
-                'Location': self.proxyOptions['drop_url'],
+                'Location': self.proxyOptions['action_url'],
                 'Content-Type':'text/html; charset=UTF-8',
             }
 

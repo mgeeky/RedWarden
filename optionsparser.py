@@ -20,6 +20,8 @@ def parse_options(opts, version):
         help="Displays debugging informations (implies verbose output).", action="store_true")
     parser.add_argument("-s", "--silent", dest='silent',
         help="Surpresses all of the output logging.", action="store_true")
+    parser.add_argument("-N", "--no-proxy", dest='no_proxy',
+        help="Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.", action="store_true")
     parser.add_argument("-w", "--output", dest='log',
         help="Specifies output log file.", metavar="PATH", type=str)
     parser.add_argument("-H", "--hostname", dest='hostname', metavar='NAME',
@@ -117,14 +119,14 @@ def feed_with_plugin_options(opts, parser):
 
     options = opts.copy()
     options['plugins'] = plugins
+    options['verbose'] = True
+    options['debug'] = False
 
     plugin_own_options = {}
 
-    pl = PluginsLoader(logger, options, False)
+    pl = PluginsLoader(logger, options)
     for name, plugin in pl.get_plugins().items():
         logger.dbg("Fetching plugin {} options.".format(name))
         if hasattr(plugin, 'help'):
             plugin_options = parser.add_argument_group("Plugin '{}' options".format(plugin.get_name()))
-
-            help = getattr(plugin, 'help')
-            help(plugin_options)
+            plugin.help(plugin_options)

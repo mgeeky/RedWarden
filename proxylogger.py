@@ -3,7 +3,7 @@
 # To be used as a default proxy logging facility.
 
 import time
-import sys
+import sys, os
 
 
 class ProxyLogger:
@@ -35,7 +35,7 @@ class ProxyLogger:
 
     def __init__(self, options = None):
         if options != None:
-            self.options = options
+            self.options.update(options)
 
     @staticmethod
     def with_color(c, s):
@@ -112,4 +112,4 @@ class ProxyLogger:
 
     def fatal(self, txt, **kwargs):
         ProxyLogger.out(txt, self.options['log'], 'error', **kwargs)
-        sys.exit(1)
+        os._exit(1)

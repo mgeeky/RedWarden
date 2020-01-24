@@ -15,9 +15,9 @@ class ProxyPlugin(IProxyPlugin):
     def get_name():
         return 'dummy'
 
-    @staticmethod
-    def help(parser):
-        parser.add_argument('--hello', metavar = 'TEXT', help = 'Prints hello message')
+    def help(self, parser):
+        if parser:
+            parser.add_argument('--hello', metavar = 'TEXT', help = 'Prints hello message')
 
     def request_handler(self, req, req_body):
         self.logger.info('hello world from request_handler! Message: "%s", Req: "%s"' % (self.proxyOptions['hello'], req.path))

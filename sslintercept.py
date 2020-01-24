@@ -94,7 +94,7 @@ class SSLInterception:
             return 
             
         try:
-            #shutil.rmtree(self.options['certdir'])
+            shutil.rmtree(self.options['certdir'])
             self.logger.dbg('SSL interception files cleaned up.')
         except Exception as e:
             self.logger.err("Couldn't perform SSL interception files cleaning: '%s'" % e)

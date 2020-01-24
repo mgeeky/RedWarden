@@ -17,8 +17,7 @@ class ProxyPlugin(IProxyPlugin):
     def get_name():
         return 'sslstrip'
 
-    @staticmethod
-    def help(parser):
+    def help(self, parser):
         pass
 
     def request_handler(self, req, req_body):

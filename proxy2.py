@@ -71,6 +71,7 @@ options = {
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 5,
     'no_ssl': False,
+    'no_proxy': False,
     'cakey':  normpath('ca-cert/ca.key'),
     'cacert': normpath('ca-cert/ca.crt'),
     'certkey': normpath('ca-cert/cert.key'),
@@ -181,6 +182,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return self.overloaded_do_GET()
 
     def do_CONNECT(self):
+        if options['no_proxy']: return
         logger.dbg(str(sslintercept))
         if sslintercept.status:
             self.connect_intercept()
@@ -381,9 +383,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if ':' in ip:
                     ip = ip.split(':')[0]
 
-                if ip == self.server_address or ip in self.all_server_addresses:
-                    return self.reverse_proxy_loop_detected(self.command, fetchurl, req_body)
-                else:
+                #if ip == self.server_address or ip in self.all_server_addresses:
+                #    return self.reverse_proxy_loop_detected(self.command, fetchurl, req_body)
+                #else:
+                if True:
                     myreq = requests.request(
                         method = self.command, 
                         url = fetchurl, 
@@ -435,6 +438,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         res_headers = ProxyRequestHandler.filter_headers(res.headers)
         o = "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
         self.wfile.write(o.encode())
+
+        if 'Accept-Encoding' in req.headers.keys():
+            res_body = self.encode_content_body(res_body, req.headers['Accept-Encoding'].split(' ')[0].replace(',',''))
+            res_headers['Content-Length'] = str(len(res_body))
+
         for k, v in res_headers.items():
             line = '{}: {}\r\n'.format(k, v)
             self.wfile.write(line.encode())
@@ -463,7 +471,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if encoding == 'identity':
             data = text
         elif encoding in ('gzip', 'x-gzip'):
-            _io = StringIO()
+            _io = BytesIO()
             with gzip.GzipFile(fileobj=_io, mode='wb') as f:
                 f.write(text)
             data = _io.getvalue()
@@ -477,9 +485,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if encoding == 'identity':
             text = data
         elif encoding in ('gzip', 'x-gzip'):
-            _io = BytesIO(data)
-            with gzip.GzipFile(fileobj=_io) as f:
-                text = f.read()
+            try:
+                _io = BytesIO(data)
+                with gzip.GzipFile(fileobj=_io) as f:
+                    text = f.read()
+            except:
+                return data
         elif encoding == 'deflate':
             try:
                 text = zlib.decompress(data)
@@ -666,6 +677,10 @@ def init():
     logger = ProxyLogger(options)
     pluginsloaded = PluginsLoader(logger, options)
     sslintercept = SSLInterception(logger, options)
+
+    for name, plugin in pluginsloaded.get_plugins().items():
+        plugin.logger = logger
+        plugin.help(None)
 
 def cleanup():
     global options

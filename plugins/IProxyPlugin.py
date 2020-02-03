@@ -3,6 +3,12 @@
 
 from abc import ABC, abstractmethod
 
+# These headers will be used by plugins to pass a message to the proxy,
+# and proxy will remove them from the output response. Keep this dict keys in lowercase.
+proxy2_metadata_headers = {
+    'override_response_content_encoding': 'X-Proxy2-Override-Response-Content-Encoding',
+}
+
 class DropConnectionException(Exception):
     def __init__(self, txt):
         super().__init__('DropConnectionException: ' + txt)

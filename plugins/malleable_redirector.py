@@ -325,8 +325,13 @@ class ProxyPlugin(IProxyPlugin):
     def response_handler(self, req, req_body, res, res_body):
         self.is_request = False
         if self.drop_check(req, req_body):
+            self.logger.dbg('Not returning body from response handler')
             return self.drop_action(req, req_body, res, res_body)
 
+        # A nifty hack to make the proxy2 believe we actually modified the response
+        # so that the proxy will not encode it to gzip (or anything specified) and just
+        # return the response as-is, in an "Content-Encoding: identity" kind of fashion
+        res.headers[proxy2_metadata_headers['override_response_content_encoding']] = 'identity'
         return res_body
 
     def drop_action(self, req, req_body, res, res_body):
@@ -459,7 +464,8 @@ The document has moved
                         break
 
             if found:
-                if self._client_request_inspect(section, req, req_body): return True
+                if self._client_request_inspect(section, req, req_body): 
+                    return True
                 if self.is_request:
                     self.logger.info('== Valid malleable {} request inbound.'.format(section))
                 break
@@ -573,4 +579,5 @@ The document has moved
                                 self.logger.err('[DROP, reason:10] Did not found append pattern: "{}"'.format(metadata['append']))
                                 return True
 
+        self.logger.dbg('Valid request. Passing it through..') 
         return False

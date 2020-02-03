@@ -306,12 +306,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             self.save_handler(req, req_body, None, None)
 
         try:
-            req_body_modified = self.request_handler(req, req_body)
+            (modified, req_body_modified) = self.request_handler(req, req_body)
             if 'IProxyPlugin.DropConnectionException' in str(type(req_body_modified)) or \
                 'IProxyPlugin.DontFetchResponseException' in str(type(req_body_modified)):
                 raise req_body_modified
 
-            elif req_body_modified is not None:
+            elif modified or req_body_modified is not None:
                 req_body = req_body_modified
                 req.headers['Content-length'] = str(len(req_body))
 
@@ -337,6 +337,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             else:
                 logger.err('Exception catched in request_handler: {}'.format(str(e)))
+                if options['debug']: 
+                    raise
 
         req_path_full = ''
         if not req.path: req.path = '/'
@@ -355,7 +357,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             try:
                 assert scheme in ('http', 'https')
 
-                req_headers = ProxyRequestHandler.filter_headers(req.headers)
+                #req_headers = ProxyRequestHandler.filter_headers(req.headers)
+                req_headers = req.headers
                 if req_body == None: req_body = ''
                 else: 
                     try:
@@ -407,18 +410,19 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
                 res = MyResponse(myreq, self)
                 res_body = myreq.content
-                if 'Content-Length' not in res.headers.keys():
+                logger.dbg("Response from reverse-proxy fetch came at {} bytes.".format(len(res_body)))
+                if 'Content-Length' not in res.headers.keys() and len(res_body) != 0:
                     res.headers['Content-Length'] = str(len(res_body))
                 myreq.close()
 
                 if type(res_body) == str: res_body = str.encode(res_body)
 
             except Exception as e:
-                logger.err("Could not proxy request: ({})".format(str(e)))
-                if 'RemoteDisconnected' in str(e):
+                logger.dbg("Could not proxy request: ({})".format(str(e)))
+                if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
                     
-                raise
+                if options['debug']: raise
                 self.send_error(502)
                 return
 
@@ -427,21 +431,35 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             content_encoding = res.headers.get('Content-Encoding', 'identity')
             res_body_plain = self.decode_content_body(res_body, content_encoding)
 
-        res_body_modified = self.response_handler(req, req_body, res, res_body_plain)
-        if res_body_modified is not None:
+        (modified, res_body_modified) = self.response_handler(req, req_body, res, res_body_plain)
+
+        if modified or res_body_modified != None: 
+            logger.dbg('Plugin has modified the response body. Using it instead')
             res_body_plain = res_body_modified
             res_body = self.encode_content_body(res_body_plain, content_encoding)
             res.headers['Content-Length'] = str(len(res_body))
 
+        if 'Accept-Encoding' in req.headers.keys():
+            enc = req.headers['Accept-Encoding'].split(' ')[0].replace(',','')
+
+            override_resp_enc = plugins.IProxyPlugin.proxy2_metadata_headers['override_response_content_encoding'] 
+            if override_resp_enc in res.headers.keys():
+                logger.dbg('Plugin asked to override response content encoding without changing header\'s value.')
+                logger.dbg('Yielding content in {} whereas header pointing at: {}'.format(
+                   res.headers[override_resp_enc], req.headers['Accept-Encoding']))
+                enc = res.headers[override_resp_enc]
+                del res.headers[override_resp_enc]
+
+            logger.dbg('Encoding response body to: {}'.format(enc))
+            res_body = self.encode_content_body(res_body, enc)
+            res.headers['Content-Length'] = str(len(res_body))
+
         logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
             
-        res_headers = ProxyRequestHandler.filter_headers(res.headers)
+        #res_headers = ProxyRequestHandler.filter_headers(res.headers)
+        res_headers = res.headers
         o = "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
         self.wfile.write(o.encode())
-
-        if 'Accept-Encoding' in req.headers.keys():
-            res_body = self.encode_content_body(res_body, req.headers['Accept-Encoding'].split(' ')[0].replace(',',''))
-            res_headers['Content-Length'] = str(len(res_body))
 
         for k, v in res_headers.items():
             line = '{}: {}\r\n'.format(k, v)
@@ -610,12 +628,25 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text.decode(), color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
+        altered = False
+        req_body_current = req_body
+
         for plugin_name in self.plugins:
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'request_handler')
                 logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
-                req_body = handler(req, req_body)
+                origheaders = dict(req.headers).copy()
+
+                req_body_current = handler(req, req_body_current)
+
+                altered = (req_body != req_body_current)
+                for k, v in origheaders.items():
+                    if origheaders[k] != req.headers[k]:
+                        logger.dbg('Plugin modified request header: "{}", from: "{}" to: "{}"'.format(
+                            k, origheaders[k], req.headers[k]))
+                        altered = True
+
             except AttributeError as e:
                 if 'object has no attribute' in str(e):
                     logger.dbg('Plugin "{}" does not implement `request_handler\''.format(plugin_name))
@@ -626,7 +657,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     if options['debug']:
                         raise
 
-        return req_body
+        return (altered, req_body)
 
     def response_handler(self, req, req_body, res, res_body):
         res_body_current = res_body
@@ -637,8 +668,21 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             try:
                 handler = getattr(instance, 'response_handler')
                 logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
+                origheaders = res.headers.copy()
+
                 res_body_current = handler(req, req_body, res, res_body_current)
+                
                 altered = (res_body_current != res_body)
+                for k, v in origheaders.items():
+                    if origheaders[k] != res.headers[k]:
+                        logger.dbg('Plugin modified response header: "{}", from: "{}" to: "{}"'.format(
+                            k, origheaders[k], res.headers[k]))
+                        altered = True
+
+                if len(origheaders.keys()) != len(res.headers.keys()):
+                    logger.dbg('Plugin modified headers.')
+                    altered = True
+
                 if altered:
                     logger.dbg('Plugin has altered the response.')
             except AttributeError as e:
@@ -651,9 +695,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         raise
 
         if not altered:
-            return None
+            return (False, res_body)
 
-        return res_body_current
+        return (True, res_body_current)
 
     def save_handler(self, req, req_body, res, res_body):
         self.print_info(req, req_body, res, res_body)

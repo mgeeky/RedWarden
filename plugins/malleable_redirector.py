@@ -380,7 +380,7 @@ class ProxyPlugin(IProxyPlugin):
         self.is_request = False
         if self.drop_check(req, req_body):
             self.logger.dbg('Not returning body from response handler')
-            return self.drop_action(req, req_body, res, res_body)
+            return self.drop_action(req, req_body, res, res_body, True)
 
         # A nifty hack to make the proxy2 believe we actually modified the response
         # so that the proxy will not encode it to gzip (or anything specified) and just
@@ -388,7 +388,7 @@ class ProxyPlugin(IProxyPlugin):
         res.headers[proxy2_metadata_headers['override_response_content_encoding']] = 'identity'
         return res_body
 
-    def drop_action(self, req, req_body, res, res_body):
+    def drop_action(self, req, req_body, res, res_body, quiet = False):
 
         todo = ''
         if self.proxyOptions['drop_action'] == 'reset': todo = 'DROPPING'
@@ -406,7 +406,7 @@ class ProxyPlugin(IProxyPlugin):
         except:
             pass
 
-        self.logger.err('[{} invalid request from {}] {} {}'.format(
+        if not quiet: self.logger.err('[{} invalid request from {}] {} {}'.format(
             todo, peer, req.command, path
         ))
 
@@ -421,7 +421,7 @@ class ProxyPlugin(IProxyPlugin):
                 req.command, path, 'HTTP/1.1', req_headers, req_body
             )
 
-            self.logger.err('\n\n{}'.format(request))
+            if not quiet: self.logger.err('\n\n{}'.format(request))
 
         if self.proxyOptions['drop_action'] == 'reset':
             return DropConnectionException('Not a conformant beacon request.')

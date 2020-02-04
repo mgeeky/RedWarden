@@ -311,7 +311,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 'IProxyPlugin.DontFetchResponseException' in str(type(req_body_modified)):
                 raise req_body_modified
 
-            elif modified or req_body_modified is not None:
+            elif modified and req_body_modified is not None:
                 req_body = req_body_modified
                 if req_body != None: req.headers['Content-length'] = str(len(req_body))
 
@@ -486,6 +486,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return headers
 
     def encode_content_body(self, text, encoding):
+        logger.dbg('Encoding content to {}'.format(encoding))
         if encoding == 'identity':
             data = text
         elif encoding in ('gzip', 'x-gzip'):
@@ -500,6 +501,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         return data
 
     def decode_content_body(self, data, encoding):
+        logger.dbg('Decoding content from {}'.format(encoding))
         if encoding == 'identity':
             text = data
         elif encoding in ('gzip', 'x-gzip'):
@@ -640,7 +642,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
                 req_body_current = handler(req, req_body_current)
 
-                altered = (req_body != req_body_current)
+                altered = (req_body != req_body_current and req_body_current is not None)
+                if req_body_current == None: req_body_current = req_body
                 for k, v in origheaders.items():
                     if origheaders[k] != req.headers[k]:
                         logger.dbg('Plugin modified request header: "{}", from: "{}" to: "{}"'.format(

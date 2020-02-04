@@ -243,8 +243,8 @@ class ProxyPlugin(IProxyPlugin):
                 help='(Required) Path to the Malleable C2 profile file.'
             )
             parser.add_argument('--teamserver-url', 
-                metavar='URL', 
-                help='(Required) Address where to redirect legitimate beacon requests, a.k.a. TeamServer\'s Listener bind address (in a form of host:port)'
+                metavar='URL', type=str, action='append', default=[],
+                help='(Required) Address where to redirect legitimate beacon requests, a.k.a. TeamServer\'s Listener bind address (in a form of [inport:][http(s)://]host:port). If proxy2 was configured to listen on more than one port, specifying "inport" will help the plugin decide to which teamserver\'s listener to redirect the request. Having proxy2 listening on only one port does not mandate to include "inport".'
             )
             parser.add_argument('--drop-action', 
                 metavar='PATH', 
@@ -277,14 +277,24 @@ class ProxyPlugin(IProxyPlugin):
                 self.logger.fatal('Teamserver URL must be specified!')
 
             try:
-                u = urlparse(self.proxyOptions['teamserver_url'])
-                scheme, _host = u.scheme, u.netloc
-                if _host:
-                    host, _port = _host.split(':')
-                else:
-                    host, _port = self.proxyOptions['teamserver_url'].split(':')
-                port = int(_port)
-                if port < 1 or port > 65535: raise Exception()
+                inports = []
+                for ts in self.proxyOptions['teamserver_url']:
+                    inport, scheme, host, port = self.interpretTeamserverUrl(ts)
+                    if inport != 0: inports.append(inport)
+
+                    o = ''
+                    if port < 1 or port > 65535: raise Exception()
+                    if inport != 0:
+                        if inport < 1 or inport > 65535: raise Exception()
+                        o = 'originating from {} '.format(inport)
+
+                    self.logger.dbg('Will pass inbound beacon traffic {}to {}{}:{}'.format(
+                        o, scheme+'://' if len(scheme) else '', host, port
+                    ))
+
+                if len(inports) != len(self.proxyOptions['teamserver_url']) and len(self.proxyOptions['teamserver_url']) > 1:
+                    self.logger.fatal('Please specify inport:host:port form of teamserver-url parameter for each listening port of proxy2')
+
             except Exception as e:
                 raise
                 self.logger.fatal('Teamserver\'s URL does not follow <[https?://]host:port> scheme! {}'.format(str(e)))
@@ -298,17 +308,61 @@ class ProxyPlugin(IProxyPlugin):
                 else:
                     self.logger.info('Will proxy requests from: {}'.format(self.proxyOptions['action_url']), color=self.logger.colors_map['cyan'])
 
-    def redirect(self, req, target):
+    def interpretTeamserverUrl(self, ts):
+        inport = 0
+        host = ''
+        scheme = ''
+        port = 0
+
+        try:
+            _ts = ts.split(':')
+            inport = int(_ts[0])
+            ts = ':'.join(_ts[1:])
+        except: pass
+         
+        u = urlparse(ts)
+        scheme, _host = u.scheme, u.netloc
+        if _host:
+            host, _port = _host.split(':')
+        else:
+            host, _port = ts.split(':')
+
+        port = int(_port)
+
+        return inport, scheme, host, port
+
+    def pickTeamserver(self, req):
+        self.logger.dbg('Peer reached the server at port: ' + str(req.server.server_port))
+        for s in self.proxyOptions['teamserver_url']:
+            u = urlparse(req.path)
+            inport, scheme, host, port = self.interpretTeamserverUrl(s)
+            if inport == req.server.server_port:
+                return s
+            elif inport == '':
+                return s
+
+        return req.path
+
+    def redirect(self, req, _target):
         # Passing the request forward.
         u = urlparse(req.path)
         scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
 
-        if not target.startswith('http'):
-            target = 'https://' + target
+        target = _target
+        if target in self.proxyOptions['teamserver_url']:
+            inport, scheme, host, port = self.interpretTeamserverUrl(target)
+            if not scheme: scheme = 'https'
 
-        w = urlparse(target)
-        scheme2, netloc2, path2 = w.scheme, w.netloc, (w.path + '?' + w.query if w.query else w.path)
-        req.path = '{}://{}{}'.format(scheme2, netloc2, (u.path + '?' + u.query if u.query else u.path))
+            w = urlparse(target)
+            scheme2, netloc2, path2 = w.scheme, w.netloc, (w.path + '?' + w.query if w.query else w.path)
+            req.path = '{}://{}:{}{}'.format(scheme, host, port, (u.path + '?' + u.query if u.query else u.path))
+        else:
+            if not target.startswith('http'):
+                target = 'https://' + target
+
+            w = urlparse(target)
+            scheme2, netloc2, path2 = w.scheme, w.netloc, (w.path + '?' + w.query if w.query else w.path)
+            req.path = '{}://{}{}'.format(scheme2, netloc2, (u.path + '?' + u.query if u.query else u.path))
 
         self.logger.dbg('Redirecting to "{}"'.format(req.path))
         return None
@@ -320,7 +374,7 @@ class ProxyPlugin(IProxyPlugin):
                 return self.redirect(req, self.proxyOptions['action_url'])  
             return self.drop_action(req, req_body, None, None)
 
-        return self.redirect(req, self.proxyOptions['teamserver_url'])
+        return self.redirect(req, self.pickTeamserver(req))
 
     def response_handler(self, req, req_body, res, res_body):
         self.is_request = False

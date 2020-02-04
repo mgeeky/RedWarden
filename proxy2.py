@@ -313,7 +313,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             elif modified or req_body_modified is not None:
                 req_body = req_body_modified
-                req.headers['Content-length'] = str(len(req_body))
+                if req_body != None: req.headers['Content-length'] = str(len(req_body))
 
             parsed = urlparse(req.path)
             if parsed.netloc != inbound_origin and parsed.netloc != None and len(parsed.netloc) > 1:
@@ -657,7 +657,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     if options['debug']:
                         raise
 
-        return (altered, req_body)
+        return (altered, req_body_current)
 
     def response_handler(self, req, req_body, res, res_body):
         res_body_current = res_body
@@ -668,7 +668,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             try:
                 handler = getattr(instance, 'response_handler')
                 logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
-                origheaders = res.headers.copy()
+                origheaders = {}
+                try:
+                    origheaders = res.headers.copy()
+                except: pass
 
                 res_body_current = handler(req, req_body, res, res_body_current)
                 
@@ -680,7 +683,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         altered = True
 
                 if len(origheaders.keys()) != len(res.headers.keys()):
-                    logger.dbg('Plugin modified headers.')
+                    logger.dbg('Plugin modified response headers.')
                     altered = True
 
                 if altered:

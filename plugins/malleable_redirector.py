@@ -413,6 +413,8 @@ class ProxyPlugin(IProxyPlugin):
         if self.proxyOptions['log_dropped'] == True:
             req_headers = req.headers
             if req_body != None and len(req_body) > 0:
+                if type(req_body) == type(b''): 
+                    req_body = req_body.decode()
                 req_body = '\r\n' + req_body
             else:
                 req_body = ''
@@ -429,6 +431,10 @@ class ProxyPlugin(IProxyPlugin):
         elif self.proxyOptions['drop_action'] == 'redirect':
             if self.is_request:
                 return DontFetchResponseException('Not a conformant beacon request.')
+
+            if res == None: 
+                self.logger.err('Response handler received a None res object.')
+                return res_body 
 
             res.status = 301
             res.response_version = 'HTTP/1.1'

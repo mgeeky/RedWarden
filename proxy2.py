@@ -496,8 +496,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             data = _io.getvalue()
         elif encoding == 'deflate':
             data = zlib.compress(text)
+        elif encoding == 'br':
+            # Brotli algorithm
+            try:
+                data = brotli.compress(text)
+            except Exception as e:
+                #raise Exception('Could not compress Brotli stream: "{}"'.format(str(e)))
+                logger.err('Could not compress Brotli stream: "{}"'.format(str(e)))
         else:
-            raise Exception("Unknown Content-Encoding: %s" % encoding)
+            #raise Exception("Unknown Content-Encoding: %s" % encoding)
+            logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
         return data
 
     def decode_content_body(self, data, encoding):
@@ -521,9 +529,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             try:
                 text = brotli.decompress(data)
             except Exception as e:
-                raise Exception('Could not decompress Brotli stream: "{}"'.format(str(e)))
+                #raise Exception('Could not decompress Brotli stream: "{}"'.format(str(e)))
+                logger.err('Could not decompress Brotli stream: "{}"'.format(str(e)))
         else:
-            raise Exception("Unknown Content-Encoding: %s" % encoding)
+            #raise Exception("Unknown Content-Encoding: %s" % encoding)
+            logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
         return text
 
     def send_cacert(self):

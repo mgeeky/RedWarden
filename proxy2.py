@@ -487,8 +487,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def encode_content_body(self, text, encoding):
         logger.dbg('Encoding content to {}'.format(encoding))
+        data = text
         if encoding == 'identity':
-            data = text
+            pass
         elif encoding in ('gzip', 'x-gzip'):
             _io = BytesIO()
             with gzip.GzipFile(fileobj=_io, mode='wb') as f:
@@ -510,8 +511,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def decode_content_body(self, data, encoding):
         logger.dbg('Decoding content from {}'.format(encoding))
+        text = data
         if encoding == 'identity':
-            text = data
+            pass
         elif encoding in ('gzip', 'x-gzip'):
             try:
                 _io = BytesIO(data)

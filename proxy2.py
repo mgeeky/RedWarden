@@ -323,8 +323,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         except Exception as e:
             if 'DropConnectionException' in str(e):
-                if origin in self.tls.conns:
-                    del self.tls.conns[origin]
+                if inbound_origin in self.tls.conns:
+                    del self.tls.conns[inbound_origin]
                 logger.err("Plugin demanded to drop the request: ({})".format(str(e)))
                 return
 

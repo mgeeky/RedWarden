@@ -110,6 +110,8 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
 class ProxyRequestHandler(BaseHTTPRequestHandler):
     lock = threading.Lock()
 
+    SUPPORTED_ENCODINGS = ('gzip', 'x-gzip', 'identity', 'deflate', 'br')
+
     def __init__(self, *args, **kwargs):
         global pluginsloaded
 
@@ -125,12 +127,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         try:
             BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
         except Exception as e:
-            if 'Connection reset by peer' in str(e):
-                logger.dbg('Connection reset by peer.')
-            else:
-                logger.dbg('Failure along __init__ of BaseHTTPRequestHandler: {}'.format(str(e)))
-                if options['debug']:
-                    raise
+           if 'Connection reset by peer' in str(e):
+               logger.dbg('Connection reset by peer.')
+           else:
+               logger.dbg('Failure along __init__ of BaseHTTPRequestHandler: {}'.format(str(e)))
+               if options['debug']:
+                   raise
 
     @staticmethod
     def get_ip():
@@ -210,7 +212,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             (stdout, stderr) = p2.communicate()
 
         else:
-            logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+            #logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+            pass
 
         if not certpath or not os.path.isfile(certpath):
             if stdout or stderr:
@@ -234,7 +237,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200, 'Connection Established')
         self.end_headers()
 
-        self.connection = ssl.wrap_socket(self.connection, keyfile=self.options['certkey'], certfile=certpath, server_side=True)
+        try:
+            self.connection = ssl.wrap_socket(
+                self.connection, 
+                keyfile=self.options['certkey'], 
+                certfile=certpath, 
+                server_side=True
+            )
+        except:
+            logger.err('Connection reset by peer: "{}"'.format(self.path))
+            self.send_error(502)
+            return
+
         self.rfile = self.connection.makefile("rb", self.rbufsize)
         self.wfile = self.connection.makefile("wb", self.wbufsize)
 
@@ -351,6 +365,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if not req_path_full: req_path_full = req.path
         u = urlparse(req_path_full)
         scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
+        assert(netloc != '')
+
         origin = (scheme, inbound_origin)
 
         if not dont_fetch_response:
@@ -363,6 +379,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 else: 
                     try:
                         req_body = req_body.decode()
+                    except UnicodeDecodeError:
+                        pass
                     except AttributeError: 
                         pass
 
@@ -417,6 +435,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
                 if type(res_body) == str: res_body = str.encode(res_body)
 
+            except requests.exceptions.ConnectionError as e:
+                logger.dbg("Could not connect with host: ({}). Exception: ({})".format(fetchurl, str(e)))
+   
+                if options['debug']: raise
+                self.send_error(502)
+                return
+
             except Exception as e:
                 logger.dbg("Could not proxy request: ({})".format(str(e)))
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
@@ -433,16 +458,21 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         (modified, res_body_modified) = self.response_handler(req, req_body, res, res_body_plain)
 
-        if modified or res_body_modified != None: 
+        if modified: 
             logger.dbg('Plugin has modified the response body. Using it instead')
             res_body_plain = res_body_modified
             res_body = self.encode_content_body(res_body_plain, content_encoding)
             res.headers['Content-Length'] = str(len(res_body))
 
+        if 'Transfer-Encoding' in res.headers.keys() and \
+            res.headers['Transfer-Encoding'] == 'chunked':
+            del res.headers['Transfer-Encoding']
+
         if 'Accept-Encoding' in req.headers.keys():
-            enc = req.headers['Accept-Encoding'].split(' ')[0].replace(',','')
+            encToUse = req.headers['Accept-Encoding'].split(' ')[0].replace(',','')
 
             override_resp_enc = plugins.IProxyPlugin.proxy2_metadata_headers['override_response_content_encoding'] 
+
             if override_resp_enc in res.headers.keys():
                 logger.dbg('Plugin asked to override response content encoding without changing header\'s value.')
                 logger.dbg('Yielding content in {} whereas header pointing at: {}'.format(
@@ -450,9 +480,25 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 enc = res.headers[override_resp_enc]
                 del res.headers[override_resp_enc]
 
-            logger.dbg('Encoding response body to: {}'.format(enc))
-            res_body = self.encode_content_body(res_body, enc)
+            else:
+                encs = [x.strip() for x in req.headers['Accept-Encoding'].split(',')]
+                if content_encoding not in encs:
+                    reencoded = False
+                    for enc in encs:
+                        if enc in ProxyRequestHandler.SUPPORTED_ENCODINGS:
+                            encToUse = encs[0]
+                            reencoded = True
+                            break
+                    if not reencoded:
+                        logger.err("Server returned response encoded in {} but client expected one of: {} - we couldn't handle any of these. The client will receive INCORRECTLY formatted response!".format(
+                                res.headers.get('Content-Encoding', 'identity'),
+                                ','.join(encs)
+                            ))
+
+            logger.dbg('Encoding response body to: {}'.format(encToUse))
+            res_body = self.encode_content_body(res_body, encToUse)
             res.headers['Content-Length'] = str(len(res_body))
+            res.headers['Content-Encoding'] = encToUse
 
         logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
             
@@ -558,9 +604,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             return
 
         req_header_text = "%s %s %s\n%s" % (req.command, req.path, req.request_version, req.headers)
+
         if res is not None:
             reshdrs = res.headers
-            if type(reshdrs) == dict:
+
+            if type(reshdrs) == dict or 'CaseInsensitiveDict' in str(type(reshdrs)):
                 reshdrs = ''
                 for k, v in res.headers.items():
                     reshdrs += '{}: {}\n'.format(k, v)
@@ -612,7 +660,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             cookies = res.headers.get('Set-Cookie')
             if cookies:
-                cookies = '\n'.join(cookies)
+                if type(cookies) == list or type(cookies) == tuple:
+                    cookies = '\n'.join(cookies)
+
                 logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
 
         if res_body is not None:
@@ -791,8 +841,8 @@ def serve_proxy(port, _ssl = False):
 
         context = ssl._create_unverified_context()
         context.load_cert_chain(certfile=certpath, keyfile=options['certkey'])
-        context.check_hostname=False
-        context.verify_mode=ssl.CERT_NONE
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
         httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
 
     httpd.serve_forever()

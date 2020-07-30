@@ -920,8 +920,8 @@ class ProxyPlugin(IProxyPlugin):
 <TITLE>301 Moved</TITLE></HEAD><BODY>
 <H1>301 Moved</H1>
 The document has moved
-<A HREF="{}">here</A>.{}
-</BODY></HTML>'''.format(self.proxyOptions['action_url'], str(self.addToResHeaders))
+<A HREF="{}">here</A>.
+</BODY></HTML>'''.format(self.proxyOptions['action_url'])
 
             res.headers = {
                 'Server' : 'nginx',

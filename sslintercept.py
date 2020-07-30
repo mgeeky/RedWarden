@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
-import shutil
+#import shutil
+import glob
 import os
 from subprocess import Popen, PIPE
 
@@ -10,6 +11,8 @@ class SSLInterception:
         self.logger = logger
         self.options = options
         self.status = False
+
+        self.dontRemove = []
 
         if not options['no_ssl']:
             self.setup()
@@ -47,6 +50,7 @@ class SSLInterception:
                         self.logger.fatal('Creating of CA key process has failed.')
                         return False
             else:
+                self.dontRemove.append(self.options['cakey'])
                 self.logger.info('Using provided CA key file: {}'.format(self.options['cakey']))
 
             # Step 3: Create CA certificate
@@ -63,6 +67,7 @@ class SSLInterception:
                         self.logger.fatal('Creating of CA certificate process has failed.')
                         return False
             else:
+                self.dontRemove.append(self.options['cacert'])
                 self.logger.info('Using provided CA certificate file: {}'.format(self.options['cacert']))
 
             # Step 4: Create certificate key file
@@ -80,6 +85,7 @@ class SSLInterception:
                         self.logger.fatal('Creating of Certificate key process has failed.')
                         return False
             else:
+                self.dontRemove.append(self.options['certkey'])
                 self.logger.info('Using provided Certificate key: {}'.format(self.options['certkey']))
 
             self.logger.dbg('SSL interception has been setup.')
@@ -94,8 +100,22 @@ class SSLInterception:
             return 
             
         try:
-            shutil.rmtree(self.options['certdir'])
+            #shutil.rmtree(self.options['certdir'])
+
+            for i in range(len(self.dontRemove)):
+                self.dontRemove[i] = os.path.abspath(self.dontRemove[i])
+
+            for file in glob.glob(os.path.join(self.options['certdir'], '*.*')):
+                absfile = os.path.abspath(file)
+                if absfile in self.dontRemove:
+                    self.logger.dbg('SSL file not cleaned: "{}"'.format(absfile))
+                    continue
+
+                self.logger.dbg('Removing old certificate: {}'.format(absfile))
+                os.remove(absfile)
+
             self.logger.dbg('SSL interception files cleaned up.')
+
         except Exception as e:
             self.logger.err("Couldn't perform SSL interception files cleaning: '%s'" % e)
 

@@ -60,6 +60,8 @@ class ProxyLogger:
 
         if args['color']:
             col = args['color']
+            if type(col) == str and col in ProxyLogger.colors_map.keys():
+                col = ProxyLogger.colors_map[col]
         else:
             col = ProxyLogger.colors_dict.setdefault(mode, ProxyLogger.colors_map['grey'])
 

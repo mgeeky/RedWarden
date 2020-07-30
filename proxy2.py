@@ -62,7 +62,7 @@ normpath = lambda p: os.path.normpath(os.path.join(os.path.dirname(os.path.realp
 # Global options dictonary, that will get modified after parsing 
 # program arguments. Below state represents default values.
 options = {
-    'hostname': 'http://0.0.0.0',
+    'bind': 'http://0.0.0.0',
     'port': [8080, ],
     'debug': False,                  # Print's out debuging informations
     'verbose': True,
@@ -137,8 +137,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     @staticmethod
     def get_ip():
         all_addresses = sorted([f[4][0] for f in socket.getaddrinfo(socket.gethostname(), None)] + ['127.0.0.1'])
-        if '0.0.0.0' not in options['hostname']:
-            out = urlparse(options['hostname'])
+        if '0.0.0.0' not in options['bind']:
+            out = urlparse(options['bind'])
             if len(out.netloc) > 1: return out.netloc
             else:
                 return (out.path.replace('/', ''), all_addresses)
@@ -193,11 +193,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def generate_ssl_certificate(hostname):
-        certpath = os.path.normpath("%s/%s.crt" % (options['certdir'].rstrip('/'), hostname))
+        certpath = os.path.join(options['certdir'], hostname + '.crt')
         stdout = stderr = ''
 
         if not os.path.isfile(certpath):
-            logger.dbg('Generating valid SSL certificate...')
+            logger.dbg('Generating valid SSL certificate for ({})...'.format(hostname))
             epoch = "%d" % (time.time() * 1000)
 
             # Workaround for the Windows' RANDFILE bug
@@ -218,6 +218,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if not certpath or not os.path.isfile(certpath):
             if stdout or stderr:
                 logger.err('Openssl x509 crt request failed:\n{}'.format((stdout + stderr).decode()))
+
             logger.fatal('Could not create interception Certificate: "{}"'.format(certpath))
             return ''
 
@@ -225,6 +226,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
     def connect_intercept(self):
         hostname = self.path.split(':')[0]
+        certpath = ''
 
         logger.dbg('CONNECT intercepted: "%s"' % self.path)
 
@@ -255,6 +257,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         conntype = self.headers.get('Proxy-Connection', '')
         if conntype.lower() == 'close':
             self.close_connection = 1
+
         elif (conntype.lower() == 'keep-alive' and self.protocol_version >= "HTTP/1.1"):
             self.close_connection = 0
 
@@ -304,6 +307,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             return
 
         req = self
+        req.is_ssl = isinstance(self.connection, ssl.SSLSocket)
+
         content_length = int(req.headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
 
@@ -365,7 +370,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if not req_path_full: req_path_full = req.path
         u = urlparse(req_path_full)
         scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
-        assert(netloc != '')
+        
+        if netloc == '':
+            netloc = inbound_origin
 
         origin = (scheme, inbound_origin)
 
@@ -395,6 +402,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     self.command, fetchurl, req_body.strip()
                 ))
 
+                #if (ip == self.server_address or ip in self.all_server_addresses) or \
+                if (outbound_origin != '' and outbound_origin == inbound_origin):
+                    return self.reverse_proxy_loop_detected(self.command, fetchurl, req_body)
+
+                #if outbound_origin == inbound_origin:
+                #    raise Exception(f'CANNOT FETCH REQUEST from reverse-proxy as that would cause an infinite loop ({inbound_origin})=>({outbound_origin})!')
+
                 ip = ''
                 try:
                     ip = socket.gethostbyname(urlparse(fetchurl).netloc)
@@ -404,9 +418,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if ':' in ip:
                     ip = ip.split(':')[0]
 
-                #if ip == self.server_address or ip in self.all_server_addresses:
-                #    return self.reverse_proxy_loop_detected(self.command, fetchurl, req_body)
-                #else:
                 if True:
                     myreq = requests.request(
                         method = self.command, 
@@ -428,9 +439,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
                 res = MyResponse(myreq, self)
                 res_body = myreq.content
+
                 logger.dbg("Response from reverse-proxy fetch came at {} bytes.".format(len(res_body)))
+
                 if 'Content-Length' not in res.headers.keys() and len(res_body) != 0:
                     res.headers['Content-Length'] = str(len(res_body))
+
                 myreq.close()
 
                 if type(res_body) == str: res_body = str.encode(res_body)
@@ -438,8 +452,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             except requests.exceptions.ConnectionError as e:
                 logger.dbg("Could not connect with host: ({}). Exception: ({})".format(fetchurl, str(e)))
    
-                if options['debug']: raise
                 self.send_error(502)
+                #if options['debug']: raise
                 return
 
             except Exception as e:
@@ -447,8 +461,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
                     
-                if options['debug']: raise
                 self.send_error(502)
+                if options['debug']: raise
                 return
 
             setattr(res, 'headers', res.msg)
@@ -508,8 +522,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(o.encode())
 
         for k, v in res_headers.items():
+            if k in plugins.IProxyPlugin.proxy2_metadata_headers.values(): continue
+
             line = '{}: {}\r\n'.format(k, v)
             self.wfile.write(line.encode())
+
         try:
             self.end_headers()
         except: 
@@ -805,45 +822,40 @@ def cleanup():
     if sslintercept:
         sslintercept.cleanup()
 
-def serve_proxy(port, _ssl = False):
+def serve_proxy(bind, port, _ssl = False):
     ProxyRequestHandler.protocol_version = "HTTP/1.1"
     scheme = None
-    hostname = None
+    certpath = ''
 
-    if options['hostname'].startswith('http') and '://' in options['hostname']:
-        colon = options['hostname'].find(':')
-        scheme = options['hostname'][:colon].lower()
-        if scheme == 'https' and not _ssl:
-            logger.fatal('You can\'t specify different schemes in bind address (-H) and on the port at the same time! Pick one place for that.\nSTOPPING THIS SERVER.')
+    if not bind or len(bind) == 0:
+        if options['bind'].startswith('http') and '://' in options['bind']:
+            colon = options['bind'].find(':')
+            scheme = options['bind'][:colon].lower()
+            if scheme == 'https' and not _ssl:
+                logger.fatal('You can\'t specify different schemes in bind address (-B) and on the port at the same time! Pick one place for that.\nSTOPPING THIS SERVER.')
 
-        hostname = options['hostname'][colon + 3:].replace('/', '').lower()
-    else:
-        hostname = options['hostname']
+            bind = options['bind'][colon + 3:].replace('/', '').lower()
+        else:
+            bind = options['bind']
 
     if _ssl: 
         scheme = 'https'
 
     if scheme == None: scheme = 'http'
 
-    server_address = (hostname, port)
+    server_address = (bind, port)
     httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
 
-    sa = httpd.socket.getsockname()
-    s = sa[0] if not sa[0] else options['hostname']
-
-    logger.info("Serving " + scheme + " proxy on: " + s + ", port: " + str(sa[1]) + "...", 
+    logger.info("Serving proxy on: {}://{}:{} ...".format(scheme, bind, port), 
         color=ProxyLogger.colors_map['yellow'])
 
     if scheme == 'https':
-        certpath = ProxyRequestHandler.generate_ssl_certificate(hostname)
-        if not certpath:
-            return False
-
-        context = ssl._create_unverified_context()
-        context.load_cert_chain(certfile=certpath, keyfile=options['certkey'])
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+        httpd.socket = ssl.wrap_socket(
+            httpd.socket, 
+            certfile=options['cacert'], 
+            keyfile=options['cakey'], 
+            server_side=True
+        )
 
     httpd.serve_forever()
 
@@ -858,17 +870,24 @@ def main():
         for port in options['port']:
             p = 0
             scheme = 'http'
+            bind = ''
+
             try:
                 _port = port
+                if ':' in port:
+                    bind, port = _port.split(':')
+
                 if '/http' in port:
                     _port, scheme = port.split('/')
+
                 p = int(_port)
                 if p < 0 or p > 65535: raise Exception()
+
             except:
                 logger.error('Specified port ({}) is not a valid number in range of 1-65535!'.format(port))
                 return False
 
-            th = threading.Thread(target=serve_proxy, args = (p, scheme.lower() == 'https'))
+            th = threading.Thread(target=serve_proxy, args = (bind, p, scheme.lower() == 'https'))
             threads.append(th)
             th.daemon = True
             th.start()

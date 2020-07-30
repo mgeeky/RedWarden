@@ -1,15 +1,24 @@
 #!/usr/bin/python
 
+import yaml
 import os, sys
 from pluginsloader import PluginsLoader
 from proxylogger import ProxyLogger
 from argparse import ArgumentParser
 
+ProxyOptionsDefaultValues = {
+}
+
 
 def parse_options(opts, version):
+    global ProxyOptionsDefaultValues
+    ProxyOptionsDefaultValues.update(opts)
 
     usage = "Usage: %%prog [options]"
     parser = ArgumentParser(usage=usage, prog="%prog " + version)
+
+    parser.add_argument("-c", "--config", dest='config',
+        help="External configuration file. Defines values for below options, however specifying them on command line will supersed ones from file.")
 
     # General options
     parser.add_argument("-v", "--verbose", dest='verbose',
@@ -22,13 +31,13 @@ def parse_options(opts, version):
         help="Surpresses all of the output logging.", action="store_true")
     parser.add_argument("-N", "--no-proxy", dest='no_proxy',
         help="Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.", action="store_true")
-    parser.add_argument("-w", "--output", dest='log',
+    parser.add_argument("-w", "--output", dest='log', 
         help="Specifies output log file.", metavar="PATH", type=str)
-    parser.add_argument("-H", "--hostname", dest='hostname', metavar='NAME',
-        help="Specifies proxy's binding hostname along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening port number (123/https). Default: "+ opts['hostname'] +".", 
-        type=str, default=opts['hostname'])
+    parser.add_argument("-B", "--bind", dest='bind', metavar='NAME',
+        help="Specifies proxy's binding address along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening port number (123/https). Default: "+ opts['bind'] +".", 
+        type=str, default=opts['bind'])
     parser.add_argument("-P", "--port", dest='port', metavar='NUM',
-        help="Specifies proxy's binding port number(s). A value can be followed with either '/http' or '/https' to specify which type of server to bound on this port. Supports multiple binding ports by repeating this option: '--port 80 --port 443/https'. Default: "+ str(opts['port'][0]) +".", 
+        help="Specifies proxy's binding port number(s). A value can be followed with either '/http' or '/https' to specify which type of server to bound on this port. Supports multiple binding ports by repeating this option: '--port 80 --port 443/https'. The port specification may also override globally used --bind address by preceding it with address and colon (--port 127.0.0.1:80/http). Default: "+ str(opts['port'][0]) +".", 
         type=str, action="append", default = [])
     parser.add_argument("-t", "--timeout", dest='timeout', metavar='SECS',
         help="Specifies timeout for proxy's response in seconds. Default: "+ str(opts['timeout']) +".", 
@@ -46,13 +55,13 @@ def parse_options(opts, version):
         help='Sets the destination for all of the SSL-related files, including keys, certificates (self and of'\
             ' the visited websites). If not specified, a default value will be used to create a directory and remove it upon script termination. Default: "'+ opts['certdir'] +'"', default=opts['certdir'])
     sslgroup.add_argument('--ssl-cakey', dest='cakey', metavar='NAME',
-        help='Sets the name of a CA key file\'s name. Default: "'+ opts['cakey'] +'"', default=opts['cakey'])
+        help='Specifies this proxy server\'s (CA) certificate private key. Default: "'+ opts['cakey'] +'"', default=opts['cakey'])
     sslgroup.add_argument('--ssl-cacert', dest='cacert', metavar='NAME',
-        help='Sets the name of a CA certificate file\'s name. Default: "'+ opts['cacert'] +'"', default=opts['cacert'])
+        help='Specifies this proxy server\'s (CA) certificate. Default: "'+ opts['cacert'] +'"', default=opts['cacert'])
     sslgroup.add_argument('--ssl-certkey', dest='certkey', metavar='NAME', 
-        help='Sets the name of a CA certificate key\'s file name. Default: "'+ opts['certkey'] +'"', default=opts['certkey'])
+        help='Specifies CA certificate\'s public key. Default: "'+ opts['certkey'] +'"', default=opts['certkey'])
     sslgroup.add_argument('--ssl-cacn', dest='cacn', metavar='CN', 
-        help='Sets the common name of the proxy\'s CA authority. Default: "'+ opts['cacn'] +'"', default=opts['cacn'])
+        help='Sets the common name of the proxy\'s CA authority. If this option is not set, will use --hostname instead. It is required only when no --ssl-cakey/cert were specified and proxy2 will need to generate ones automatically. Default: "'+ opts['cacn'] +'"', default=opts['cacn'])
 
     # Plugins handling
     plugins = parser.add_argument_group("Plugins handling")
@@ -63,9 +72,18 @@ def parse_options(opts, version):
     feed_with_plugin_options(opts, parser)
 
     params = parser.parse_args()
-    opts.update(vars(params))
 
-    if params.list_plugins:
+    if hasattr(params, 'config') and params.config != '':
+        try:
+            params = parseParametersFromConfigFile(params)
+        except Exception as e:
+            parser.error(str(e))
+
+        opts.update(params)
+    else:
+        opts.update(vars(params))
+
+    if opts['list_plugins']:
         files = sorted([f for f in os.scandir(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'plugins/'))], key = lambda f: f.name)
         for _, entry in enumerate(files):
             if entry.name.endswith(".py") and entry.is_file() and entry.name.lower() not in ['iproxyplugin.py', '__init__.py']:
@@ -73,8 +91,8 @@ def parse_options(opts, version):
 
         sys.exit(0)
 
-    if params.plugin:
-        for i, opt in enumerate(params.plugin):
+    if opts['plugin'] != None and len(opts['plugin']) > 0:
+        for i, opt in enumerate(opts['plugin']):
             decomposed = PluginsLoader.decompose_path(opt)
             if not os.path.isfile(decomposed['path']):
                 opt = opt.replace('.py', '')
@@ -86,19 +104,19 @@ def parse_options(opts, version):
             
             opts['plugins'].add(opt)
 
-    #if params.debug:
+    #if opts['debug']:
     #   opts['trace'] = True
 
-    if params.silent and params.log:
+    if opts['silent'] and opts['log']:
         parser.error("Options -s and -w are mutually exclusive.")
 
-    if params.silent:
+    if opts['silent']:
         opts['log'] = 'none'
-    elif params.log and len(params.log) > 0:
+    elif opts['log'] and len(opts['log']) > 0:
         try:
-            with open(params.log, 'w') as f:
+            with open(opts['log'], 'w') as f:
                 pass
-            opts['log'] = params.log
+            opts['log'] = opts['log']
         except Exception as e:
             raise Exception('[ERROR] Failed to open log file for writing. Error: "%s"' % e)
     else:
@@ -108,6 +126,81 @@ def parse_options(opts, version):
     if opts['cakey']: opts['cakey'] = os.path.normpath(opts['cakey'])
     if opts['certdir']: opts['certdir'] = os.path.normpath(opts['certdir'])
     if opts['certkey']: opts['certkey'] = os.path.normpath(opts['certkey'])
+
+def parseParametersFromConfigFile(_params):
+    parametersRequiringDirectPath = (
+        'log',
+        'output',
+        'certdir',
+        'certkey',
+        'cakey',
+        'cacert',
+        'ssl_certdir',
+        'ssl_certkey',
+        'ssl_cakey',
+        'ssl_cacert',
+    )
+
+    translateParamNames = {
+        'output' : 'log',
+        'proxy_url' : 'proxy_self_url',
+        'no_ssl_mitm' : 'no_ssl',
+        'ssl_certdir' : 'certdir',
+        'ssl_certkey' : 'certkey',
+        'ssl_cakey' : 'cakey',
+        'ssl_cacert' : 'cacert',
+        'ssl_cacn' : 'cacn',
+    }
+
+    valuesThatNeedsToBeList = (
+        'port',
+        'plugin',
+    )
+
+    outparams = vars(_params)
+    config = {}
+    configBasePath = ''
+
+    try:
+        with open(outparams['config']) as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
+
+        outparams.update(config)
+
+        for val in valuesThatNeedsToBeList:
+            if val in outparams.keys() and val in config.keys():
+                if type(config[val]) == str:
+                    outparams[val] = [config[val], ]
+                else:
+                    outparams[val] = config[val]
+
+        for k, v in ProxyOptionsDefaultValues.items():
+            if k not in outparams.keys():
+                outparams[k] = v
+
+        for k, v in translateParamNames.items():
+            if k in outparams.keys():
+                outparams[v] = outparams[k]
+            if v in outparams.keys():
+                outparams[k] = outparams[v]
+
+        configBasePath = os.path.dirname(os.path.abspath(outparams['config']))
+
+        for paramName in parametersRequiringDirectPath:
+            if paramName in outparams.keys() and \
+                outparams[paramName] != '' and outparams[paramName] != None:
+                outparams[paramName] = os.path.join(configBasePath, outparams[paramName])
+
+        return outparams
+
+    except FileNotFoundError as e:
+        raise Exception(f'proxy2 config file not found: ({outparams["config"]})!')
+
+    except Exception as e:
+        raise Exception(f'Unhandled exception occured while parsing proxy2 config file: {e}')
+
+    return outparams
+
 
 def feed_with_plugin_options(opts, parser):
     logger = ProxyLogger()

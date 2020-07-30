@@ -1,2 +1,3 @@
 brotli
 requests
+PyYaml

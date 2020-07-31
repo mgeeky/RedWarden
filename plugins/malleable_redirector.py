@@ -676,7 +676,8 @@ class ProxyPlugin(IProxyPlugin):
             try:
                 if not self.proxyOptions['config'] and self.proxyOptions['redir_config'] != '':
                     with open(self.proxyOptions['redir_config']) as f:
-                        redirectorConfig = yaml.load(f, Loader=yaml.FullLoader)
+                        #redirectorConfig = yaml.load(f, Loader=yaml.FullLoader)
+                        redirectorConfig = yaml.load(f)
 
                     self.proxyOptions.update(redirectorConfig)
 
@@ -949,7 +950,7 @@ The document has moved
 
         #self.logger.dbg(f'Validating incoming peer: {peerIP}')
 
-        if len(self.proxyOptions['whitelisted_ip_addresses']) > 0:
+        if self.proxyOptions['whitelisted_ip_addresses'] != None and len(self.proxyOptions['whitelisted_ip_addresses']) > 0:
             for cidr in self.proxyOptions['whitelisted_ip_addresses']:
                 cidr = cidr.strip()
                 if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):

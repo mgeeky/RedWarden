@@ -65,6 +65,7 @@
 
 import re, sys
 import os
+import hashlib
 import socket
 import pprint
 import requests
@@ -72,9 +73,10 @@ import random
 import os.path
 import ipaddress
 import yaml, json
+
 from urllib.parse import urlparse, parse_qsl, parse_qs, urlsplit
 from IProxyPlugin import *
-
+from sqlitedict import SqliteDict
 
 
 BANNED_AGENTS = (
@@ -132,7 +134,7 @@ class IPLookupHelper:
         if len(apiKeys) > 0:
             for prov in IPLookupHelper.supported_providers:
                 if prov in apiKeys.keys():
-                    if len(apiKeys[prov].strip()) < 2: continue
+                    if apiKeys[prov] == None or len(apiKeys[prov].strip()) < 2: continue
                     self.apiKeys[prov] = apiKeys[prov].strip()
 
         self.cachedLookups = {}
@@ -517,9 +519,12 @@ class MalleableParser:
         return self.config
 
     def parse(self, path):
-        with open(path, 'r') as f:
-            self.data = f.read().replace('\r\n', '\n')
-            self.datalines = self.data.split('\n')
+        try:
+            with open(path, 'r') as f:
+                self.data = f.read().replace('\r\n', '\n')
+                self.datalines = self.data.split('\n')
+        except FileNotFoundError as e:
+            self.logger.fatal("Malleable profile specified in redirector's config file (profile) doesn't exist: ({})".format(path))
 
         pos = 0
         linenum = 0
@@ -620,13 +625,23 @@ class MalleableParser:
         return True
 
 class ProxyPlugin(IProxyPlugin):
+    class AlterHostHeader(Exception):
+        pass
+
+    RequestsHashesDatabaseFile = '.anti-replay.sqlite'
 
     DefaultRedirectorConfig = {
+        'profile' : '',
+        #'teamserver_url' : [],
         'drop_action': 'redirect',
-        'action_url': 'https://google.com',
+        'action_url': ['https://google.com', ],
+        'proxy_pass': [],
         'log_dropped': False,
+        'report_only': False,
         'ban_blacklisted_ip_addresses': True,
         'ip_addresses_blacklist_file': 'plugins/malleable_banned_ips.txt',
+        'mitigate_replay_attack': False,
+        'whitelisted_ip_addresses' : [],
         'verify_peer_ip_details': True,
         'ip_details_api_keys': {},
         'ip_geolocation_requirements': {}
@@ -643,17 +658,18 @@ class ProxyPlugin(IProxyPlugin):
 
         self.banned_ips = {}
 
+
     @staticmethod
     def get_name():
         return 'malleable_redirector'
 
     def drop_reason(self, text):
         self.logger.err(text)
-        if 'X-Drop-Reason' in self.addToResHeaders.keys():
-            self.addToResHeaders['X-Drop-Reason'] += '; ' + text
-        else:
-            self.addToResHeaders['X-Drop-Reason'] = text
-
+        if not self.proxyOptions['report_only']:
+            if 'X-Drop-Reason' in self.addToResHeaders.keys():
+                self.addToResHeaders['X-Drop-Reason'] += '; ' + text
+            else:
+                self.addToResHeaders['X-Drop-Reason'] = text
 
     def help(self, parser):
         parametersRequiringDirectPath = (
@@ -703,17 +719,65 @@ class ProxyPlugin(IProxyPlugin):
             except Exception as e:
                 self.logger.fatal(f'Unhandled exception occured while parsing Malleable-redirector config file: {e}')
 
-            if not self.proxyOptions['profile']:
-                self.logger.fatal('Malleable C2 profile path must be specified!')
+            if ('profile' not in self.proxyOptions.keys()) or (not self.proxyOptions['profile']):
+                self.logger.err('''
 
-            self.malleable = MalleableParser(self.logger)
+==============================================================================================
+ MALLEABLE C2 PROFILE PATH NOT SPECIFIED! LOGIC BASED ON PARSING HTTP REQUESTS WON\'T BE USED!
+==============================================================================================
+''')
+                self.malleable = None
 
-            self.logger.dbg(f'Parsing input Malleable profile: ({self.proxyOptions["profile"]})')
-            if not self.malleable.parse(self.proxyOptions['profile']):
-                self.logger.fatal('Could not parse specified Malleable C2 profile!')
+            else:
+                self.malleable = MalleableParser(self.logger)
 
-            if not self.proxyOptions['action_url']:
-                self.logger.fatal('Drop URL must be specified!')
+                self.logger.dbg(f'Parsing input Malleable profile: ({self.proxyOptions["profile"]})')
+                if not self.malleable.parse(self.proxyOptions['profile']):
+                    self.logger.fatal('Could not parse specified Malleable C2 profile!')
+
+            if not self.proxyOptions['action_url'] or len(self.proxyOptions['action_url']) == 0:
+                self.logger.fatal('Action/Drop URL must be specified!')
+
+            elif type(self.proxyOptions['action_url']) == str:
+                url = self.proxyOptions['action_url']
+                if ',' not in url:
+                    self.proxyOptions['action_url'] = [url.strip(), ]
+                else:
+                    self.proxyOptions['action_url'] = [x.strip() for x in url.split(',')]
+
+            if (type(self.proxyOptions['proxy_pass']) != list) and \
+                (type(self.proxyOptions['proxy_pass']) != tuple):
+                self.logger.fatal('Proxy Pass must be a list of entries if specified!')
+            else:
+                passes = []
+                for entry in self.proxyOptions['proxy_pass']:
+                    entry = entry.strip()
+
+                    if len(entry) < 6:
+                        self.logger.fatal('Invalid Proxy Pass entry: ({}): too short!',format(entry))
+
+                    url = ''
+                    host = ''
+
+                    if len(entry.split(' ')) > 2:
+                        self.logger.fatal('Invalid Proxy Pass entry: ({}): entry contains more than one space character breaking </url host> syntax! Neither URL nor host can contain space.'.format(entry))
+                    else:
+                        (url, host) = entry.split(' ')
+                        url = url.strip()
+                        host = host.strip().replace('https://', '').replace('http://', '').replace('/', '')
+
+                    if len(url) == 0 or len(host) < 4:
+                        self.logger.fatal('Invalid Proxy Pass entry: (url="{}" host="{}"): either URL or host part were missing or too short (schema is ignored).',format(url, host))
+
+                    if not url.startswith('/'):
+                        self.logger.fatal('Invalid Proxy Pass entry: (url="{}" host="{}"): URL must start with slash character (/).',format(url, host))
+
+                    passes.append((url, host))
+                    self.logger.info('Will proxy-pass requests targeted to: "^{}$" onto host: "{}"'.format(url, host))
+
+                if len(passes) > 0:
+                    self.proxyOptions['proxy_pass'] = passes[:]
+                    self.logger.info('Collected {} proxy-pass statements.'.format(len(passes)))
 
             if not self.proxyOptions['teamserver_url']:
                 self.logger.fatal('Teamserver URL must be specified!')
@@ -748,10 +812,10 @@ class ProxyPlugin(IProxyPlugin):
                 self.logger.fatal('Drop action must be specified as either "reset", redirect" or "proxy"!')
             
             if self.proxyOptions['drop_action'] == 'proxy':
-                if self.proxyOptions['action_url'] == '':
+                if len(self.proxyOptions['action_url']) == 0:
                     self.logger.fatal('Drop URL must be specified for proxy action - pointing from which host to fetch responses!')
                 else:
-                    self.logger.info('Will proxy requests from: {}'.format(self.proxyOptions['action_url']), color=self.logger.colors_map['cyan'])
+                    self.logger.info('Will redirect/proxy requests to these hosts: {}'.format(', '.join(self.proxyOptions['action_url'])), color=self.logger.colors_map['cyan'])
 
             if self.proxyOptions['ban_blacklisted_ip_addresses']:
                 with open(self.proxyOptions['ip_addresses_blacklist_file'], 'r') as f:
@@ -768,6 +832,18 @@ class ProxyPlugin(IProxyPlugin):
 
                 self.logger.info('Loaded {} blacklisted CIDRs.'.format(len(self.banned_ips)))
 
+            if self.proxyOptions['mitigate_replay_attack']:
+                with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
+                    self.logger.info('Opening request hashes SQLite from file {} to prevent Replay Attacks.'.format(ProxyPlugin.RequestsHashesDatabaseFile))
+
+    def report(self, ret):
+        if self.proxyOptions['report_only']:
+            if ret:
+                self.logger.info('(Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='red')
+
+            return False
+
+        return ret
 
     def interpretTeamserverUrl(self, ts):
         inport = 0
@@ -842,10 +918,39 @@ class ProxyPlugin(IProxyPlugin):
         self.res = None
         self.res_body = None
 
-        if self.drop_check(req, req_body):
+        result = -1
+        newhost = ''
+        try:
+            result = self.drop_check(req, req_body)
+        except ProxyPlugin.AlterHostHeader as e:
+            result = 2
+            newhost = str(e)
+
+        if result == 1:
             if self.proxyOptions['drop_action'] == 'proxy' and self.proxyOptions['action_url']:
-                return self.redirect(req, self.proxyOptions['action_url'])  
+
+                url = self.proxyOptions['action_url']
+                if (type(self.proxyOptions['action_url']) == list or \
+                    type(self.proxyOptions['action_url']) == tuple) and \
+                    len(self.proxyOptions['action_url']) > 0: 
+
+                    url = random.choice(self.proxyOptions['action_url'])
+                    self.logger.dbg('Randomly choosen redirect to URL: "{}"'.format(url))
+
+                self.logger.err('[PROXYING invalid request from {}] {} {}'.format(
+                    req.client_address[0], req.command, req.path
+                ))
+                return self.redirect(req, url)
+
             return self.drop_action(req, req_body, None, None)
+
+        if self.proxyOptions['mitigate_replay_attack']:
+            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+                mydict[self.computeRequestHash(req, req_body)] = 1
+
+        if result == 2:
+            self.logger.dbg('Altering host header to: "{}"'.format(newhost))
+            return self.redirect(req, newhost)
 
         return self.redirect(req, self.pickTeamserver(req))
 
@@ -856,9 +961,21 @@ class ProxyPlugin(IProxyPlugin):
         self.res = res
         self.res_body = res_body
 
-        if self.drop_check(req, req_body):
+        result = -1
+        newhost = ''
+        try:
+            result = self.drop_check(req, req_body)
+        except ProxyPlugin.AlterHostHeader as e:
+            result = 2
+            newhost = str(e)
+
+        if result == 1:
             self.logger.dbg('Not returning body from response handler')
             return self.drop_action(req, req_body, res, res_body, True)
+
+        elif result == 2:
+            self.logger.dbg('Altering host header in response_handler to: "{}"'.format(newhost))
+            req.headers['Host'] = newhost
 
         # A nifty hack to make the proxy2 believe we actually modified the response
         # so that the proxy will not encode it to gzip (or anything specified) and just
@@ -867,6 +984,12 @@ class ProxyPlugin(IProxyPlugin):
         return res_body
 
     def drop_action(self, req, req_body, res, res_body, quiet = False):
+
+        if self.proxyOptions['report_only']:
+            self.logger.info('(Report-Only) Not taking any action on invalid request.')
+            if self.is_request: 
+                return req_body
+            return res_body
 
         todo = ''
         if self.proxyOptions['drop_action'] == 'reset': todo = 'DROPPING'
@@ -884,21 +1007,23 @@ class ProxyPlugin(IProxyPlugin):
         except:
             pass
 
-        if not quiet: self.logger.err('[{} invalid request from {}] {} {}'.format(
-            todo, peer, req.command, path
-        ))
+        if not quiet: 
+            self.logger.err('[{} invalid request from {}] {} {}'.format(
+                todo, peer, req.command, path
+            ))
 
         if self.proxyOptions['log_dropped'] == True:
             req_headers = req.headers
-            if req_body != None and len(req_body) > 0:
-                if type(req_body) == type(b''): 
-                    req_body = req_body.decode()
-                req_body = '\r\n' + req_body
+            rb = req_body
+            if rb != None and len(rb) > 0:
+                if type(rb) == type(b''): 
+                    rb = rb.decode()
+                rb = '\r\n' + rb
             else:
-                req_body = ''
+                rb = ''
 
             request = '{} {} {}\r\n{}{}'.format(
-                req.command, path, 'HTTP/1.1', req_headers, req_body
+                req.command, path, 'HTTP/1.1', req_headers, rb
             )
 
             if not quiet: self.logger.err('\n\n{}'.format(request))
@@ -914,6 +1039,13 @@ class ProxyPlugin(IProxyPlugin):
                 self.logger.err('Response handler received a None res object.')
                 return res_body 
 
+            url = self.proxyOptions['action_url']
+            if (type(self.proxyOptions['action_url']) == list or \
+                type(self.proxyOptions['action_url']) == tuple) and \
+                len(self.proxyOptions['action_url']) > 0: 
+
+                url = random.choice(self.proxyOptions['action_url'])
+
             res.status = 301
             res.response_version = 'HTTP/1.1'
             res.reason = 'Moved Permanently'
@@ -922,11 +1054,11 @@ class ProxyPlugin(IProxyPlugin):
 <H1>301 Moved</H1>
 The document has moved
 <A HREF="{}">here</A>.
-</BODY></HTML>'''.format(self.proxyOptions['action_url'])
+</BODY></HTML>'''.format(url)
 
             res.headers = {
                 'Server' : 'nginx',
-                'Location': self.proxyOptions['action_url'],
+                'Location': url,
                 'Cache-Control' : 'no-cache',
                 'Content-Type':'text/html; charset=UTF-8',
             }
@@ -945,6 +1077,27 @@ The document has moved
 
         return res_body
 
+    def computeRequestHash(self, req, req_body):
+        m = hashlib.md5()
+        req_headers = req.headers
+        rb = req_body
+        if rb != None and len(rb) > 0:
+            if type(rb) == type(b''): 
+                rb = rb.decode()
+            rb = '\r\n' + rb
+        else:
+            rb = ''
+
+        request = '{} {} {}\r\n{}{}'.format(
+            req.command, req.path, 'HTTP/1.1', req_headers, rb
+        )
+
+        m.update(request.encode())
+        h = m.hexdigest()
+        self.logger.dbg("Requests's MD5 hash computed: {}".format(h))
+
+        return h
+
     def drop_check(self, req, req_body):
         peerIP = req.client_address[0]
 
@@ -957,15 +1110,40 @@ The document has moved
                     self.logger.info('[{}: ALLOW, reason:0] peer\'s IP address is whitelisted: ({})'.format(
                         peerIP, cidr
                     ), color='green')
-                    return False
+                    return self.report(False)
+
+        if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0:
+            for entry in self.proxyOptions['proxy_pass']:
+                (url, host) = entry
+
+                if re.match('^' + url + '$', req.path, re.I) != None:
+                    self.logger.info('[{}: ALLOW, reason:1] Request conforms ProxyPass entry (url="{}" host="{}"). Passing request to specified host.'.format(
+                        peerIP, url, host
+                    ), color='green')
+
+                    req.headers['Host'] = host
+                    raise ProxyPlugin.AlterHostHeader(host)
+                    #return self.report(False)
+
+                else:
+                    self.logger.dbg('(ProxyPass) Processed request with URL ("{}"...) didnt match ProxyPass entry URL regex: "^{}$".'.format(req.path[:32], url))
+
+        if self.proxyOptions['mitigate_replay_attack']:
+            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
+                if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
+                    self.drop_reason(f'[{peerIP}: DROP, reason:0] identical request seen before. Possible Replay-Attack attempt.')
+                    return self.report(True)
 
         # User-agent conformancy
-        if req.headers.get('User-Agent') != self.malleable.config['useragent']:
-            if self.is_request:
-                self.drop_reason(f'[{peerIP}: DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.')
-                self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
-                    req.headers.get('User-Agent'), self.malleable.config['useragent']))
-            return True
+        if self.malleable != None:
+            if req.headers.get('User-Agent') != self.malleable.config['useragent']:
+                if self.is_request:
+                    self.drop_reason(f'[{peerIP}: DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.')
+                    self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
+                        req.headers.get('User-Agent'), self.malleable.config['useragent']))
+                return self.report(True)
+        else:
+            self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='red')
 
         # Banned words check
         for k, v in req.headers.items():
@@ -974,12 +1152,12 @@ The document has moved
             for kv1 in kv:
                 if kv1.lower() in BANNED_AGENTS:
                     self.drop_reason('[{}: DROP, reason:2] HTTP header name contained banned word: "{}"'.format(peerIP, kv1))
-                    return True
+                    return self.report(True)
 
             for vv1 in vv:
                 if vv1.lower() in BANNED_AGENTS:
                     self.drop_reason('[{}: DROP, reason:3] HTTP header value contained banned word: "{}"'.format(peerIP, vv1))
-                    return True
+                    return self.report(True)
 
         if self.proxyOptions['ban_blacklisted_ip_addresses']:
             for cidr, _comment in self.banned_ips.items():
@@ -991,7 +1169,7 @@ The document has moved
                     self.drop_reason('[{}: DROP, reason:4a] peer\'s IP address is blacklisted: ({}{})'.format(
                         peerIP, cidr, comment
                     ))
-                    return True
+                    return self.report(True)
 
         if self.proxyOptions['verify_peer_ip_details']:
             ipLookupDetails = None
@@ -1004,7 +1182,7 @@ The document has moved
                             for word in orgWord.split(' '):
                                 if word.lower() in BANNED_AGENTS:
                                     self.drop_reason('[{}: DROP, reason:4c] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(peerIP, orgWord, word))
-                                    return True
+                                    return self.report(True)
 
             except Exception as e:
                 self.logger.err(f'IP Lookup failed for some reason on IP ({peerIP}): {e}')
@@ -1014,7 +1192,7 @@ The document has moved
                     self.drop_reason('[{}: DROP, reason:4d] peer\'s IP geolocation ("{}", "{}", "{}", "{}", "{}") DID NOT met expected conditions'.format(
                         peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone']
                     ))
-                    return True
+                    return self.report(True)
 
             except Exception as e:
                 self.logger.err(f'IP Geolocation determinant failed for some reason on IP ({peerIP}): {e}')
@@ -1025,7 +1203,7 @@ The document has moved
             for part in resolved.split('.')[:-1]:
                 if part.lower() in BANNED_AGENTS:
                     self.drop_reason('[{}: DROP, reason:4b] peer\'s reverse-IP lookup contained banned word: "{}"'.format(peerIP, part))
-                    return True
+                    return self.report(True)
 
         except Exception as e:
             pass
@@ -1033,38 +1211,45 @@ The document has moved
         fetched_uri = ''
         fetched_host = req.headers['Host']
 
-        for section in ['http-stager', 'http-get', 'http-post']:
-            found = False
-            for uri in ['uri', 'uri_x86', 'uri_x64']:
-                if uri in self.malleable.config[section].keys():
-                    _uri = self.malleable.config[section][uri]
-                    if _uri in req.path: 
-                        found = True
+        if self.malleable != None:
+            for section in ['http-stager', 'http-get', 'http-post']:
+                found = False
+                for uri in ['uri', 'uri_x86', 'uri_x64']:
+                    if uri in self.malleable.config[section].keys():
+                        _uri = self.malleable.config[section][uri]
+                        if _uri in req.path: 
+                            found = True
 
-                        if 'client' in self.malleable.config[section].keys():
-                            if 'header' in self.malleable.config[section]['client'].keys():
-                                for header in self.malleable.config[section]['client']['header']:
-                                    k, v = header
-                                    if k.lower() == 'host':
-                                        fetched_host = v
-                                        break
-                        break
+                            if 'client' in self.malleable.config[section].keys():
+                                if 'header' in self.malleable.config[section]['client'].keys():
+                                    for header in self.malleable.config[section]['client']['header']:
+                                        k, v = header
+                                        if k.lower() == 'host':
+                                            fetched_host = v
+                                            break
+                            break
 
-            if found:
-                if self._client_request_inspect(section, req, req_body): 
-                    return True
+                if found:
+                    if self._client_request_inspect(section, req, req_body): 
+                        return self.report(True)
 
-                if self.is_request:
-                    variant = self.malleable.config[section]['variant']
-                    self.logger.info('== Valid malleable {} (variant: {}) request inbound.'.format(section, variant))
-                break
+                    if self.is_request:
+                        variant = self.malleable.config[section]['variant']
+                        self.logger.info('== Valid malleable {} (variant: {}) request inbound.'.format(section, variant))
+                    break
+        else:
+            self.logger.dbg("(No malleable profile) Request contents validation skipped, as there was no profile provided.", color='red')
 
         self.logger.info('[{}: ALLOW] Peer\'s request is accepted'.format(peerIP), color='green')
-        return False
+        return self.report(False)
 
     def _client_request_inspect(self, section, req, req_body):
         uri = req.path
         peerIP = req.client_address[0]
+
+        if self.malleable == None:
+            self.logger.dbg("(No malleable profile) Request contents validation skipped, as there was no profile provided.", color='red')
+            return False
 
         if section in self.malleable.config.keys():
             uris = []

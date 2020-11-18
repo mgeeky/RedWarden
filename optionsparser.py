@@ -161,6 +161,9 @@ def parseParametersFromConfigFile(_params):
     config = {}
     configBasePath = ''
 
+    if not 'config' in outparams.keys() or not os.path.isfile(outparams['config']):
+        raise Exception(f'proxy2 config file not found: ({outparams["config"]}) or --config not specified!') 
+
     try:
         with open(outparams['config']) as f:
             #config = yaml.load(f, Loader=yaml.FullLoader)

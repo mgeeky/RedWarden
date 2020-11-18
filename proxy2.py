@@ -319,6 +319,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         content_encoding = 'identity'
         inbound_origin = req.headers['Host']
         outbound_origin = inbound_origin
+        originChanged = False
 
         logger.info('[REQUEST] {} {}'.format(self.command, req.path), color=ProxyLogger.colors_map['green'])
         with self.lock:
@@ -338,6 +339,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             if parsed.netloc != inbound_origin and parsed.netloc != None and len(parsed.netloc) > 1:
                 logger.info('Plugin redirected request from [{}] to [{}]'.format(inbound_origin, parsed.netloc))
                 outbound_origin = parsed.netloc
+                originChanged = True
                 req.path = (parsed.path + '?' + parsed.query if parsed.query else parsed.path)
 
         except Exception as e:
@@ -390,6 +392,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         pass
                     except AttributeError: 
                         pass
+
+                del req_headers['Host']
+                req_headers['Host'] = outbound_origin
 
                 request = '{} {} {}\r\n{}\r\n{}'.format(
                     self.command, path, 'HTTP/1.1', req_headers, req_body
@@ -533,11 +538,19 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'\r\n')
 
         if type(res_body) == str: res_body = str.encode(res_body)
-        self.wfile.write(res_body)
 
-        if options['trace'] and options['debug']:
-            with self.lock:
-                self.save_handler(req, req_body, res, res_body_plain)
+        try:
+            self.wfile.write(res_body)
+
+            if options['trace'] and options['debug']:
+                with self.lock:
+                    if originChanged:
+                        del req.headers['Host']
+                        req.headers['Host'] = outbound_origin
+                    self.save_handler(req, req_body, res, res_body_plain)
+
+        except BrokenPipeError as e:
+            logger.err("Broken pipe. Client must have disconnected/timed-out.")
 
     @staticmethod
     def filter_headers(headers):
@@ -844,7 +857,15 @@ def serve_proxy(bind, port, _ssl = False):
     if scheme == None: scheme = 'http'
 
     server_address = (bind, port)
-    httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
+
+    httpd = None
+    try:
+        httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
+    except OSError as e:
+        if 'Address already in use' in str(e):
+            logger.err("Could not bind to specified port as it is already in use!")
+        else:
+            raise
 
     logger.info("Serving proxy on: {}://{}:{} ...".format(scheme, bind, port), 
         color=ProxyLogger.colors_map['yellow'])

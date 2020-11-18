@@ -1,3 +1,4 @@
 brotli
 requests
 PyYaml
+sqlitedict

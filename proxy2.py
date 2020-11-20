@@ -333,7 +333,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             elif modified and req_body_modified is not None:
                 req_body = req_body_modified
-                if req_body != None: req.headers['Content-length'] = str(len(req_body))
+                if req_body != None: 
+                    del req.headers['Content-Length']
+                    req.headers['Content-length'] = str(len(req_body))
 
             parsed = urlparse(req.path)
             if parsed.netloc != inbound_origin and parsed.netloc != None and len(parsed.netloc) > 1:
@@ -448,6 +450,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 logger.dbg("Response from reverse-proxy fetch came at {} bytes.".format(len(res_body)))
 
                 if 'Content-Length' not in res.headers.keys() and len(res_body) != 0:
+                    del res.headers['Content-Length']
                     res.headers['Content-Length'] = str(len(res_body))
 
                 myreq.close()
@@ -481,6 +484,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             logger.dbg('Plugin has modified the response body. Using it instead')
             res_body_plain = res_body_modified
             res_body = self.encode_content_body(res_body_plain, content_encoding)
+            del res.headers['Content-Length']
             res.headers['Content-Length'] = str(len(res_body))
 
         if 'Transfer-Encoding' in res.headers.keys() and \
@@ -516,6 +520,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             logger.dbg('Encoding response body to: {}'.format(encToUse))
             res_body = self.encode_content_body(res_body, encToUse)
+            del res.headers['Content-Length']
+            del res.headers['Content-Encoding']
             res.headers['Content-Length'] = str(len(res_body))
             res.headers['Content-Encoding'] = encToUse
 
@@ -555,7 +561,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     @staticmethod
     def filter_headers(headers):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
-        hop_by_hop = ('connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade')
+        hop_by_hop = (
+            'connection', 
+            'keep-alive', 
+            'proxy-authenticate', 
+            'proxy-authorization', 
+            'te', 
+            'trailers', 
+            'transfer-encoding', 
+            'upgrade'
+        )
         for k in hop_by_hop:
             if k in headers.keys():
                 del headers[k]

@@ -243,3 +243,32 @@ ip_geolocation_requirements:
   city:
   timezone:
 
+#
+# Fine-grained requests dropping policy - lets you decide which checks
+# you want to have enforced and which to skip by setting them to False
+#
+# Default: all checks enabled
+#
+policy:
+  # [IP: ALLOW, reason:0] Request conforms ProxyPass entry (url="..." host="..."). Passing request to specified host
+  allow_proxy_pass: True
+  # [IP: DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  drop_invalid_useragent: True
+  # [IP: DROP, reason:2] HTTP header name contained banned word
+  drop_http_banned_header_names: True
+  # [IP: DROP, reason:3] HTTP header value contained banned word:
+  drop_http_banned_header_value: True
+  # [IP: DROP, reason:4b] peer's reverse-IP lookup contained banned word
+  drop_dangerous_ip_reverse_lookup: True
+  # [IP: DROP, reason:5] HTTP request did not contain expected header
+  drop_malleable_without_expected_header: True
+  # [IP: DROP, reason:6] HTTP request did not contain expected header value:
+  drop_malleable_without_expected_header_value: True
+  # [IP: DROP, reason:7] HTTP request did not contain expected (metadata|id|output) section header:
+  drop_malleable_without_expected_request_section: True
+  # [IP: DROP, reason:8] HTTP request was expected to contain (metadata|id|output) section with parameter in URI:
+  drop_malleable_without_request_section_in_uri: True
+  # [IP: DROP, reason:9] Did not found append pattern:
+  drop_malleable_without_prepend_pattern: True
+  # [IP: DROP, reason:10] Did not found append pattern:
+  drop_malleable_without_apppend_pattern: True

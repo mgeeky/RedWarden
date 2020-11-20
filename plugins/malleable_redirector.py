@@ -644,7 +644,20 @@ class ProxyPlugin(IProxyPlugin):
         'whitelisted_ip_addresses' : [],
         'verify_peer_ip_details': True,
         'ip_details_api_keys': {},
-        'ip_geolocation_requirements': {}
+        'ip_geolocation_requirements': {},
+        'policy': {
+            'allow_proxy_pass' : True,
+            'drop_invalid_useragent' : True,
+            'drop_http_banned_header_names' : True,
+            'drop_http_banned_header_value' : True,
+            'drop_dangerous_ip_reverse_lookup' : True,
+            'drop_malleable_without_expected_header' : True,
+            'drop_malleable_without_expected_header_value' : True,
+            'drop_malleable_without_expected_request_section' : True,
+            'drop_malleable_without_request_section_in_uri' : True,
+            'drop_malleable_without_prepend_pattern' : True,
+            'drop_malleable_without_apppend_pattern' : True,
+        }
     }
 
     def __init__(self, logger, proxyOptions):
@@ -836,6 +849,17 @@ class ProxyPlugin(IProxyPlugin):
                 with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
                     self.logger.info('Opening request hashes SQLite from file {} to prevent Replay Attacks.'.format(ProxyPlugin.RequestsHashesDatabaseFile))
 
+            if 'policy' in self.proxyOptions.keys() and self.proxyOptions['policy'] != None \
+                and len(self.proxyOptions['policy']) > 0:
+                log = 'Enabled policies:'
+                for k, v in self.proxyOptions['policy'].items():
+                    log += '\t{}: {}\n'.format(k, str(v))
+                self.logger.dbg(log)
+            else:
+                self.logger.info("No policies defined in config. Defaults to all-set.")
+                for k, v in DefaultRedirectorConfig.items():
+                    self.proxyOptions['policy'][k] = v
+
     def report(self, ret):
         if self.proxyOptions['report_only']:
             if ret:
@@ -895,6 +919,9 @@ class ProxyPlugin(IProxyPlugin):
             w = urlparse(target)
             scheme2, netloc2, path2 = w.scheme, w.netloc, (w.path + '?' + w.query if w.query else w.path)
             req.path = '{}://{}:{}{}'.format(scheme, host, port, (u.path + '?' + u.query if u.query else u.path))
+            del req.headers['Host']
+            req.headers['Host'] = host
+
         else:
             if not target.startswith('http'):
                 if req.is_ssl:
@@ -907,6 +934,8 @@ class ProxyPlugin(IProxyPlugin):
             if netloc2 == '': netloc2 = req.headers['Host']
 
             req.path = '{}://{}{}'.format(scheme2, netloc2, (u.path + '?' + u.query if u.query else u.path))
+            del req.headers['Host']
+            req.headers['Host'] = netloc2
 
         self.logger.dbg('Redirecting to "{}"'.format(req.path))
         return None
@@ -975,6 +1004,7 @@ class ProxyPlugin(IProxyPlugin):
 
         elif result == 2:
             self.logger.dbg('Altering host header in response_handler to: "{}"'.format(newhost))
+            del req.headers['Host']
             req.headers['Host'] = newhost
 
         # A nifty hack to make the proxy2 believe we actually modified the response
@@ -1112,7 +1142,8 @@ The document has moved
                     ), color='green')
                     return self.report(False)
 
-        if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0:
+        if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0 \
+            and self.proxyOptions['policy']['allow_proxy_pass']:
             for entry in self.proxyOptions['proxy_pass']:
                 (url, host) = entry
 
@@ -1121,6 +1152,7 @@ The document has moved
                         peerIP, url, host
                     ), color='green')
 
+                    del req.headers['Host']
                     req.headers['Host'] = host
                     raise ProxyPlugin.AlterHostHeader(host)
                     #return self.report(False)
@@ -1136,7 +1168,8 @@ The document has moved
 
         # User-agent conformancy
         if self.malleable != None:
-            if req.headers.get('User-Agent') != self.malleable.config['useragent']:
+            if req.headers.get('User-Agent') != self.malleable.config['useragent']\
+            and self.proxyOptions['policy']['drop_invalid_useragent']:
                 if self.is_request:
                     self.drop_reason(f'[{peerIP}: DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.')
                     self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
@@ -1150,12 +1183,12 @@ The document has moved
             kv = k.split('-')
             vv = v.split(' ') + v.split('-')
             for kv1 in kv:
-                if kv1.lower() in BANNED_AGENTS:
+                if kv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_names']:
                     self.drop_reason('[{}: DROP, reason:2] HTTP header name contained banned word: "{}"'.format(peerIP, kv1))
                     return self.report(True)
 
             for vv1 in vv:
-                if vv1.lower() in BANNED_AGENTS:
+                if vv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_value']:
                     self.drop_reason('[{}: DROP, reason:3] HTTP header value contained banned word: "{}"'.format(peerIP, vv1))
                     return self.report(True)
 
@@ -1201,7 +1234,8 @@ The document has moved
         try:
             resolved = socket.gethostbyaddr(req.client_address[0])[0]
             for part in resolved.split('.')[:-1]:
-                if part.lower() in BANNED_AGENTS:
+                if part.lower() in BANNED_AGENTS \
+                and self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
                     self.drop_reason('[{}: DROP, reason:4b] peer\'s reverse-IP lookup contained banned word: "{}"'.format(peerIP, part))
                     return self.report(True)
 
@@ -1298,11 +1332,13 @@ The document has moved
             for header in self.malleable.config[section]['client']['header']:
                 k, v = header
 
-                if k.lower() not in [k2.lower() for k2 in req.headers.keys()]:
+                if k.lower() not in [k2.lower() for k2 in req.headers.keys()] \
+                    and self.proxyOptions['policy']['drop_malleable_without_expected_header']:
                     self.drop_reason('[{}: DROP, reason:5] HTTP request did not contain expected header: "{}"'.format(peerIP, k))
                     return True
 
-                if v not in [v2 for v2 in req.headers.values()]:
+                if v not in [v2 for v2 in req.headers.values()] \
+                    and self.proxyOptions['policy']['drop_malleable_without_expected_header_value']:
                     self.drop_reason('[{}: DROP, reason:6] HTTP request did not contain expected header value: "{}: {}"'.format(peerIP, k, v))
                     return True
 
@@ -1313,8 +1349,9 @@ The document has moved
                     metadatacontainer = ''
 
                     if 'header' in metadata.keys():
-                        if not metadata['header'] in req.headers.keys():
-                            self.drop_reason('[{}: DROP, reason:7] HTTP request did not contain expected {} block header: "{}"'.format(peerIP, _block, metadata['header']))
+                        if not metadata['header'] in req.headers.keys() \
+                        and self.proxyOptions['policy']['drop_malleable_without_expected_request_section']:
+                            self.drop_reason('[{}: DROP, reason:7] HTTP request did not contain expected {} section header: "{}"'.format(peerIP, _block, metadata['header']))
                             return True
 
                         if req.headers.keys().count(metadata['header']) == 1:
@@ -1326,8 +1363,9 @@ The document has moved
                         out = parse_qs(urlsplit(req.path).query)
 
                         paramname = metadata['parameter']
-                        if metadata['parameter'] not in out.keys():
-                            self.drop_reason('[{}: DROP, reason:8] HTTP request was expected to contain {} block with parameter in URI: "{}"'.format(peerIP, _block, metadata['parameter']))
+                        if metadata['parameter'] not in out.keys() \
+                        and self.proxyOptions['policy']['drop_malleable_without_request_section_in_uri']:
+                            self.drop_reason('[{}: DROP, reason:8] HTTP request was expected to contain {} section with parameter in URI: "{}"'.format(peerIP, _block, metadata['parameter']))
                             return True
 
                         metadatacontainer = [metadata['parameter'], out[metadata['parameter']][0]]
@@ -1337,22 +1375,28 @@ The document has moved
                     if 'prepend' in metadata.keys():
                         if type(metadata['prepend']) == list:
                             for p in metadata['prepend']:
-                                if p not in metadatacontainer:
+                                if p not in metadatacontainer \
+                                and self.proxyOptions['policy']['drop_malleable_without_prepend_pattern']:
                                     self.drop_reason('[{}: DROP, reason:9] Did not found prepend pattern: "{}"'.format(peerIP, p))
                                     return True
+
                         elif type(metadata['prepend']) == str:
-                            if metadata['prepend'] not in metadatacontainer:
+                            if metadata['prepend'] not in metadatacontainer \
+                                and self.proxyOptions['policy']['drop_malleable_without_prepend_pattern']:
                                 self.drop_reason('[{}: DROP, reason:9] Did not found prepend pattern: "{}"'.format(peerIP, metadata['prepend']))
                                 return True
 
                     if 'append' in metadata.keys():
                         if type(metadata['append']) == list:
                             for p in metadata['append']:
-                                if p not in metadatacontainer:
+                                if p not in metadatacontainer \
+                                and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                     self.drop_reason('[{}: DROP, reason:10] Did not found append pattern: "{}"'.format(peerIP, p))
                                     return True
+
                         elif type(metadata['append']) == str:
-                            if metadata['append'] not in metadatacontainer:
+                            if metadata['append'] not in metadatacontainer \
+                                and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                 self.drop_reason('[{}: DROP, reason:10] Did not found append pattern: "{}"'.format(peerIP, metadata['append']))
                                 return True
 

@@ -43,6 +43,7 @@ import traceback
 import threading
 import requests
 import urllib3
+
 from urllib.parse import urlparse, parse_qsl
 from subprocess import Popen, PIPE
 from proxylogger import ProxyLogger
@@ -69,7 +70,7 @@ options = {
     'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
-    'timeout': 5,
+    'timeout': 15,
     'no_ssl': False,
     'no_proxy': False,
     'cakey':  normpath('ca-cert/ca.key'),
@@ -106,6 +107,42 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
         else:
             return HTTPServer.handle_error(self, request, client_address)
 
+
+def hexdump(data):
+    s = ''
+    n = 0
+    lines = []
+    tableline = '-----+' + '-' * 24 + '|' \
+        + '-' * 25 + '+' + '-' * 18 + '+\n'
+    if isinstance(data, str):
+        data = data.encode()
+
+    if len(data) == 0:
+        return '<empty>'
+
+    for i in range(0, len(data), 16):
+        line = ''
+        line += '%04x | ' % (i)
+        n += 16
+
+        for j in range(n-16, n):
+            if j >= len(data): break
+            line += '%02x' % (data[j] & 0xff)
+            if j % 8 == 7 and j % 16 != 15:
+                line += '-'
+            else:
+                line += ' '
+
+        line += ' ' * (3 * 16 + 7 - len(line)) + ' | '
+        for j in range(n-16, n):
+            if j >= len(data): break
+            c = data[j] if not (data[j] < 0x20 or data[j] > 0x7e) else '.'
+            line += '%c' % c
+
+        line = line.ljust(74, ' ') + ' |'
+        lines.append(line)
+
+    return tableline + '\n'.join(lines) + '\n' + tableline
 
 class ProxyRequestHandler(BaseHTTPRequestHandler):
     lock = threading.Lock()
@@ -334,7 +371,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             elif modified and req_body_modified is not None:
                 req_body = req_body_modified
                 if req_body != None: 
-                    del req.headers['Content-Length']
+                    reqhdrs = [x.lower() for x in req.headers.keys()]
+                    if 'content-length' in reqhdrs: del req.headers['Content-Length']
                     req.headers['Content-length'] = str(len(req_body))
 
             parsed = urlparse(req.path)
@@ -384,7 +422,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             try:
                 assert scheme in ('http', 'https')
 
-                #req_headers = ProxyRequestHandler.filter_headers(req.headers)
+                #ProxyRequestHandler.filter_headers(req.headers)
                 req_headers = req.headers
                 if req_body == None: req_body = ''
                 else: 
@@ -395,11 +433,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     except AttributeError: 
                         pass
 
-                del req_headers['Host']
-                req_headers['Host'] = outbound_origin
+                reqhdrs = ''
+                for k, v in req.headers.items():
+                    if k in plugins.IProxyPlugin.proxy2_metadata_headers.values(): continue
+                    reqhdrs += '{}: {}\r\n'.format(k, v)
 
                 request = '{} {} {}\r\n{}\r\n{}'.format(
-                    self.command, path, 'HTTP/1.1', req_headers, req_body
+                    self.command, path, 'HTTP/1.1', reqhdrs, req_body
                 )
 
                 logger.dbg('Reverse-proxy fetch request from [{}]:\n\n{}'.format(outbound_origin, request))
@@ -425,7 +465,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if ':' in ip:
                     ip = ip.split(':')[0]
 
-                if True:
+                ignore_response_decompression_errors = False
+                if plugins.IProxyPlugin.proxy2_metadata_headers['ignore_response_decompression_errors'] in req.headers.keys():
+                    ignore_response_decompression_errors = True
+
+                myreq = None
+                try:
                     myreq = requests.request(
                         method = self.command, 
                         url = fetchurl, 
@@ -433,8 +478,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         headers = req_headers,
                         timeout = self.options['timeout'],
                         allow_redirects = False,
+                        stream = ignore_response_decompression_errors,
                         verify = False
                     )
+
+                except Exception as e:
+                    raise
 
                 class MyResponse(http.client.HTTPResponse):
                     def __init__(self, req, origreq):
@@ -445,12 +494,15 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         self.msg = self.headers
 
                 res = MyResponse(myreq, self)
-                res_body = myreq.content
+                res_body = ""
+                if ignore_response_decompression_errors:
+                    res_body = myreq.raw.read()
+                else:
+                    res_body = myreq.content
 
                 logger.dbg("Response from reverse-proxy fetch came at {} bytes.".format(len(res_body)))
 
                 if 'Content-Length' not in res.headers.keys() and len(res_body) != 0:
-                    del res.headers['Content-Length']
                     res.headers['Content-Length'] = str(len(res_body))
 
                 myreq.close()
@@ -458,14 +510,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if type(res_body) == str: res_body = str.encode(res_body)
 
             except requests.exceptions.ConnectionError as e:
-                logger.dbg("Could not connect with host: ({}). Exception: ({})".format(fetchurl, str(e)))
+                logger.err("Exception occured while reverse-proxy fetching resource : URL({}).\nException: ({})".format(
+                    fetchurl, str(e)
+                ))
    
                 self.send_error(502)
                 #if options['debug']: raise
                 return
 
             except Exception as e:
-                logger.dbg("Could not proxy request: ({})".format(str(e)))
+                logger.err("Could not proxy request: ({})".format(str(e)))
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
                     
@@ -484,7 +538,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             logger.dbg('Plugin has modified the response body. Using it instead')
             res_body_plain = res_body_modified
             res_body = self.encode_content_body(res_body_plain, content_encoding)
-            del res.headers['Content-Length']
+
+            reshdrs = [x.lower() for x in res.headers.keys()]
+            if 'content-length' in reshdrs: del res.headers['Content-Length']
+
             res.headers['Content-Length'] = str(len(res_body))
 
         if 'Transfer-Encoding' in res.headers.keys() and \
@@ -520,14 +577,15 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             logger.dbg('Encoding response body to: {}'.format(encToUse))
             res_body = self.encode_content_body(res_body, encToUse)
-            del res.headers['Content-Length']
-            del res.headers['Content-Encoding']
+            reskeys = [x.lower() for x in res.headers.keys()]
+            if 'content-length' in reskeys: del res.headers['Content-Length']
+            if 'content-encoding' in reskeys: del res.headers['Content-Encoding']
             res.headers['Content-Length'] = str(len(res_body))
             res.headers['Content-Encoding'] = encToUse
 
         logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
             
-        #res_headers = ProxyRequestHandler.filter_headers(res.headers)
+        #ProxyRequestHandler.filter_headers(res.headers)
         res_headers = res.headers
         o = "%s %d %s\r\n" % (self.protocol_version, res.status, res.reason)
         self.wfile.write(o.encode())
@@ -734,7 +792,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 res_body_text = res_body
 
             if res_body_text:
-                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text.decode(), color=ProxyLogger.colors_map['green'])
+                res_body_text2 = ''
+                try:
+                    res_body_text2 = res_body_text.decode()
+                except UnicodeDecodeError:
+                    res_body_text2 = hexdump(list(res_body_text))
+
+                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text2, color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
         altered = False
@@ -824,6 +888,44 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
     do_TRACE = _handle_request
     do_PATCH = _handle_request
 
+
+def putheader_decorator(method):
+    def new_putheader(self, header, *values):
+        for v in values:
+            if v == 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY':
+                return
+
+        return method(self, header, *values)
+    return new_putheader
+
+def send_request_decorator(method):
+    def new_send_request(self, _method, url, body, headers, encode_chunked):
+        strips = ''
+        headers2 = {}
+        hdrnames = list(headers.keys())
+        for k, v in headers.items():
+            headers2[k.lower()] = v
+
+        if plugins.IProxyPlugin.proxy2_metadata_headers['strip_headers_during_forward'].lower() in headers2.keys():
+            strips = headers2[plugins.IProxyPlugin.proxy2_metadata_headers['strip_headers_during_forward'].lower()]
+            strip_these_headers = [x.strip() for x in strips.split(',')]
+            strip_these_headers.append(plugins.IProxyPlugin.proxy2_metadata_headers['strip_headers_during_forward'])
+
+            for h in strip_these_headers:
+                for h2 in hdrnames:
+                    if h.lower() == h2.lower():
+                        headers[h] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+
+                if h.lower() not in headers2.keys():
+                    headers[h] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+        
+        return method(self, _method, url, body, headers, encode_chunked)
+    return new_send_request
+
+def monkeypatching():
+    setattr(http.client.HTTPConnection, 'putheader', putheader_decorator(http.client.HTTPConnection.putheader))
+    setattr(http.client.HTTPConnection, '_send_request', send_request_decorator(http.client.HTTPConnection._send_request))
+
 def init():
     global options
     global pluginsloaded
@@ -834,6 +936,8 @@ def init():
     logger = ProxyLogger(options)
     pluginsloaded = PluginsLoader(logger, options)
     sslintercept = SSLInterception(logger, options)
+
+    monkeypatching()
 
     for name, plugin in pluginsloaded.get_plugins().items():
         plugin.logger = logger

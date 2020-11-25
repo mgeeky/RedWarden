@@ -507,6 +507,35 @@ class IPGeolocationDeterminant:
 
 
 class MalleableParser:
+    ProtocolTransactions = ('http-stager', 'http-get', 'http-post')
+    TransactionBlocks = ('metadata', 'id', 'output')
+    UriParameters = ('uri', 'uri_x86', 'uri_x64')
+    CommunicationParties = ('client', 'server')
+
+    GlobalOptionsDefaults = {
+        'data_jitter': "0",
+        'dns_idle': "0.0.0.0",
+        'dns_max_txt': "252",
+        'dns_sleep': "0",
+        'dns_stager_prepend': "",
+        'dns_stager_subhost': ".stage.123456.",
+        'dns_ttl': "1",
+        'headers_remove': "",
+        'host_stage': "true",
+        'jitter': "0",
+        'maxdns': "255",
+        'pipename': "msagent_##",
+        'pipename_stager': "status_##",
+        'sample_name': "My Profile",
+        'sleeptime': "60000",
+        'smb_frame_header': "",
+        'ssh_banner': "Cobalt Strike 4.2",
+        'ssh_pipename': "postex_ssh_####",
+        'tcp_frame_header': "",
+        'tcp_port': "4444",
+        'useragent': "Mozilla/5.0 (Windows NT 10.0; Trident/7.0; rv:11.0) like Gecko",
+    }
+
     def __init__(self, logger):
         self.path = ''
         self.data = ''
@@ -514,6 +543,7 @@ class MalleableParser:
         self.logger = logger
         self.parsed = {}
         self.config = self.parsed
+        self.variants = []
 
     def get_config(self):
         return self.config
@@ -523,6 +553,7 @@ class MalleableParser:
             with open(path, 'r') as f:
                 self.data = f.read().replace('\r\n', '\n')
                 self.datalines = self.data.split('\n')
+
         except FileNotFoundError as e:
             self.logger.fatal("Malleable profile specified in redirector's config file (profile) doesn't exist: ({})".format(path))
 
@@ -532,71 +563,158 @@ class MalleableParser:
         dynkey = []
         parsed = self.parsed
 
-        for line in self.datalines:
-            linenum += 1
+        regexes = {
+            # Finds: set name "value";
+            'set-name-value' : r"\s*set\s+(\w+)\s+(?=(?:(?<!\w)'(\S.*?)'(?!\w)|\"(\S.*?)\"(?!\w))).*",
+            
+            # Finds: section { as well as variant-driven: section "variant" {
+            'begin-section-and-variant' : r'^\s*([\w-]+)(\s+"[^"]+")?\s*\{\s*',
+
+            # Finds: [set] parameter ["value", ...];
+            'set-parameter-value' : r'(?:([\w-]+)\s+(?=")".*")|(?:([\w-]+)(?=;))',
+
+            # Finds: prepend "something"; and append "something";
+            'prepend-append-value' : r'\s*(prepend|append)\s*"([^"\\]*(?:\\.[^"\\]*)*)"',
+            
+            'parameter-value' : r"(?=(?:(?<!\w)'(\S.*?)'(?!\w)|\"(\S.*?)\"(?!\w)))",
+        }
+
+        compregexes = {}
+
+        for k, v in regexes.items():
+            compregexes[k] = re.compile(v, re.I)
+
+        while linenum < len(self.datalines):
+            line = self.datalines[linenum]
 
             assert len(dynkey) == depth, "Depth ({}) and dynkey differ ({})".format(depth, dynkey)
 
-            if line.strip() == '': continue
-            if line.lstrip().startswith('#'): 
-                pos += len(line) + 1
+            if line.strip() == '': 
+                pos += len(line)
+                linenum += 1
                 continue
 
-            self.logger.dbg('[key: {}, line: {}, pos: {}] {}'.format(str(dynkey), linenum-1, pos, line[:100]))
+            if line.lstrip().startswith('#'): 
+                pos += len(line) + 1
+                linenum += 1
+                continue
+
+            if len(line) > 100:
+                self.logger.dbg('[key: {}, line: {}, pos: {}] {}...{}'.format(str(dynkey), linenum, pos, line[:50], line[-50:]))
+            else:
+                self.logger.dbg('[key: {}, line: {}, pos: {}] {}'.format(str(dynkey), linenum, pos, line[:100]))
 
             parsed = self.parsed
             for key in dynkey:
-                parsed = parsed[key]
+                sect, variant = key
+                if len(variant) > 0:
+                    parsed = parsed[sect][variant]
+                else:
+                    parsed = parsed[sect]
 
             matched = False
 
-            # Finds: set name "value";
-            m = re.match(r"set\s+(\w+)\s+(?=(?:(?<!\w)'(\S.*?)'(?!\w)|\"(\S.*?)\"(?!\w)))", line)
-            if m:
-                n = list(filter(lambda x: x != None, m.groups()[2:]))[0]
-                self.logger.dbg('Extracted variable: [{}] = [{}]'.format(m.group(1), n))
-                parsed[m.group(1)] = n.replace('\\\\', '\\')
-                matched = 'set'
-                continue
+            m = compregexes['begin-section-and-variant'].match(line)
+            twolines = self.datalines[linenum]
 
-            # Finds: section { as well as variant-driven: section "variant" {
-            m = re.match(r'^\s*([\w-]+)(\s+"[^"]+")?\s*\{', line)
-            if m:
+            if len(self.datalines) >= linenum+1:
+                twolines += self.datalines[linenum+1]
+
+            n = compregexes['begin-section-and-variant'].match(twolines)
+            if m or n:
+                if m == None and n != None: 
+                    self.logger.dbg('Section opened in a new line: [{}] = ["{}"]'.format(
+                        n.group(1), 
+                        twolines.replace('\r', "\\r").replace('\n', "\\n")
+                    ))
+                    linenum += 1
+                    pos += len(self.datalines[linenum])
+                    m = n
+
                 depth += 1
                 section = m.group(1)
-                dynkey.append(section)
-                parsed[section] = {
-                    'variant': 'default'
-                }
+                variant = ''
+
+                if section not in parsed.keys():
+                    parsed[section] = {}
 
                 if m.group(2) is not None:
-                    parsed[section]['variant'] = m.group(2).strip()
+                    variant = m.group(2).strip().replace('"', '')
+                    parsed[section][variant] = {}
+                    parsed[section]['variant'] = variant
+
+                elif section in MalleableParser.ProtocolTransactions:
+                    variant = 'default'
+                    parsed[section][variant] = {}
+                    parsed[section]['variant'] = variant
+
+                else:
+                    parsed[section] = {}
+
+                if len(variant) > 0 and variant not in self.variants:
+                    self.variants.append(variant)
                 
-                self.logger.dbg('Extracted section: [{}] (variant: {})'.format(section, parsed[section]['variant']))
+                self.logger.dbg('Extracted section: [{}] (variant: {})'.format(section, variant))
+
+                dynkey.append((section, variant))
+
                 matched = 'section'
+                pos += len(line)
+                linenum += 1
                 continue
 
             if line.strip() == '}':
                 depth -= 1
                 matched = 'endsection'
-                sect = dynkey.pop()
+                sect, variant = dynkey.pop()
                 variant = ''
 
-                if sect in parsed.keys() and 'variant' in parsed[sect].keys():
-                    variant = '(variant: {})'.format(parsed[sect]['variant'])
+                if sect in parsed.keys() and 'variant' in parsed[sect][variant].keys():
+                    variant = '(variant: {})'.format(variant)
 
-                self.logger.dbg('Reached end of section {}{}'.format(sect, variant))
+                self.logger.dbg('Reached end of section {}.{}'.format(sect, variant))
+                pos += len(line)
+                linenum += 1
+                continue
+
+            m = compregexes['set-name-value'].match(line)
+            if m:
+                n = list(filter(lambda x: x != None, m.groups()[2:]))[0]
+                
+                val = n.replace('\\\\', '\\')
+                param = m.group(1)
+
+                if param.lower() == 'uri' or param.lower() == 'uri_x86' or param.lower() == 'uri_x64':
+                    parsed[param] = val.split(' ')
+                    self.logger.dbg('Multiple URIs defined: [{}] = [{}]'.format(param, ', '.join(val.split(' '))))
+
+                else:
+                    parsed[param] = val
+                    self.logger.dbg('Extracted variable: [{}] = [{}]'.format(param, val))
+
+                matched = 'set'
+                pos += len(line)
+                linenum += 1
                 continue
 
             # Finds: [set] parameter ["value", ...];
-            m = re.search(r'(?:([\w-]+)\s+(?=")".*")|(?:([\w-]+)(?=;))', line, re.I)
+            m = compregexes['set-parameter-value'].search(line)
             if m:
                 paramname = list(filter(lambda x: x != None, m.groups()))[0]
                 restofline = line[line.find(paramname) + len(paramname):]
                 values = []
-                for n in re.finditer(r"(?=(?:(?<!\w)'(\S.*?)'(?!\w)|\"(\S.*?)\"(?!\w)))", restofline):
-                    paramval = list(filter(lambda x: x != None, n.groups()[1:]))[0]
-                    values.append(paramval.replace('\\\\', '\\'))
+
+                n = compregexes['prepend-append-value'].search(line)
+                if n != None and len(n.groups()) > 1:
+                    paramname = n.groups()[0]
+                    paramval = n.groups()[1].replace('\\\\', '\\')
+                    values.append(paramval)
+                    self.logger.dbg('Extracted {} value: "{}..."'.format(paramname, paramval[:20]))
+
+                else: 
+                    for n in compregexes['parameter-value'].finditer(restofline):
+                        paramval = list(filter(lambda x: x != None, n.groups()[1:]))[0]
+                        values.append(paramval.replace('\\\\', '\\'))
 
                 if values == []:
                     values = ''
@@ -615,14 +733,54 @@ class MalleableParser:
                         parsed[paramname] = values
 
                 self.logger.dbg('Extracted complex variable: [{}] = [{}]'.format(paramname, str(values)[:100]))
+
                 matched = 'complexset'
+                pos += len(line)
+                linenum += 1
                 continue
 
-            self.logger.err("Unexpected statement:\n\t{}".format(line))
+            a = linenum
+            b = linenum+1
+
+            if a > 5: a -= 5
+
+            if b > len(self.datalines): b = len(self.datalines)
+            elif b < len(self.datalines) + 5: b += 5
+
+            self.logger.err("Unexpected statement:\n\t{}\n\n----- Context -----\n\n{}\n".format(
+                line,
+                '\n'.join(self.datalines[a:b])
+                ))
+
             self.logger.err("\nParsing failed.")
             return False
 
+        self.normalize()
         return True
+
+    def normalize(self):
+        for k, v in self.config.items():
+            if k in MalleableParser.ProtocolTransactions:
+                if k == 'http-get' and 'verb' not in self.config[k].keys():
+                    self.config[k]['verb'] = 'GET'
+                elif k == 'http-post' and 'verb' not in self.config[k].keys():
+                    self.config[k]['verb'] = 'POST'
+
+                for a in MalleableParser.CommunicationParties:
+                    if a not in self.config[k]:
+                        self.config[k][a] = {
+                            'header' : [],
+                            'variant' : 'default',
+                        }
+                    else:
+                        if 'header' not in self.config[k][a].keys(): self.config[k][a]['header'] = []
+                        if 'variant' not in self.config[k][a].keys(): self.config[k][a]['variant'] = 'default'
+
+        for k, v in MalleableParser.GlobalOptionsDefaults.items():
+            if k.lower() not in self.config.keys():
+                self.config[k] = v
+                self.logger.dbg('MalleableParser: Global variable ({}) not defined. Setting default value of: "{}"'.format(k, v))
+
 
 class ProxyPlugin(IProxyPlugin):
     class AlterHostHeader(Exception):
@@ -642,7 +800,9 @@ class ProxyPlugin(IProxyPlugin):
         'ip_addresses_blacklist_file': 'plugins/malleable_banned_ips.txt',
         'mitigate_replay_attack': False,
         'whitelisted_ip_addresses' : [],
+        'protect_these_headers_from_tampering' : [],
         'verify_peer_ip_details': True,
+        'remove_superfluous_headers': True,
         'ip_details_api_keys': {},
         'ip_geolocation_requirements': {},
         'policy': {
@@ -657,6 +817,8 @@ class ProxyPlugin(IProxyPlugin):
             'drop_malleable_without_request_section_in_uri' : True,
             'drop_malleable_without_prepend_pattern' : True,
             'drop_malleable_without_apppend_pattern' : True,
+            'drop_malleable_unknown_uris' : True,
+            'drop_malleable_with_invalid_uri_append' : True,
         }
     }
 
@@ -851,7 +1013,7 @@ class ProxyPlugin(IProxyPlugin):
 
             if 'policy' in self.proxyOptions.keys() and self.proxyOptions['policy'] != None \
                 and len(self.proxyOptions['policy']) > 0:
-                log = 'Enabled policies:'
+                log = 'Enabled policies:\n'
                 for k, v in self.proxyOptions['policy'].items():
                     log += '\t{}: {}\n'.format(k, str(v))
                 self.logger.dbg(log)
@@ -863,7 +1025,7 @@ class ProxyPlugin(IProxyPlugin):
     def report(self, ret):
         if self.proxyOptions['report_only']:
             if ret:
-                self.logger.info('(Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='red')
+                self.logger.info(' (Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='red')
 
             return False
 
@@ -905,12 +1067,19 @@ class ProxyPlugin(IProxyPlugin):
         #return req.path
         return random.choice(self.proxyOptions['teamserver_url'])
 
-    def redirect(self, req, _target):
+    def redirect(self, req, _target, malleable_meta):
         # Passing the request forward.
         u = urlparse(req.path)
         scheme, netloc, path = u.scheme, u.netloc, (u.path + '?' + u.query if u.query else u.path)
-
         target = _target
+        includeHost = False
+
+        if malleable_meta and len(malleable_meta) > 0:
+            section = malleable_meta['section']
+            variant = malleable_meta['variant']
+            if section != '':
+                if 'host' in [x[0].lower() for x in self.malleable.config[section][variant]['client']['header']]:
+                    includeHost = True
 
         if target in self.proxyOptions['teamserver_url']:
             inport, scheme, host, port = self.interpretTeamserverUrl(target)
@@ -919,9 +1088,10 @@ class ProxyPlugin(IProxyPlugin):
             w = urlparse(target)
             scheme2, netloc2, path2 = w.scheme, w.netloc, (w.path + '?' + w.query if w.query else w.path)
             req.path = '{}://{}:{}{}'.format(scheme, host, port, (u.path + '?' + u.query if u.query else u.path))
-            del req.headers['Host']
-            req.headers['Host'] = host
-
+            
+            #if includeHost:
+            #    del req.headers['Host']
+            #    req.headers['Host'] = host
         else:
             if not target.startswith('http'):
                 if req.is_ssl:
@@ -934,11 +1104,74 @@ class ProxyPlugin(IProxyPlugin):
             if netloc2 == '': netloc2 = req.headers['Host']
 
             req.path = '{}://{}{}'.format(scheme2, netloc2, (u.path + '?' + u.query if u.query else u.path))
-            del req.headers['Host']
-            req.headers['Host'] = netloc2
+
+            #if includeHost:
+            #    del req.headers['Host']
+            #    req.headers['Host'] = netloc2
+
+        if self.proxyOptions['remove_superfluous_headers'] and len(self.proxyOptions['profile']) > 0:
+            self.logger.dbg('Stripping HTTP request from superfluous headers...')
+            self.strip_headers(req, malleable_meta)
 
         self.logger.dbg('Redirecting to "{}"'.format(req.path))
+        req.headers[proxy2_metadata_headers['ignore_response_decompression_errors']] = "1"
         return None
+
+    def strip_headers(self, req, malleable_meta):
+        if not malleable_meta or len(malleable_meta) == 0:
+            self.logger.dbg("strip_headers: No malleable_meta provided!", color = 'red')
+            return False
+
+        section = malleable_meta['section']
+        variant = malleable_meta['variant']
+
+        if section == '' and variant == '':
+            return False
+
+        if section == '' or variant == '':
+            self.logger.dbg("strip_headers: No section name ({}) or variant ({}) provided!".format(section, variant), color = 'red')
+            return False
+
+        if section not in self.malleable.config.keys():
+            self.logger.dbg("strip_headers: Section name ({}) not found in malleable.config!".format(section), color = 'red')
+            return False
+
+        if variant not in self.malleable.config[section].keys():
+            self.logger.dbg("strip_headers: Variant name ({}) not found in malleable.config[{}]!".format(variant, section), color = 'red')
+            return False
+
+        configblock = self.malleable.config[section][variant]
+
+        reqhdrs = [x.lower() for x in req.headers.keys()]
+        expectedheaders = [x[0].lower() for x in configblock['client']['header']]
+
+        dont_touch_these_headers = [
+            'user-agent', 'host'
+        ]
+
+        if 'http-config' in self.malleable.config.keys() and 'trust_x_forwarded_for' in self.malleable.config['http-config'].keys():
+            if self.malleable.config['http-config']['trust_x_forwarded_for'] == True:
+                dont_touch_these_headers.append('x-forwarded-for')
+
+        for b in MalleableParser.TransactionBlocks:
+            if b in configblock['client'].keys():
+                if type(configblock['client'][b]) != dict: continue
+
+                for k, v in configblock['client'][b].items():
+                    if k == 'header': 
+                        dont_touch_these_headers.append(v.lower())
+
+        for h in reqhdrs:
+            if h not in expectedheaders and h not in dont_touch_these_headers:
+                del req.headers[h]
+
+        strip_headers_during_forward = []
+        if 'accept-encoding' not in expectedheaders: strip_headers_during_forward.append('Accept-Encoding')
+        if 'host' not in expectedheaders: strip_headers_during_forward.append('Host')
+
+        req.headers[proxy2_metadata_headers['strip_headers_during_forward']] = ','.join(strip_headers_during_forward)
+
+        return True
 
     def request_handler(self, req, req_body):
         self.is_request = True
@@ -949,8 +1182,15 @@ class ProxyPlugin(IProxyPlugin):
 
         result = -1
         newhost = ''
+        malleable_meta = {
+            'section' : '',
+            'host' : '',
+            'variant' : '',
+            'uri' : '',
+        }
+
         try:
-            result = self.drop_check(req, req_body)
+            result = self.drop_check(req, req_body, malleable_meta)
         except ProxyPlugin.AlterHostHeader as e:
             result = 2
             newhost = str(e)
@@ -969,19 +1209,19 @@ class ProxyPlugin(IProxyPlugin):
                 self.logger.err('[PROXYING invalid request from {}] {} {}'.format(
                     req.client_address[0], req.command, req.path
                 ))
-                return self.redirect(req, url)
+                return self.redirect(req, url, malleable_meta)
 
             return self.drop_action(req, req_body, None, None)
 
-        if self.proxyOptions['mitigate_replay_attack']:
+        if not self.proxyOptions['report_only'] and self.proxyOptions['mitigate_replay_attack']:
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 mydict[self.computeRequestHash(req, req_body)] = 1
 
         if result == 2:
             self.logger.dbg('Altering host header to: "{}"'.format(newhost))
-            return self.redirect(req, newhost)
+            return self.redirect(req, newhost, malleable_meta)
 
-        return self.redirect(req, self.pickTeamserver(req))
+        return self.redirect(req, self.pickTeamserver(req), malleable_meta)
 
     def response_handler(self, req, req_body, res, res_body):
         self.is_request = False
@@ -992,8 +1232,15 @@ class ProxyPlugin(IProxyPlugin):
 
         result = -1
         newhost = ''
+        malleable_meta = {
+            'section' : '',
+            'host' : '',
+            'variant' : '',
+            'uri' : '',
+        }
+
         try:
-            result = self.drop_check(req, req_body)
+            result = self.drop_check(req, req_body, malleable_meta)
         except ProxyPlugin.AlterHostHeader as e:
             result = 2
             newhost = str(e)
@@ -1128,7 +1375,7 @@ The document has moved
 
         return h
 
-    def drop_check(self, req, req_body):
+    def drop_check(self, req, req_body, malleable_meta):
         peerIP = req.client_address[0]
 
         #self.logger.dbg(f'Validating incoming peer: {peerIP}')
@@ -1246,118 +1493,181 @@ The document has moved
         fetched_host = req.headers['Host']
 
         if self.malleable != None:
-            for section in ['http-stager', 'http-get', 'http-post']:
+            for section in MalleableParser.ProtocolTransactions:
                 found = False
-                for uri in ['uri', 'uri_x86', 'uri_x64']:
-                    if uri in self.malleable.config[section].keys():
-                        _uri = self.malleable.config[section][uri]
-                        if _uri in req.path: 
-                            found = True
+                variant = 'default'
 
-                            if 'client' in self.malleable.config[section].keys():
-                                if 'header' in self.malleable.config[section]['client'].keys():
-                                    for header in self.malleable.config[section]['client']['header']:
-                                        k, v = header
-                                        if k.lower() == 'host':
-                                            fetched_host = v
-                                            break
-                            break
+                block = self.malleable.config[section]
+
+                for uri in MalleableParser.UriParameters:
+                    for var in self.malleable.variants:
+                        if type(block[var]) != dict: continue
+
+                        if uri in block[var].keys():
+                            _uri = block[var][uri]
+
+                            if type(_uri) == str:
+                                found = (_uri in req.path)
+
+                            elif (type(_uri) == list or type(_uri) == tuple) and len(_uri) > 0:
+                                for u in _uri:
+                                    if u in req.path:
+                                        found = True
+                                        break
+
+                            if found: 
+                                variant = var
+                                if 'client' in block[var].keys():
+                                    if 'header' in block[var]['client'].keys():
+                                        for header in block[var]['client']['header']:
+                                            k, v = header
+                                            if k.lower() == 'host':
+                                                fetched_host = v
+                                                break
+                                break
+                    if found: break
 
                 if found:
-                    if self._client_request_inspect(section, req, req_body): 
+                    self.logger.dbg("Request's validation passed URI requirement (section: {}, variant: {}) - proceeding to deeper inspection: ({})".format(
+                        section, 
+                        variant, 
+                        req.path
+                    ))
+
+                    malleable_meta['host'] = fetched_host if len(fetched_host) > 0 else req.headers['Host'],
+                    malleable_meta['variant'] = variant
+
+                    if self._client_request_inspect(section, variant, req, req_body, malleable_meta): 
                         return self.report(True)
 
                     if self.is_request:
-                        variant = self.malleable.config[section]['variant']
                         self.logger.info('== Valid malleable {} (variant: {}) request inbound.'.format(section, variant))
+
                     break
+
+            if (not found) and (self.proxyOptions['policy']['drop_malleable_unknown_uris']):
+                self.drop_reason('[{}: DROP, reason:11a] Requested URI does not align any of Malleable defined variants: "{}"'.format(peerIP, req.path))
+                return self.report(True)
         else:
             self.logger.dbg("(No malleable profile) Request contents validation skipped, as there was no profile provided.", color='red')
 
         self.logger.info('[{}: ALLOW] Peer\'s request is accepted'.format(peerIP), color='green')
         return self.report(False)
 
-    def _client_request_inspect(self, section, req, req_body):
+
+    def _client_request_inspect(self, section, variant, req, req_body, malleable_meta):
         uri = req.path
         peerIP = req.client_address[0]
+        rehdrskeys = [x.lower() for x in req.headers.keys()]
 
         if self.malleable == None:
             self.logger.dbg("(No malleable profile) Request contents validation skipped, as there was no profile provided.", color='red')
             return False
 
-        if section in self.malleable.config.keys():
+        self.logger.dbg("Deep request inspection of URI ({}) parsed as section:{}, variant:{}".format(
+                req.path, section, variant
+            ))
+
+        if section in self.malleable.config.keys() and variant in self.malleable.config[section].keys():
             uris = []
-            if 'uri_x86' in self.malleable.config[section].keys(): 
-                uris.append(self.malleable.config[section]['uri_x86'])
-            if 'uri_x64' in self.malleable.config[section].keys(): 
-                uris.append(self.malleable.config[section]['uri_x64'])
-            if 'uri' in self.malleable.config[section].keys(): 
-                uris.append(self.malleable.config[section]['uri'])
+
+            configblock = self.malleable.config[section][variant]
+
+            for u in MalleableParser.UriParameters:
+                if u in configblock.keys(): 
+                    if type(configblock[u]) == str: 
+                        uris.append(configblock[u])
+                    else: 
+                        uris.extend(configblock[u])
 
             found = False
             exactmatch = True
-            variant = self.malleable.config[section]['variant']
+            malleable_meta['section'] = section
 
             foundblocks = []
-            blocks = ('metadata', 'id', 'output')
+            blocks = MalleableParser.TransactionBlocks
 
-            for _block in blocks:
-                if 'client' not in self.malleable.config[section].keys():
+            for _block in blocks: 
+                if 'client' not in configblock.keys():
                     continue
 
-                if _block not in self.malleable.config[section]['client'].keys(): 
-                    #self.logger.dbg('No block {} in [{}]'.format(_block, str(self.malleable.config[section]['client'].keys())))
+                if _block not in configblock['client'].keys(): 
+                    #self.logger.dbg('No block {} in [{}]'.format(_block, str(configblock['client'].keys())))
                     continue
 
                 foundblocks.append(_block)
-                if 'uri-append' in self.malleable.config[section]['client'][_block].keys() or \
-                    'parameter' in self.malleable.config[section]['client'][_block].keys():
+                if 'uri-append' in configblock['client'][_block].keys() or \
+                    'parameter' in configblock['client'][_block].keys():
                     exactmatch = False
 
             for _uri in uris:
                 if exactmatch == True and uri == _uri: 
                     found = True
+                    if malleable_meta != None:
+                        malleable_meta['uri'] = uri
                     break
                 elif exactmatch == False:
                     if uri.startswith(_uri): 
                         found = True
+                        malleable_meta['uri'] = uri
                         break
 
-            if not found:
-                self.logger.dbg('URI not resembles any of the support by malleable profile ones.')
+            if not found and self.proxyOptions['policy']['drop_malleable_unknown_uris']:
+                self.drop_reason('[{}: DROP, reason:11b] Requested URI does not align any of Malleable defined variants: "{}"'.format(peerIP, req.path))
                 return True
 
-            self.logger.dbg('Inbound {} (variant: {}) alike request. Validating it...'.format(section, variant))
+            hdrs2 = {}
+            for h in configblock['client']['header']:
+                hdrs2[h[0].lower()] = h[1]
 
-            for header in self.malleable.config[section]['client']['header']:
+            for header in configblock['client']['header']:
                 k, v = header
 
-                if k.lower() not in [k2.lower() for k2 in req.headers.keys()] \
+                if k.lower() not in rehdrskeys \
                     and self.proxyOptions['policy']['drop_malleable_without_expected_header']:
                     self.drop_reason('[{}: DROP, reason:5] HTTP request did not contain expected header: "{}"'.format(peerIP, k))
                     return True
 
-                if v not in [v2 for v2 in req.headers.values()] \
+                if v not in req.headers.values() \
                     and self.proxyOptions['policy']['drop_malleable_without_expected_header_value']:
-                    self.drop_reason('[{}: DROP, reason:6] HTTP request did not contain expected header value: "{}: {}"'.format(peerIP, k, v))
-                    return True
+                    ret = False
+                    if k.lower() == 'host' and 'host' in rehdrskeys and v.lower() in [x.lower() for x in req.headers.values()]:
+                        ret = True
+                        del req.headers['Host']
+                        req.headers['Host'] = v
+
+                    if not ret:
+                        if 'protect_these_headers_from_tampering' in self.proxyOptions.keys() and \
+                            len(self.proxyOptions['protect_these_headers_from_tampering']) > 0 and \
+                            k.lower() in [x.lower() for x in self.proxyOptions['protect_these_headers_from_tampering']]:
+
+                            self.logger.dbg('Inbound request had HTTP Header ({})=({}) however ({}) was expected. Since this header was marked for protection - restoring expected value.'.format(
+                                k, req.headers[k], hdrs2[k.lower()]
+                            ))
+
+                            del req.headers[k]
+                            req.headers[k] = hdrs2[k.lower()]
+
+                        else:
+                            self.drop_reason('[{}: DROP, reason:6] HTTP request did not contain expected header value: "{}: {}"'.format(peerIP, k, v))
+                            return True
 
             for _block in foundblocks:
-                if _block in self.malleable.config[section]['client'].keys():
-                    metadata = self.malleable.config[section]['client'][_block]
+                if _block in configblock['client'].keys():
+                    metadata = configblock['client'][_block]
 
                     metadatacontainer = ''
 
                     if 'header' in metadata.keys():
-                        if not metadata['header'] in req.headers.keys() \
+                        if (metadata['header'].lower() not in rehdrskeys) \
                         and self.proxyOptions['policy']['drop_malleable_without_expected_request_section']:
                             self.drop_reason('[{}: DROP, reason:7] HTTP request did not contain expected {} section header: "{}"'.format(peerIP, _block, metadata['header']))
                             return True
 
-                        if req.headers.keys().count(metadata['header']) == 1:
+                        if rehdrskeys.count(metadata['header'].lower()) == 1:
                             metadatacontainer = req.headers[metadata['header']]
                         else:
-                            metadatacontainer = [v for k, v in req.headers.items() if k == metadata['header']]
+                            metadatacontainer = [v for k, v in req.headers.items() if k.lower() == metadata['header'].lower()]
 
                     elif 'parameter' in metadata.keys():
                         out = parse_qs(urlsplit(req.path).query)
@@ -1369,6 +1679,13 @@ The document has moved
                             return True
 
                         metadatacontainer = [metadata['parameter'], out[metadata['parameter']][0]]
+
+                    elif 'uri-append' in metadata.keys():
+                        if not self.proxyOptions['policy']['drop_malleable_with_invalid_uri_append']:
+                            self.logger.dbg('Skipping uri-append validation according to drop_malleable_with_invalid_uri_append policy turned off.')
+                            continue
+
+                        metadatacontainer = req.path
 
                     self.logger.dbg('Metadata container: {}'.format(metadatacontainer))
 
@@ -1399,6 +1716,10 @@ The document has moved
                                 and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                 self.drop_reason('[{}: DROP, reason:10] Did not found append pattern: "{}"'.format(peerIP, metadata['append']))
                                 return True
+
+        else:
+            self.logger.err('_client_request_inspect: No section ({}) or variant ({}) specified or ones provided are invalid!'.format(section, variant))
+            return True
 
         #self.logger.info('[{}: ALLOW] Peer\'s request is accepted'.format(peerIP), color='green')
         return False

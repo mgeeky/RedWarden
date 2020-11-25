@@ -357,6 +357,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         inbound_origin = req.headers['Host']
         outbound_origin = inbound_origin
         originChanged = False
+        ignore_response_decompression_errors = False
 
         logger.info('[REQUEST] {} {}'.format(self.command, req.path), color=ProxyLogger.colors_map['green'])
         with self.lock:
@@ -364,6 +365,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         try:
             (modified, req_body_modified) = self.request_handler(req, req_body)
+
             if 'IProxyPlugin.DropConnectionException' in str(type(req_body_modified)) or \
                 'IProxyPlugin.DontFetchResponseException' in str(type(req_body_modified)):
                 raise req_body_modified
@@ -433,17 +435,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     except AttributeError: 
                         pass
 
-                reqhdrs = ''
-                for k, v in req.headers.items():
-                    if k in plugins.IProxyPlugin.proxy2_metadata_headers.values(): continue
-                    reqhdrs += '{}: {}\r\n'.format(k, v)
-
-                request = '{} {} {}\r\n{}\r\n{}'.format(
-                    self.command, path, 'HTTP/1.1', reqhdrs, req_body
-                )
-
-                logger.dbg('Reverse-proxy fetch request from [{}]:\n\n{}'.format(outbound_origin, request))
-
                 fetchurl = req_path_full.replace(netloc, outbound_origin)
                 logger.dbg('DEBUG REQUESTS: request("{}", "{}", "{}", ...'.format(
                     self.command, fetchurl, req_body.strip()
@@ -465,9 +456,18 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if ':' in ip:
                     ip = ip.split(':')[0]
 
-                ignore_response_decompression_errors = False
                 if plugins.IProxyPlugin.proxy2_metadata_headers['ignore_response_decompression_errors'] in req.headers.keys():
                     ignore_response_decompression_errors = True
+
+                reqhdrskeys = [x.lower() for x in req.headers.keys()]
+                if plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header'].lower() in reqhdrskeys:
+                    del req.headers['Host']
+                    o = req.headers['Host']
+                    req.headers['Host'] = req.headers[plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header']]
+                    n = req.headers['Host']
+                    del req.headers[plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header']]
+
+                    logger.dbg('Plugin asked to overridde Host header: [{}] => [{}]'.format(o, n))
 
                 myreq = None
                 try:
@@ -530,6 +530,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             setattr(res, 'headers', res.msg)
 
             content_encoding = res.headers.get('Content-Encoding', 'identity')
+            if ignore_response_decompression_errors: 
+                content_encoding = 'identity'
+
             res_body_plain = self.decode_content_body(res_body, content_encoding)
 
         (modified, res_body_modified) = self.response_handler(req, req_body, res, res_body_plain)
@@ -548,7 +551,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             res.headers['Transfer-Encoding'] == 'chunked':
             del res.headers['Transfer-Encoding']
 
-        if 'Accept-Encoding' in req.headers.keys():
+        if (not ignore_response_decompression_errors) and ('Accept-Encoding' in req.headers.keys()):
             encToUse = req.headers['Accept-Encoding'].split(' ')[0].replace(',','')
 
             override_resp_enc = plugins.IProxyPlugin.proxy2_metadata_headers['override_response_content_encoding'] 
@@ -610,6 +613,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 with self.lock:
                     if originChanged:
                         del req.headers['Host']
+                        if plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header'] in req.headers.keys():
+                            outbound_origin = req.headers[plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header']]
+
                         req.headers['Host'] = outbound_origin
                     self.save_handler(req, req_body, res, res_body_plain)
 
@@ -714,6 +720,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             if type(reshdrs) == dict or 'CaseInsensitiveDict' in str(type(reshdrs)):
                 reshdrs = ''
                 for k, v in res.headers.items():
+                    if k in plugins.IProxyPlugin.proxy2_metadata_headers.values(): continue
                     reshdrs += '{}: {}\n'.format(k, v)
 
             res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, reshdrs)
@@ -793,10 +800,22 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             if res_body_text:
                 res_body_text2 = ''
+                maxchars = 4096
+                halfmax = int(maxchars/2)
                 try:
-                    res_body_text2 = res_body_text.decode()
+                    dec = res_body_text.decode()
+                    if dec != None and len(dec) > maxchars:
+                        res_body_text2 = dec[:halfmax] + ' <<< ... >>> ' + dec[-halfmax:]
+                    else:
+                        res_body_text2 = dec
+
                 except UnicodeDecodeError:
-                    res_body_text2 = hexdump(list(res_body_text))
+                    if len(res_body_text) > maxchars:
+                        res_body_text2 = hexdump(list(res_body_text[:halfmax]))
+                        res_body_text2 += '\n\t................\n'
+                        res_body_text2 += hexdump(list(res_body_text[-halfmax:]))
+                    else:
+                        res_body_text2 = hexdump(list(res_body_text))
 
                 logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text2, color=ProxyLogger.colors_map['green'])
 
@@ -895,6 +914,10 @@ def putheader_decorator(method):
             if v == 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY':
                 return
 
+        xhdrs = [x.lower() for x in plugins.IProxyPlugin.proxy2_metadata_headers.values()]
+        if header.lower() in xhdrs:
+            return
+
         return method(self, header, *values)
     return new_putheader
 
@@ -906,19 +929,39 @@ def send_request_decorator(method):
         for k, v in headers.items():
             headers2[k.lower()] = v
 
+        strip_these_headers = []
+
         if plugins.IProxyPlugin.proxy2_metadata_headers['strip_headers_during_forward'].lower() in headers2.keys():
             strips = headers2[plugins.IProxyPlugin.proxy2_metadata_headers['strip_headers_during_forward'].lower()]
             strip_these_headers = [x.strip() for x in strips.split(',')]
             strip_these_headers.append(plugins.IProxyPlugin.proxy2_metadata_headers['strip_headers_during_forward'])
 
+        for k, v in plugins.IProxyPlugin.proxy2_metadata_headers.items():
+            if v.lower() in headers2.keys():
+                strip_these_headers.append(v)
+
+        if len(strip_these_headers) > 0:
             for h in strip_these_headers:
                 for h2 in hdrnames:
-                    if h.lower() == h2.lower():
-                        headers[h] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+                    if len(h2) > 0 and h.lower() == h2.lower():
+                        headers[h2] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
 
-                if h.lower() not in headers2.keys():
+                if len(h) > 0 and h.lower() not in headers2.keys():
                     headers[h] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
         
+        reqhdrs = ''
+        host = ''
+        for k, v in headers.items():
+            if k.lower() == 'host': host = v
+            if v == 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY': continue
+            reqhdrs += '\t{}: {}\r\n'.format(k, v)
+        
+        request = '\t{} {} {}\r\n{}\r\n\t{}\n'.format(
+            _method, url, 'HTTP/1.1', reqhdrs, body
+        )
+        
+        logger.dbg('SENDING REVERSE-PROXY REQUEST to [{}]:\n\n{}'.format(host, request))
+
         return method(self, _method, url, body, headers, encode_chunked)
     return new_send_request
 

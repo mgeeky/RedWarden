@@ -82,11 +82,12 @@ class ProxyLogger:
 
         if type(fd) == str:
             with open(fd, 'a') as f:
-                f.write(prefix + txt + nl)
+                prefix2 = '%s%s: ' % (mode.upper(), tm)
+                f.write(prefix2 + txt + nl)
                 f.flush()
 
-            sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
-            sys.stdout.flush()
+            #sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
+            #sys.stdout.flush()
 
         else:
             fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)

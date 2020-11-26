@@ -164,7 +164,7 @@ class IPLookupHelper:
 
     def lookup(self, ipAddress):
         if len(self.apiKeys) == 0:
-            return
+            return {}
 
         if ipAddress in self.cachedLookups.keys():
             self.logger.dbg(f'Returning cached entry for IP address: {ipAddress}')
@@ -1474,7 +1474,62 @@ The document has moved
         if self.malleable != None:
             userAgentValue = req.headers.get('User-Agent')
 
-        #self.logger.dbg(f'Validating incoming peer: {peerIP}')
+        if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
+            len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0:
+            with SqliteDict(ProxyPlugin.DynamicWhitelistFile) as mydict:
+                if peerIP in mydict.get('whitelisted_ips', []):
+                    self.logger.info('[ALLOW, {}, reason:2, {}] Peer\'s IP was added dynamically to a whitelist based on a number of allowed requests.'.format(
+                        ts, peerIP
+                    ), color='green')
+                    return self.report(False, ts, peerIP, req.path, userAgentValue)
+
+        # Reverse-IP lookup check
+        try:
+            resolved = socket.gethostbyaddr(req.client_address[0])[0]
+            for part in resolved.split('.')[:-1]:
+                if part.lower() in BANNED_AGENTS \
+                and self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
+                    self.drop_reason('[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part))
+                    return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+        except Exception as e:
+            pass
+
+        if self.proxyOptions['ban_blacklisted_ip_addresses']:
+            for cidr, _comment in self.banned_ips.items():
+                if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):
+                    comment = ''
+                    if len(_comment) > 0:
+                        comment = ' - ' + _comment
+
+                    self.drop_reason('[DROP, {}, reason:4a, {}] Peer\'s IP address is blacklisted: ({}{})'.format(
+                        ts, peerIP, cidr, comment
+                    ))
+
+                    try:
+                        ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
+
+                        if ipLookupDetails and len(ipLookupDetails) > 0:
+                            self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='yellow')
+
+                    except Exception as e:
+                        self.logger.err(f'IP Lookup failed for some reason on IP ({peerIP}): {e}')
+
+                    return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+        # Banned words check
+        for k, v in req.headers.items():
+            kv = k.split('-')
+            vv = v.split(' ') + v.split('-')
+            for kv1 in kv:
+                if kv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_names']:
+                    self.drop_reason('[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}"'.format(ts, peerIP, kv1))
+                    return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+            for vv1 in vv:
+                if vv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_value']:
+                    self.drop_reason('[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}"'.format(ts, peerIP, vv1))
+                    return self.report(True, ts, peerIP, req.path, userAgentValue)
 
         if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0 \
             and self.proxyOptions['policy']['allow_proxy_pass']:
@@ -1503,21 +1558,6 @@ The document has moved
                     ), color='green')
                     return self.report(False, ts, peerIP, req.path, userAgentValue)
 
-        if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
-            len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0:
-            with SqliteDict(ProxyPlugin.DynamicWhitelistFile) as mydict:
-                if peerIP in mydict.get('whitelisted_ips', []):
-                    self.logger.info('[ALLOW, {}, reason:2, {}] Peer\'s IP was added dynamically to a whitelist based on a number of allowed requests.'.format(
-                        ts, peerIP
-                    ), color='green')
-                    return self.report(False, ts, peerIP, req.path, userAgentValue)
-
-        if self.proxyOptions['mitigate_replay_attack']:
-            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
-                if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
-                    self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
         # User-agent conformancy
         if self.malleable != None:
             if userAgentValue != self.malleable.config['useragent']\
@@ -1530,30 +1570,10 @@ The document has moved
         else:
             self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='red')
 
-        # Banned words check
-        for k, v in req.headers.items():
-            kv = k.split('-')
-            vv = v.split(' ') + v.split('-')
-            for kv1 in kv:
-                if kv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_names']:
-                    self.drop_reason('[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}"'.format(ts, peerIP, kv1))
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-            for vv1 in vv:
-                if vv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_value']:
-                    self.drop_reason('[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}"'.format(ts, peerIP, vv1))
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-        if self.proxyOptions['ban_blacklisted_ip_addresses']:
-            for cidr, _comment in self.banned_ips.items():
-                if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):
-                    comment = ''
-                    if len(_comment) > 0:
-                        comment = ' - ' + _comment
-
-                    self.drop_reason('[DROP, {}, reason:4a, {}] peer\'s IP address is blacklisted: ({}{})'.format(
-                        ts, peerIP, cidr, comment
-                    ))
+        if self.proxyOptions['mitigate_replay_attack']:
+            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
+                if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
+                    self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
         if self.proxyOptions['verify_peer_ip_details']:
@@ -1582,17 +1602,6 @@ The document has moved
             except Exception as e:
                 self.logger.err(f'IP Geolocation determinant failed for some reason on IP ({peerIP}): {e}')
 
-        # Reverse-IP lookup check
-        try:
-            resolved = socket.gethostbyaddr(req.client_address[0])[0]
-            for part in resolved.split('.')[:-1]:
-                if part.lower() in BANNED_AGENTS \
-                and self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
-                    self.drop_reason('[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part))
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-        except Exception as e:
-            pass
 
         fetched_uri = ''
         fetched_host = req.headers['Host']
@@ -1715,6 +1724,15 @@ The document has moved
             if not found and self.proxyOptions['policy']['drop_malleable_unknown_uris']:
                 self.drop_reason('[DROP, {}, reason:11b, {}] Requested URI does not align any of Malleable defined variants: "{}"'.format(ts, peerIP, req.path))
                 return True
+
+
+            if section.lower() == 'http-stager' and \
+                (('uri_x64' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x64']) or
+                    ('uri_x86' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x86'])):
+                if 'host_stage' in self.malleable.config.keys() and self.malleable.config['host_stage'] == 'false':
+                    self.drop_reason('[DROP, {}, reason:11c, {}] Requested URI referes to http-stager section however Payload staging was disabled: "{}"'.format(ts, peerIP, req.path))
+                return True
+
 
             hdrs2 = {}
             for h in configblock['client']['header']:

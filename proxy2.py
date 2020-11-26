@@ -827,7 +827,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'request_handler')
-                logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
+                #logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
                 origheaders = dict(req.headers).copy()
 
                 req_body_current = handler(req, req_body_current)
@@ -836,8 +836,8 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if req_body_current == None: req_body_current = req_body
                 for k, v in origheaders.items():
                     if origheaders[k] != req.headers[k]:
-                        logger.dbg('Plugin modified request header: "{}", from: "{}" to: "{}"'.format(
-                            k, origheaders[k], req.headers[k]))
+                        #logger.dbg('Plugin modified request header: "{}", from: "{}" to: "{}"'.format(
+                        #    k, origheaders[k], req.headers[k]))
                         altered = True
 
             except AttributeError as e:
@@ -860,7 +860,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'response_handler')
-                logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
+                #logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
                 origheaders = {}
                 try:
                     origheaders = res.headers.copy()
@@ -871,12 +871,12 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 altered = (res_body_current != res_body)
                 for k, v in origheaders.items():
                     if origheaders[k] != res.headers[k]:
-                        logger.dbg('Plugin modified response header: "{}", from: "{}" to: "{}"'.format(
-                            k, origheaders[k], res.headers[k]))
+                        #logger.dbg('Plugin modified response header: "{}", from: "{}" to: "{}"'.format(
+                        #    k, origheaders[k], res.headers[k]))
                         altered = True
 
                 if len(origheaders.keys()) != len(res.headers.keys()):
-                    logger.dbg('Plugin modified response headers.')
+                    #logger.dbg('Plugin modified response headers.')
                     altered = True
 
                 if altered:

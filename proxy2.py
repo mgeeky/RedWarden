@@ -33,6 +33,7 @@ import time
 import html
 import sys, os
 import brotli
+import string
 import socket, ssl, select
 import http.client
 import threading
@@ -72,6 +73,7 @@ options = {
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 15,
     'no_ssl': False,
+    'drop_invalid_http_requests': True,
     'no_proxy': False,
     'cakey':  normpath('ca-cert/ca.key'),
     'cacert': normpath('ca-cert/ca.crt'),
@@ -229,6 +231,24 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
             self.connect_relay()
 
     @staticmethod
+    def isValidRequest(req, req_body):
+        def readable(x):
+            return all(c in string.printable for c in x)
+
+        try:
+            if not readable(req.method): return False
+            if not readable(req.path): return False
+
+            for k, v in req.headers.items():
+                if not readable(k): return False
+                if not readable(v): return False
+        except:
+            return False
+
+        return True
+
+
+    @staticmethod
     def generate_ssl_certificate(hostname):
         certpath = os.path.join(options['certdir'], hostname + '.crt')
         stdout = stderr = ''
@@ -348,6 +368,11 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
         content_length = int(req.headers.get('Content-Length', 0))
         req_body = self.rfile.read(content_length) if content_length else None
+
+        if not self.options['allow_invalid']:
+            if not ProxyRequestHandler.isValidRequest(req, req_body):
+                self.logger.dbg('[DROP] Invalid HTTP request from: {}'.format(self.client_address[0]))
+                return
 
         req_body_modified = ""
         dont_fetch_response = False

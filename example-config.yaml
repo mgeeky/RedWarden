@@ -24,6 +24,16 @@ ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
 
 
 #
+# Drop invalid HTTP requests
+#
+# (proxy2 option) If a stream that doesn't resemble valid HTTP protocol reaches Proxy2 listener, 
+# should we drop it or process it? By default we drop it.
+#
+# Default: True
+#
+drop_invalid_http_requests: True
+
+#
 # ====================================================
 # malleable_redirector plugin related settings
 # ====================================================

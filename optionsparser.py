@@ -29,6 +29,8 @@ def parse_options(opts, version):
         help="Displays debugging informations (implies verbose output).", action="store_true")
     parser.add_argument("-s", "--silent", dest='silent',
         help="Surpresses all of the output logging.", action="store_true")
+    parser.add_argument("-z", "--allow-invalid", dest='allow_invalid',
+        help="Process invalid HTTP requests. By default if a stream not resembling HTTP protocol reaches proxy2 listener - it will be dropped.", action="store_true")
     parser.add_argument("-N", "--no-proxy", dest='no_proxy',
         help="Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.", action="store_true")
     parser.add_argument("-w", "--output", dest='log', 
@@ -150,6 +152,7 @@ def parseParametersFromConfigFile(_params):
         'ssl_cakey' : 'cakey',
         'ssl_cacert' : 'cacert',
         'ssl_cacn' : 'cacn',
+        'drop_invalid_http_requests': 'allow_invalid',
     }
 
     valuesThatNeedsToBeList = (

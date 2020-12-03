@@ -51,7 +51,8 @@ from proxylogger import ProxyLogger
 from pluginsloader import PluginsLoader
 from sslintercept import SSLInterception
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from socketserver import ThreadingMixIn
+from socketserver import ThreadingMixIn, ForkingMixIn
+
 import plugins.IProxyPlugin
 from io import StringIO, BytesIO
 from html.parser import HTMLParser
@@ -71,7 +72,7 @@ options = {
     'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
-    'timeout': 15,
+    'timeout': 30,
     'no_ssl': False,
     'drop_invalid_http_requests': True,
     'no_proxy': False,
@@ -93,17 +94,25 @@ pluginsloaded = None
 # SSL Interception setup object
 sslintercept = None
 
+
 # Asynchronously serving HTTP server class.
-class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+#class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+class ThreadingHTTPServer(ForkingMixIn, HTTPServer):
     address_family = socket.AF_INET
 
     # ThreadMixIn, Should the server wait for thread termination?
     # If True, python will exist despite running server threads.
     daemon_threads = True
 
+    def finish_request(self, request, client_address):
+        request.settimeout(options['timeout'])
+        # "super" can not be used because BaseServer is not created from object
+        HTTPServer.finish_request(self, request, client_address)
+
     def handle_error(self, request, client_address):
         # surpress socket/ssl related errors
         cls, e = sys.exc_info()[:2]
+        request.settimeout(options['timeout'])
         if cls is socket.error or cls is ssl.SSLError:
             pass
         else:
@@ -173,6 +182,10 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                if options['debug']:
                    raise
 
+    def setup(self):
+        BaseHTTPRequestHandler.setup(self)
+        self.request.settimeout(options['timeout'])
+
     @staticmethod
     def get_ip():
         all_addresses = sorted([f[4][0] for f in socket.getaddrinfo(socket.gethostname(), None)] + ['127.0.0.1'])
@@ -220,6 +233,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def _handle_request(self):
+        self.rfile._sock.settimeout(options['timeout'])
         return self.overloaded_do_GET()
 
     def do_CONNECT(self):
@@ -817,7 +831,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     res_body_text = res_body
             elif content_type.startswith('text/html'):
                 if type(res_body) == str: res_body = str.encode(res_body)
-                m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body.decode(), re.I)
+                m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body.decode(errors='ignore'), re.I)
                 if m:
                     logger.trace("==== HTML TITLE ====\n%s\n" % html.unescape(m.group(1)), color=ProxyLogger.colors_map['cyan'])
             elif content_type.startswith('text/') and len(res_body) < 1024:
@@ -1044,10 +1058,12 @@ def serve_proxy(bind, port, _ssl = False):
     if scheme == None: scheme = 'http'
 
     server_address = (bind, port)
-
     httpd = None
+
     try:
         httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
+        httpd.timeout = options['timeout']
+
     except OSError as e:
         if 'Address already in use' in str(e):
             logger.err("Could not bind to specified port as it is already in use!")

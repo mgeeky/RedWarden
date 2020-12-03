@@ -1654,6 +1654,15 @@ The document has moved
                     if self.is_request:
                         self.logger.info('== Valid malleable {} (variant: {}) request inbound.'.format(section, variant))
 
+                        try:
+                            ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
+                            if ipLookupDetails and len(ipLookupDetails) > 0:
+                                self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='yellow')
+
+                        except Exception as e:
+                            pass
+
+
                     break
 
             if (not found) and (self.proxyOptions['policy']['drop_malleable_unknown_uris']):

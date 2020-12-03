@@ -233,7 +233,6 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.log_message(format, *args)
 
     def _handle_request(self):
-        self.rfile._sock.settimeout(options['timeout'])
         return self.overloaded_do_GET()
 
     def do_CONNECT(self):

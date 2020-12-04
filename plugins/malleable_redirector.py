@@ -1253,6 +1253,9 @@ class ProxyPlugin(IProxyPlugin):
             drop_request = True
             newhost = str(e)
 
+        if drop_request:
+            req.close_connection = 1
+
         if drop_request and host_action == 1:
             if self.proxyOptions['drop_action'] == 'proxy' and self.proxyOptions['action_url']:
 
@@ -1336,6 +1339,7 @@ class ProxyPlugin(IProxyPlugin):
             newhost = str(e)
 
         if drop_request:
+            req.close_connection = 1
             if host_action == 1:
                 self.logger.dbg('Not returning body from response handler')
                 return self.drop_action(req, req_body, res, res_body, True)
@@ -1490,6 +1494,7 @@ The document has moved
                 if part.lower() in BANNED_AGENTS \
                 and self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
                     self.drop_reason('[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part))
+                    self.printPeerInfos(peerIP)
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
         except Exception as e:
@@ -1505,15 +1510,7 @@ The document has moved
                     self.drop_reason('[DROP, {}, reason:4a, {}] Peer\'s IP address is blacklisted: ({}{})'.format(
                         ts, peerIP, cidr, comment
                     ))
-
-                    try:
-                        ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
-
-                        if ipLookupDetails and len(ipLookupDetails) > 0:
-                            self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='yellow')
-
-                    except Exception as e:
-                        self.logger.err(f'IP Lookup failed for some reason on IP ({peerIP}): {e}')
+                    self.printPeerInfos(peerIP)
 
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
@@ -1524,11 +1521,13 @@ The document has moved
             for kv1 in kv:
                 if kv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_names']:
                     self.drop_reason('[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}"'.format(ts, peerIP, kv1))
+                    self.printPeerInfos(peerIP)
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
             for vv1 in vv:
                 if vv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_value']:
                     self.drop_reason('[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}"'.format(ts, peerIP, vv1))
+                    self.printPeerInfos(peerIP)
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
         if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0 \
@@ -1653,15 +1652,7 @@ The document has moved
 
                     if self.is_request:
                         self.logger.info('== Valid malleable {} (variant: {}) request inbound.'.format(section, variant))
-
-                        try:
-                            ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
-                            if ipLookupDetails and len(ipLookupDetails) > 0:
-                                self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='yellow')
-
-                        except Exception as e:
-                            pass
-
+                        self.printPeerInfos(peerIP)
 
                     break
 
@@ -1673,6 +1664,14 @@ The document has moved
 
         return self.report(False, ts, peerIP, req.path, userAgentValue)
 
+    def printPeerInfos(self, peerIP):
+        try:
+            ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
+            if ipLookupDetails and len(ipLookupDetails) > 0:
+                self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='yellow')
+
+        except Exception as e:
+            pass
 
     def _client_request_inspect(self, section, variant, req, req_body, malleable_meta, ts, peerIP):
         uri = req.path

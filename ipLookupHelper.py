@@ -100,6 +100,12 @@ class IPLookupHelper:
             'ipapi_co': 'this-provider-not-requires-api-key-for-free-plan',
         }
 
+        self.httpHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit (KHTML, like Gecko) Chrome/87',
+            'Accept': 'text/json, */*',
+            'Host': '',
+        }
+
         if len(apiKeys) > 0:
             for prov in IPLookupHelper.supported_providers:
                 if prov in apiKeys.keys():
@@ -295,7 +301,9 @@ class IPLookupHelper:
         # }
 
         try:
-            r = requests.get(f'http://ip-api.com/json/{ipAddress}')
+            self.httpHeaders['Host'] = 'ip-api.com'
+            r = requests.get(f'http://ip-api.com/json/{ipAddress}',
+                headers = self.httpHeaders)
 
             if r.status_code != 200:
                 raise Exception(f'ip-api.com returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
@@ -338,7 +346,9 @@ class IPLookupHelper:
         # }
 
         try:
-            r = requests.get(f'https://ipapi.co/{ipAddress}/json/')
+            self.httpHeaders['Host'] = 'ipapi.co'
+            r = requests.get(f'https://ipapi.co/{ipAddress}/json/',
+                headers = self.httpHeaders)
 
             if r.status_code != 200:
                 raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
@@ -390,7 +400,9 @@ class IPLookupHelper:
         #   }
         # }
         try:
-            r = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey={self.apiKeys["ipgeolocation_io"]}&ip={ipAddress}')
+            self.httpHeaders['Host'] = 'api.ipgeolocation.io'
+            r = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey={self.apiKeys["ipgeolocation_io"]}&ip={ipAddress}',
+                headers = self.httpHeaders)
 
             if r.status_code != 200:
                 raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())

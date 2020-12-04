@@ -72,7 +72,7 @@ options = {
     'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
-    'timeout': 30,
+    'timeout': 45,
     'no_ssl': False,
     'drop_invalid_http_requests': True,
     'no_proxy': False,
@@ -319,6 +319,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         except:
             logger.err('Connection reset by peer: "{}"'.format(self.path))
             self.send_error(502)
+            self.connection.close()
             return
 
         self.rfile = self.connection.makefile("rb", self.rbufsize)
@@ -342,6 +343,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.err("Could not relay connection: ({})".format(str(e)))
             self.send_error(502)
+            self.connection.close()
             return
 
         self.send_response(200, 'Connection Established')
@@ -368,6 +370,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         ))
 
         self.send_error(500)
+        self.connection.close()
         return
 
     def overloaded_do_GET(self):
@@ -385,6 +388,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         if not self.options['allow_invalid']:
             if not ProxyRequestHandler.isValidRequest(req, req_body):
                 self.logger.dbg('[DROP] Invalid HTTP request from: {}'.format(self.client_address[0]))
+                self.connection.close()
                 return
 
         req_body_modified = ""
@@ -427,10 +431,13 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if inbound_origin in self.tls.conns:
                     del self.tls.conns[inbound_origin]
                 logger.err("Plugin demanded to drop the request: ({})".format(str(e)))
+                self.close_connection = 1
+                self.connection.close()
                 return
 
             elif 'DontFetchResponseException' in str(e):
                 dont_fetch_response = True
+                self.close_connection = 1
                 res_body_plain = 'DontFetchResponseException'
                 class Response(object):
                     pass
@@ -552,7 +559,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                     fetchurl, str(e)
                 ))
    
+                self.close_connection = 1
                 self.send_error(502)
+                self.connection.close()
                 #if options['debug']: raise
                 return
 
@@ -561,7 +570,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
                     
+                self.close_connection = 1
                 self.send_error(502)
+                self.connection.close()
                 if options['debug']: raise
                 return
 
@@ -657,8 +668,16 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                         req.headers['Host'] = outbound_origin
                     self.save_handler(req, req_body, res, res_body_plain)
 
+            if self.close_connection == 1:
+                try:
+                    self.connection.shutdown()
+                except:
+                    pass
+                self.connection.close()
+
         except BrokenPipeError as e:
             logger.err("Broken pipe. Client must have disconnected/timed-out.")
+            self.connection.close()
 
     @staticmethod
     def filter_headers(headers):
@@ -994,8 +1013,12 @@ def send_request_decorator(method):
             if v == 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY': continue
             reqhdrs += '\t{}: {}\r\n'.format(k, v)
         
+        b = body
+        if b != None and type(b) == bytes:
+            b = body.decode(errors='ignore')
+
         request = '\t{} {} {}\r\n{}\r\n\t{}\n'.format(
-            _method, url, 'HTTP/1.1', reqhdrs, body
+            _method, url, 'HTTP/1.1', reqhdrs, b
         )
         
         logger.dbg('SENDING REVERSE-PROXY REQUEST to [{}]:\n\n{}'.format(host, request))

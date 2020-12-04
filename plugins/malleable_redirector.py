@@ -113,7 +113,8 @@ BANNED_AGENTS = (
     'totaldefense', 'webroot', 'egambit', 'trustlook'
 
     # Other proxies, sandboxes etc
-    'zscaler', 'barracuda', 'sonicwall', 'f5 network', 'palo alto network', 'juniper', 'check point'
+    'zscaler', 'barracuda', 'sonicwall', 'f5 network', 'palo alto network', 'juniper', 'check point',
+    'microsoft corporation'
 )
 
 class IPLookupHelper:
@@ -506,6 +507,52 @@ class IPGeolocationDeterminant:
 
         return result
 
+    @staticmethod
+    def getValues(v, n = 0):
+        values = []
+
+        if type(v) == str:
+            if ' ' in v:
+                values.extend(v.split(' '))
+            else:
+                values.append(v)
+        elif type(v) == int or type(v) == float:
+            values.extend([str(v)])
+        elif type(v) == tuple or type(v) == list:
+            for w in v:
+                values.extend(IPGeolocationDeterminant.getValues(w, n+1))
+        elif type(v) == dict and n < 10:
+            values.extend(IPGeolocationDeterminant.getValuesDict(v, n+1))
+
+        return values
+
+    @staticmethod
+    def getValuesDict(data, n = 0):
+        values = []
+
+        for k, v in data.items():
+            if type(v) == dict and n < 10:
+                values.extend(IPGeolocationDeterminant.getValuesDict(v, n+1))
+            elif n < 10:
+                values.extend(IPGeolocationDeterminant.getValues(v, n+1))
+
+        return values
+
+    def validateIpGeoMetadata(self, ipLookupDetails):
+        if len(ipLookupDetails) == 0: return (True, '')
+
+        words = set(list(filter(None, IPGeolocationDeterminant.getValuesDict(ipLookupDetails))))
+        if len(words) == 0: return (True, '')
+
+        self.logger.dbg(f"Extracted keywords from Peer's IP Geolocation metadata: ({words})")
+
+        for w in words:
+            if w.lower() in BANNED_AGENTS:
+                self.logger.dbg(f"Peer's IP Geolocation metadata contained banned keyword: ({w})")
+                return (False, w)
+
+        self.logger.dbg(f"Peer's IP Geolocation metadata didn't raise suspicions.")
+        return (True, '')
 
 class MalleableParser:
     ProtocolTransactions = ('http-stager', 'http-get', 'http-post')
@@ -818,6 +865,7 @@ class ProxyPlugin(IProxyPlugin):
             'drop_http_banned_header_names' : True,
             'drop_http_banned_header_value' : True,
             'drop_dangerous_ip_reverse_lookup' : True,
+            'drop_ipgeo_metadata_containing_banned_keywords' : True,
             'drop_malleable_without_expected_header' : True,
             'drop_malleable_without_expected_header_value' : True,
             'drop_malleable_without_expected_request_section' : True,
@@ -1539,6 +1587,7 @@ The document has moved
                     self.logger.info('[ALLOW, {}, reason:0, {}]  Request conforms ProxyPass entry (url="{}" host="{}"). Passing request to specified host.'.format(
                         ts, peerIP, url, host
                     ), color='green')
+                    self.printPeerInfos(peerIP)
 
                     del req.headers['Host']
                     req.headers['Host'] = host
@@ -1601,6 +1650,17 @@ The document has moved
             except Exception as e:
                 self.logger.err(f'IP Geolocation determinant failed for some reason on IP ({peerIP}): {e}')
 
+            if self.proxyOptions['policy']['drop_ipgeo_metadata_containing_banned_keywords']:
+                self.logger.dbg("Analysing IP Geo metadata keywords...")
+                try:
+                    metaAnalysis = self.ipGeolocationDeterminer.validateIpGeoMetadata(ipLookupDetails)
+                    if metaAnalysis[0] == False:
+                        self.drop_reason('[DROP, {}, reason:4e, {}] Peer\'s IP geolocation metadata ("{}", "{}", "{}", "{}", "{}") contained banned keyword: ({})! Peer banned in generic fashion.'.format(
+                            ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone'], metaAnalysis[1]
+                        ))
+                        return self.report(True, ts, peerIP, req.path, userAgentValue)
+                except Exception as e:
+                    self.logger.dbg(f"Exception was thrown during drop_ipgeo_metadata_containing_banned_keywords verifcation:\n\t({e})")
 
         fetched_uri = ''
         fetched_host = req.headers['Host']

@@ -250,6 +250,9 @@ ip_addresses_blacklist_file: plugins/malleable_banned_ips.txt
 # List of API keys for supported platforms are specified in ''. If there are no keys specified, 
 # only providers that don't require API keys will be used (e.g. ip-api.com, ipapi.co)
 #
+# This setting affects execution of policy:
+#   - drop_ipgeo_metadata_containing_banned_keywords
+#
 # Default: True
 #
 verify_peer_ip_details: True
@@ -341,6 +344,8 @@ policy:
   drop_http_banned_header_value: True
   # [IP: DROP, reason:4b] peer's reverse-IP lookup contained banned word
   drop_dangerous_ip_reverse_lookup: True
+  # [IP: DROP, reason:4e] Peer's IP geolocation metadata contained banned keyword! Peer banned in generic fashion.
+  drop_ipgeo_metadata_containing_banned_keywords: True
   # [IP: DROP, reason:5] HTTP request did not contain expected header
   drop_malleable_without_expected_header: True
   # [IP: DROP, reason:6] HTTP request did not contain expected header value:

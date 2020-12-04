@@ -18,6 +18,9 @@
 #   0.3     added python3 support, enhanced https capabilities and added more versatile
 #           plugins support.
 #   0.4     improved reverse-proxy's capabilities, added logic to avoid inifinite loops
+#   0.5     fixed plenty of bugs, improved a bit server's resilience against slow/misbehaving peers
+#           by disconnecting them/timeouting connections, improved logging facility and output format,
+#           added options to protecte HTTP headers, apply fine-grained DROP policy, and plenty more.
 #
 # Author:
 #   Mariusz B. / mgeeky, '16-'20
@@ -27,7 +30,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.4'
+VERSION = '0.5'
 
 import time
 import html
@@ -69,6 +72,7 @@ options = {
     'port': [8080, ],
     'debug': False,                  # Print's out debuging informations
     'verbose': True,
+    'tee': False,
     'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
@@ -1040,6 +1044,12 @@ def init():
     logger = ProxyLogger(options)
     pluginsloaded = PluginsLoader(logger, options)
     sslintercept = SSLInterception(logger, options)
+
+    if options['log'] and options['log'] != None and options['log'] != sys.stdout:
+        if options['tee']:
+            logger.info("Teeing stdout output to {} log file.".format(options['log']))
+        else:
+            logger.info("Writing output to {} log file.".format(options['log']))
 
     monkeypatching()
 

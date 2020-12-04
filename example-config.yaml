@@ -9,16 +9,34 @@
 # ====================================================
 #
 
-plugin: malleable_redirector
+# Print verbose output. Implied if debug=True. Default: False
+verbose: True
 
-trace: True
-debug: True
+# Print debugging output. Default: False
+debug: False
 
+# Dump HTTP requests and responses. Default: False
+trace: False
+
+# Redirect proxy2's output to file. Default: stdout.
+# Creates a file in the same directory that this config file is situated.
+#output: proxy.log
+
+# If 'output' is specified, tee program's output to file and stdout at the same time.
+# Default: False
+#tee: True
+
+
+#
+# Ports on which proxy2 should bind & listen
+#
 port:
   - 80/http
   - 443/https
 
-# Let's Encrypt certificates
+#
+# SSL certificate CAcert (pem, crt, cert) and private key CAkey
+#
 ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
 ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
 
@@ -33,11 +51,20 @@ ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
 #
 drop_invalid_http_requests: True
 
+
+
 #
 # ====================================================
 # malleable_redirector plugin related settings
 # ====================================================
 #
+
+#
+# Plugin that should be enabled. May be repeated to load more plugins.
+# Multi-plugin support not yet thoroughly tested.
+#
+plugin: malleable_redirector
+
 
 #
 # Path to the Malleable C2 profile file. 
@@ -357,5 +384,5 @@ policy:
 #
 # Default: <empty-list>
 #
-protect_these_headers_from_tampering:
-  - Accept-Encoding
+#protect_these_headers_from_tampering:
+#  - Accept-Encoding

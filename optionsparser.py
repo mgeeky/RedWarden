@@ -33,6 +33,8 @@ def parse_options(opts, version):
         help="Process invalid HTTP requests. By default if a stream not resembling HTTP protocol reaches proxy2 listener - it will be dropped.", action="store_true")
     parser.add_argument("-N", "--no-proxy", dest='no_proxy',
         help="Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.", action="store_true")
+    parser.add_argument("-W", "--tee", dest='tee',
+        help="While logging to output file, print to stdout also.", action="store_true")
     parser.add_argument("-w", "--output", dest='log', 
         help="Specifies output log file.", metavar="PATH", type=str)
     parser.add_argument("-B", "--bind", dest='bind', metavar='NAME',
@@ -119,6 +121,7 @@ def parse_options(opts, version):
             with open(opts['log'], 'w') as f:
                 pass
             opts['log'] = opts['log']
+
         except Exception as e:
             raise Exception('[ERROR] Failed to open log file for writing. Error: "%s"' % e)
     else:

@@ -149,4 +149,4 @@ You can implement your own packets handling plugin by implementing `ProxyHandler
 
 ## Known bugs
 
-- Generating SSL certificates on the fly as implemented in `ProxyRequestHandler.generate_ssl_certificate()` fails on Windows most likely due to openssl's error "__unable to write 'random state'__". This needs further investigation.
+- Generating SSL certificates on the fly as implemented in `ProxyRequestHandler.generate_ssl_certificate()` fails on Windows most likely due to openssl's error "__unable to write 'random state'__". This requires further investigation.

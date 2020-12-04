@@ -11,6 +11,7 @@ class ProxyLogger:
         'debug': False,
         'verbose': False,
         'trace': False,
+        'tee': False,
         'log': sys.stdout,
     }
 
@@ -86,14 +87,17 @@ class ProxyLogger:
                 f.write(prefix2 + txt + nl)
                 f.flush()
 
-            #sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
-            #sys.stdout.flush()
+            if args['tee']:
+                sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
+                sys.stdout.flush()
 
         else:
             fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)
 
     # Info shall be used as an ordinary logging facility, for every desired output.
     def info(self, txt, forced = False, **kwargs):
+        if self.options['tee']:
+            kwargs['tee'] = True
         if forced or (self.options['verbose'] or \
             self.options['debug'] or self.options['trace']) \
             or (type(self.options['log']) == str and self.options['log'] != 'none'):
@@ -102,17 +106,26 @@ class ProxyLogger:
     # Trace by default does not uses [TRACE] prefix. Shall be used
     # for dumping packets, headers, metadata and longer technical output.
     def trace(self, txt, **kwargs):
+        if self.options['tee']:
+            kwargs['tee'] = True
+
         if self.options['trace']:
             kwargs['noprefix'] = True
             ProxyLogger.out(txt, self.options['log'], 'trace', **kwargs)
 
     def dbg(self, txt, **kwargs):
+        if self.options['tee']:
+            kwargs['tee'] = True
         if self.options['debug']:
             ProxyLogger.out(txt, self.options['log'], 'debug', **kwargs)
 
     def err(self, txt, **kwargs):
+        if self.options['tee']:
+            kwargs['tee'] = True
         ProxyLogger.out(txt, self.options['log'], 'error', **kwargs)
 
     def fatal(self, txt, **kwargs):
+        if self.options['tee']:
+            kwargs['tee'] = True
         ProxyLogger.out(txt, self.options['log'], 'error', **kwargs)
         os._exit(1)

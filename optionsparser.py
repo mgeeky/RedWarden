@@ -118,8 +118,9 @@ def parse_options(opts, version):
         opts['log'] = 'none'
     elif opts['log'] and len(opts['log']) > 0:
         try:
-            with open(opts['log'], 'w') as f:
-                pass
+            if not os.path.isfile(opts['log']):
+                with open(opts['log'], 'w') as f:
+                    pass
             opts['log'] = opts['log']
 
         except Exception as e:

@@ -1984,3 +1984,1118 @@
 99.82.0.0/16
 99.84.0.0/16
 99.86.0.0/16
+
+73.217.131.0/24 # Custom
+102.37.0.0/16 # Custom
+
+23.103.132.0/22 # Microsoft URL Scanning
+23.103.136.0/21 # Microsoft URL Scanning
+23.103.144.0/20 # Microsoft URL Scanning
+23.103.198.0/23 # Microsoft URL Scanning
+23.103.200.0/22 # Microsoft URL Scanning
+40.92.0.0/14 # Microsoft URL Scanning
+40.107.0.0/17 # Microsoft URL Scanning
+52.100.0.0/14 # Microsoft URL Scanning
+52.238.78.88/32 # Microsoft URL Scanning
+65.55.88.0/24 # Microsoft URL Scanning
+65.55.169.0/24 # Microsoft URL Scanning
+94.245.120.64/26 # Microsoft URL Scanning
+104.47.0.0/17 # Microsoft URL Scanning
+157.55.234.0/24 # Microsoft URL Scanning
+157.56.110.0/23 # Microsoft URL Scanning
+157.56.112.0/24 # Microsoft URL Scanning
+207.46.100.0/24 # Microsoft URL Scanning
+207.46.163.0/24 # Microsoft URL Scanning
+213.199.154.0/24 # Microsoft URL Scanning
+213.199.180.128/26 # Microsoft URL Scanning
+216.32.180.0/23 # Microsoft URL Scanning
+
+208.87.232.0/21 # ForcePoint
+157.167.1.0/24 # ForcePoint
+157.167.2.0/24 # ForcePoint
+204.15.64.0/23 # ForcePoint
+204.15.66.0/24 # ForcePoint
+204.15.67.0/24 # ForcePoint
+204.15.68.0/24 # ForcePoint
+204.15.69.0/24 # ForcePoint
+208.80.192.0/21 # ForcePoint
+208.80.198.0/24 # ForcePoint
+208.80.199.0/24 # ForcePoint
+86.111.218.0/23 # ForcePoint
+86.111.220.0/23 # ForcePoint
+
+161.69.0.0/16 # McAfee
+161.69.24.0/21 # McAfee
+161.69.112.0/24 # McAfee
+
+165.255.0.0/17 # ZScaler
+
+195.189.155.0/24 # MiscContributions:@ztgrace
+91.199.104.0/24 # MiscContributions:@ztgrace
+91.212.136.0/24 # MiscContributions:@ztgrace
+208.90.236.0/22 # MiscContributions:@ztgrace
+204.13.200.0/22 # MiscContributions:@ztgrace
+207.102.138.0/24 # MiscContributions:@ztgrace
+208.87.232.0/21 # MiscContributions:@ztgrace
+103.245.47.20 # MiscContributions:@ztgrace
+182.75.165.176/30 # MiscContributions:@ztgrace
+
+173.94.0.0/16 # OtherVThosts
+8.34.0.0/16 # OtherVThosts
+8.35.0.0/16 # OtherVThosts
+92.0.0.0/8 # OtherVThosts
+93.0.0.0/8 # OtherVThosts
+94.0.0.0/8 # OtherVThosts
+95.0.0.0/8 # OtherVThosts
+96.0.0.0/8 # OtherVThosts
+97.0.0.0/8 # OtherVThosts
+98.0.0.0/8 # OtherVThosts
+99.0.0.0/8 # OtherVThosts
+
+150.70.0.0/22 # TrendMicro
+150.70.104.0/22 # TrendMicro
+150.70.110.0/24 # TrendMicro
+150.70.112.0/20 # TrendMicro
+150.70.12.0/22 # TrendMicro
+150.70.160.0/20 # TrendMicro
+150.70.176.0/20 # TrendMicro
+150.70.192.0/21 # TrendMicro
+150.70.224.0/20 # TrendMicro
+150.70.240.0/20 # TrendMicro
+150.70.31.0/24 # TrendMicro
+150.70.4.0/22 # TrendMicro
+150.70.64.0/18 # TrendMicro
+150.70.64.0/20 # TrendMicro
+150.70.8.0/22 # TrendMicro
+150.70.80.0/20 # TrendMicro
+150.70.96.0/20 # TrendMicro
+206.165.76.0/24 # TrendMicro
+
+154.59.123.0/24 # PaloAlto
+154.59.126.0/24 # PaloAlto
+199.167.52.0/24 # PaloAlto
+199.167.53.0/24 # PaloAlto
+199.167.55.0/24 # PaloAlto
+202.126.13.0/24 # PaloAlto
+202.189.133.0/24 # PaloAlto
+208.184.7.0/24 # PaloAlto
+64.74.215.0/24 # PaloAlto
+70.42.131.0/24 # PaloAlto
+72.5.231.0/24 # PaloAlto
+72.5.65.0/24 # PaloAlto
+74.201.127.0/24 # PaloAlto
+74.217.90.0/24 # PaloAlto
+
+148.163.148.0/22 # ProofPoint
+148.163.156.0/23 # ProofPoint
+208.84.65.0/24 # ProofPoint
+208.84.66.0/24 # ProofPoint
+208.86.202.0/24 # ProofPoint
+208.86.203.0/24 # ProofPoint
+67.231.144.0/24 # ProofPoint
+67.231.145.0/24 # ProofPoint
+67.231.146.0/24 # ProofPoint
+67.231.147.0/24 # ProofPoint
+67.231.148.0/24 # ProofPoint
+67.231.149.0/24 # ProofPoint
+67.231.151.0/24 # ProofPoint
+67.231.158.0/24 # ProofPoint
+
+173.243.128.0/20 # Fortigate
+173.243.136.0/21 # Fortigate
+208.91.112.0/22 # Fortigate
+208.91.112.0/23 # Fortigate
+208.91.114.0/23 # Fortigate
+23.249.49.0/24 # Fortigate
+23.249.50.0/24 # Fortigate
+23.249.51.0/24 # Fortigate
+23.249.52.0/24 # Fortigate
+23.249.53.0/24 # Fortigate
+23.249.54.0/24 # Fortigate
+23.249.55.0/24 # Fortigate
+96.45.32.0/20 # Fortigate
+96.45.32.0/21 # Fortigate
+96.45.40.0/21 # Fortigate
+
+143.127.10.0/23 # Symantec
+143.127.100.0/24 # Symantec
+143.127.102.0/24 # Symantec
+143.127.103.0/24 # Symantec
+143.127.119.0/24 # Symantec
+143.127.136.0/24 # Symantec
+143.127.138.0/24 # Symantec
+143.127.139.0/24 # Symantec
+143.127.14.0/23 # Symantec
+143.127.2.0/24 # Symantec
+143.127.241.0/24 # Symantec
+143.127.242.0/23 # Symantec
+143.127.87.0/24 # Symantec
+143.127.89.0/24 # Symantec
+143.127.93.0/24 # Symantec
+155.64.105.0/24 # Symantec
+155.64.138.0/24 # Symantec
+155.64.16.0/23 # Symantec
+155.64.23.0/24 # Symantec
+155.64.38.0/24 # Symantec
+155.64.40.0/24 # Symantec
+155.64.49.0/24 # Symantec
+155.64.56.0/24 # Symantec
+155.64.63.0/24 # Symantec
+166.98.152.0/23 # Symantec
+166.98.242.0/23 # Symantec
+166.98.38.0/24 # Symantec
+166.98.67.0/24 # Symantec
+166.98.71.0/24 # Symantec
+198.6.32.0/20 # Symantec
+198.6.32.0/24 # Symantec
+198.6.34.0/24 # Symantec
+198.6.62.0/24 # Symantec
+216.10.192.0/20 # Symantec
+216.10.193.0/24 # Symantec
+
+104.40.0.0/13 # Microsoft
+
+104.208.0.0/16 # Azure
+104.209.0.0/16 # Azure
+104.210.0.0/16 # Azure
+104.211.0.0/16 # Azure
+104.214.0.0/16 # Azure
+104.215.0.0/16 # Azure
+104.40.0.0/16 # Azure
+104.41.0.0/16 # Azure
+104.42.0.0/16 # Azure
+104.43.0.0/16 # Azure
+104.44.0.0/16 # Azure
+104.45.0.0/16 # Azure
+104.46.0.0/16 # Azure
+104.47.0.0/16 # Azure
+111.221.0.0/16 # Azure
+131.253.0.0/16 # Azure
+134.170.0.0/16 # Azure
+137.116.0.0/16 # Azure
+137.117.0.0/16 # Azure
+137.135.0.0/16 # Azure
+138.91.0.0/16 # Azure
+157.55.0.0/16 # Azure
+157.56.0.0/16 # Azure
+168.61.0.0/16 # Azure
+168.62.0.0/16 # Azure
+168.63.0.0/16 # Azure
+191.232.0.0/16 # Azure
+191.233.0.0/16 # Azure
+191.234.0.0/16 # Azure
+191.235.0.0/16 # Azure
+191.236.0.0/16 # Azure
+191.237.0.0/16 # Azure
+191.238.0.0/16 # Azure
+191.239.0.0/16 # Azure
+193.149.0.0/16 # Azure
+199.30.0.0/16 # Azure
+20.184.0.0/16 # Azure
+20.185.0.0/16 # Azure
+20.186.0.0/16 # Azure
+20.187.0.0/16 # Azure
+20.188.0.0/16 # Azure
+20.189.0.0/16 # Azure
+20.190.0.0/16 # Azure
+20.191.0.0/16 # Azure
+20.36.0.0/16 # Azure
+20.37.0.0/16 # Azure
+20.38.0.0/16 # Azure
+20.39.0.0/16 # Azure
+20.40.0.0/16 # Azure
+20.41.0.0/16 # Azure
+20.42.0.0/16 # Azure
+20.43.0.0/16 # Azure
+20.44.0.0/16 # Azure
+204.231.0.0/16 # Azure
+207.46.0.0/16 # Azure
+207.68.0.0/16 # Azure
+209.240.0.0/16 # Azure
+213.199.0.0/16 # Azure
+23.100.0.0/16 # Azure
+23.101.0.0/16 # Azure
+23.102.0.0/16 # Azure
+23.103.0.0/16 # Azure
+23.96.0.0/16 # Azure
+23.97.0.0/16 # Azure
+23.98.0.0/16 # Azure
+23.99.0.0/16 # Azure
+40.112.0.0/16 # Azure
+40.113.0.0/16 # Azure
+40.114.0.0/16 # Azure
+40.115.0.0/16 # Azure
+40.116.0.0/16 # Azure
+40.117.0.0/16 # Azure
+40.118.0.0/16 # Azure
+40.119.0.0/16 # Azure
+40.121.0.0/16 # Azure
+40.122.0.0/16 # Azure
+40.123.0.0/16 # Azure
+40.124.0.0/16 # Azure
+40.125.0.0/16 # Azure
+40.126.0.0/16 # Azure
+40.127.0.0/16 # Azure
+40.64.0.0/16 # Azure
+40.65.0.0/16 # Azure
+40.66.0.0/16 # Azure
+40.67.0.0/16 # Azure
+40.68.0.0/16 # Azure
+40.69.0.0/16 # Azure
+40.70.0.0/16 # Azure
+40.71.0.0/16 # Azure
+40.74.0.0/16 # Azure
+40.75.0.0/16 # Azure
+40.76.0.0/16 # Azure
+40.77.0.0/16 # Azure
+40.78.0.0/16 # Azure
+40.79.0.0/16 # Azure
+40.80.0.0/16 # Azure
+40.81.0.0/16 # Azure
+40.82.0.0/16 # Azure
+40.83.0.0/16 # Azure
+40.84.0.0/16 # Azure
+40.85.0.0/16 # Azure
+40.86.0.0/16 # Azure
+40.87.0.0/16 # Azure
+40.88.0.0/16 # Azure
+40.89.0.0/16 # Azure
+40.90.0.0/16 # Azure
+40.91.0.0/16 # Azure
+51.104.0.0/16 # Azure
+51.105.0.0/16 # Azure
+51.136.0.0/16 # Azure
+51.137.0.0/16 # Azure
+51.140.0.0/16 # Azure
+51.141.0.0/16 # Azure
+51.142.0.0/16 # Azure
+51.143.0.0/16 # Azure
+51.144.0.0/16 # Azure
+51.145.0.0/16 # Azure
+64.4.0.0/16 # Azure
+65.52.0.0/16 # Azure
+65.54.0.0/16 # Azure
+65.55.0.0/16 # Azure
+70.37.0.0/16 # Azure
+94.245.0.0/16 # Azure
+
+64.235.144.0/24 # Barracuda
+
+103.10.197.50 # TOR Exit Nodes
+103.16.16.107 # TOR Exit Nodes
+103.234.220.197 # TOR Exit Nodes
+103.236.201.110 # TOR Exit Nodes
+103.236.201.57 # TOR Exit Nodes
+103.27.124.82 # TOR Exit Nodes
+103.29.70.23 # TOR Exit Nodes
+103.3.61.114 # TOR Exit Nodes
+103.35.74.75 # TOR Exit Nodes
+103.35.74.77 # TOR Exit Nodes
+103.56.207.84 # TOR Exit Nodes
+103.8.79.229 # TOR Exit Nodes
+104.132.0.72 # TOR Exit Nodes
+104.192.0.58 # TOR Exit Nodes
+104.200.20.46 # TOR Exit Nodes
+104.208.158.116 # TOR Exit Nodes
+104.218.63.73 # TOR Exit Nodes
+104.218.63.74 # TOR Exit Nodes
+104.218.63.75 # TOR Exit Nodes
+104.218.63.76 # TOR Exit Nodes
+104.223.123.98 # TOR Exit Nodes
+104.236.141.156 # TOR Exit Nodes
+104.244.72.200 # TOR Exit Nodes
+104.244.74.78 # TOR Exit Nodes
+106.187.37.101 # TOR Exit Nodes
+107.181.174.84 # TOR Exit Nodes
+109.126.9.228 # TOR Exit Nodes
+109.169.33.163 # TOR Exit Nodes
+109.190.182.44 # TOR Exit Nodes
+109.201.133.100 # TOR Exit Nodes
+109.69.67.17 # TOR Exit Nodes
+111.248.62.31 # TOR Exit Nodes
+115.70.208.19 # TOR Exit Nodes
+118.163.74.160 # TOR Exit Nodes
+120.29.217.46 # TOR Exit Nodes
+124.109.1.207 # TOR Exit Nodes
+125.212.241.182 # TOR Exit Nodes
+126.72.58.19 # TOR Exit Nodes
+128.199.47.160 # TOR Exit Nodes
+128.199.76.145 # TOR Exit Nodes
+128.52.128.105 # TOR Exit Nodes
+13.79.231.167 # TOR Exit Nodes
+130.204.161.3 # TOR Exit Nodes
+133.218.180.149 # TOR Exit Nodes
+137.74.167.96 # TOR Exit Nodes
+137.74.169.241 # TOR Exit Nodes
+137.74.73.179 # TOR Exit Nodes
+138.197.167.60 # TOR Exit Nodes
+138.197.207.243 # TOR Exit Nodes
+138.197.85.80 # TOR Exit Nodes
+139.162.10.72 # TOR Exit Nodes
+139.162.105.26 # TOR Exit Nodes
+139.162.124.207 # TOR Exit Nodes
+139.162.16.13 # TOR Exit Nodes
+139.162.226.245 # TOR Exit Nodes
+139.162.28.23 # TOR Exit Nodes
+139.162.28.31 # TOR Exit Nodes
+139.59.213.165 # TOR Exit Nodes
+139.59.62.94 # TOR Exit Nodes
+14.202.230.49 # TOR Exit Nodes
+141.170.2.53 # TOR Exit Nodes
+141.255.189.161 # TOR Exit Nodes
+142.4.211.161 # TOR Exit Nodes
+142.44.166.241 # TOR Exit Nodes
+144.217.161.119 # TOR Exit Nodes
+144.217.167.240 # TOR Exit Nodes
+144.217.174.248 # TOR Exit Nodes
+144.217.240.34 # TOR Exit Nodes
+144.217.94.195 # TOR Exit Nodes
+144.217.94.96 # TOR Exit Nodes
+145.220.75.103 # TOR Exit Nodes
+145.239.29.201 # TOR Exit Nodes
+145.239.74.47 # TOR Exit Nodes
+145.239.82.79 # TOR Exit Nodes
+145.239.91.37 # TOR Exit Nodes
+146.185.177.103 # TOR Exit Nodes
+147.135.156.122 # TOR Exit Nodes
+149.202.185.34 # TOR Exit Nodes
+149.56.201.79 # TOR Exit Nodes
+149.56.223.241 # TOR Exit Nodes
+151.80.238.152 # TOR Exit Nodes
+154.127.60.92 # TOR Exit Nodes
+154.16.149.35 # TOR Exit Nodes
+154.16.149.74 # TOR Exit Nodes
+155.133.64.203 # TOR Exit Nodes
+155.4.230.97 # TOR Exit Nodes
+155.4.250.85 # TOR Exit Nodes
+156.67.106.251 # TOR Exit Nodes
+156.67.106.30 # TOR Exit Nodes
+156.67.106.32 # TOR Exit Nodes
+158.255.6.242 # TOR Exit Nodes
+158.255.7.61 # TOR Exit Nodes
+158.69.215.7 # TOR Exit Nodes
+158.69.83.25 # TOR Exit Nodes
+161.184.238.220 # TOR Exit Nodes
+162.219.176.26 # TOR Exit Nodes
+162.220.246.230 # TOR Exit Nodes
+162.221.201.57 # TOR Exit Nodes
+162.243.166.137 # TOR Exit Nodes
+162.243.75.204 # TOR Exit Nodes
+162.247.72.199 # TOR Exit Nodes
+162.247.72.200 # TOR Exit Nodes
+162.247.72.201 # TOR Exit Nodes
+162.247.72.202 # TOR Exit Nodes
+162.247.72.213 # TOR Exit Nodes
+162.247.72.216 # TOR Exit Nodes
+162.247.72.217 # TOR Exit Nodes
+162.247.72.27 # TOR Exit Nodes
+162.247.72.7 # TOR Exit Nodes
+162.247.73.204 # TOR Exit Nodes
+162.247.73.206 # TOR Exit Nodes
+163.172.101.137 # TOR Exit Nodes
+163.172.136.101 # TOR Exit Nodes
+163.172.137.174 # TOR Exit Nodes
+163.172.137.222 # TOR Exit Nodes
+163.172.138.11 # TOR Exit Nodes
+163.172.139.161 # TOR Exit Nodes
+163.172.140.123 # TOR Exit Nodes
+163.172.151.250 # TOR Exit Nodes
+163.172.151.47 # TOR Exit Nodes
+163.172.160.182 # TOR Exit Nodes
+163.172.162.106 # TOR Exit Nodes
+163.172.163.85 # TOR Exit Nodes
+163.172.171.163 # TOR Exit Nodes
+163.172.179.129 # TOR Exit Nodes
+163.172.212.115 # TOR Exit Nodes
+163.172.217.50 # TOR Exit Nodes
+163.172.223.200 # TOR Exit Nodes
+163.172.223.87 # TOR Exit Nodes
+164.132.106.162 # TOR Exit Nodes
+164.132.41.140 # TOR Exit Nodes
+164.132.51.91 # TOR Exit Nodes
+164.77.133.220 # TOR Exit Nodes
+165.227.200.152 # TOR Exit Nodes
+165.227.58.177 # TOR Exit Nodes
+165.255.186.248 # TOR Exit Nodes
+165.255.224.117 # TOR Exit Nodes
+166.70.15.14 # TOR Exit Nodes
+166.70.207.2 # TOR Exit Nodes
+167.114.251.167 # TOR Exit Nodes
+167.114.34.150 # TOR Exit Nodes
+169.239.183.210 # TOR Exit Nodes
+170.250.140.52 # TOR Exit Nodes
+171.25.193.20 # TOR Exit Nodes
+171.25.193.235 # TOR Exit Nodes
+171.25.193.25 # TOR Exit Nodes
+171.25.193.77 # TOR Exit Nodes
+171.25.193.78 # TOR Exit Nodes
+172.104.148.28 # TOR Exit Nodes
+172.104.187.79 # TOR Exit Nodes
+172.93.48.163 # TOR Exit Nodes
+172.98.193.43 # TOR Exit Nodes
+173.14.173.227 # TOR Exit Nodes
+173.208.153.75 # TOR Exit Nodes
+173.249.2.79 # TOR Exit Nodes
+173.254.216.66 # TOR Exit Nodes
+173.255.226.142 # TOR Exit Nodes
+173.255.231.125 # TOR Exit Nodes
+173.255.253.173 # TOR Exit Nodes
+176.10.104.240 # TOR Exit Nodes
+176.10.104.243 # TOR Exit Nodes
+176.10.107.180 # TOR Exit Nodes
+176.121.10.52 # TOR Exit Nodes
+176.126.252.11 # TOR Exit Nodes
+176.126.252.12 # TOR Exit Nodes
+176.223.113.26 # TOR Exit Nodes
+176.31.180.157 # TOR Exit Nodes
+176.31.45.3 # TOR Exit Nodes
+176.36.117.185 # TOR Exit Nodes
+176.38.163.77 # TOR Exit Nodes
+176.58.100.98 # TOR Exit Nodes
+176.58.89.182 # TOR Exit Nodes
+177.133.182.77 # TOR Exit Nodes
+177.157.253.157 # TOR Exit Nodes
+178.17.170.13 # TOR Exit Nodes
+178.17.170.135 # TOR Exit Nodes
+178.17.170.149 # TOR Exit Nodes
+178.17.170.156 # TOR Exit Nodes
+178.17.170.164 # TOR Exit Nodes
+178.17.170.194 # TOR Exit Nodes
+178.17.170.195 # TOR Exit Nodes
+178.17.170.196 # TOR Exit Nodes
+178.17.171.111 # TOR Exit Nodes
+178.17.171.49 # TOR Exit Nodes
+178.17.174.10 # TOR Exit Nodes
+178.17.174.14 # TOR Exit Nodes
+178.17.174.198 # TOR Exit Nodes
+178.175.131.194 # TOR Exit Nodes
+178.18.83.215 # TOR Exit Nodes
+178.20.55.16 # TOR Exit Nodes
+178.20.55.18 # TOR Exit Nodes
+178.202.169.177 # TOR Exit Nodes
+178.209.42.84 # TOR Exit Nodes
+178.238.237.44 # TOR Exit Nodes
+178.32.181.97 # TOR Exit Nodes
+178.32.181.98 # TOR Exit Nodes
+178.32.181.99 # TOR Exit Nodes
+18.248.1.85 # TOR Exit Nodes
+18.248.2.85 # TOR Exit Nodes
+18.85.22.204 # TOR Exit Nodes
+185.10.68.119 # TOR Exit Nodes
+185.10.68.139 # TOR Exit Nodes
+185.10.68.191 # TOR Exit Nodes
+185.100.84.108 # TOR Exit Nodes
+185.100.84.82 # TOR Exit Nodes
+185.100.85.101 # TOR Exit Nodes
+185.100.85.112 # TOR Exit Nodes
+185.100.85.147 # TOR Exit Nodes
+185.100.85.190 # TOR Exit Nodes
+185.100.85.191 # TOR Exit Nodes
+185.100.85.192 # TOR Exit Nodes
+185.100.85.61 # TOR Exit Nodes
+185.100.86.100 # TOR Exit Nodes
+185.100.86.141 # TOR Exit Nodes
+185.100.86.154 # TOR Exit Nodes
+185.100.86.167 # TOR Exit Nodes
+185.100.86.199 # TOR Exit Nodes
+185.100.86.217 # TOR Exit Nodes
+185.100.86.69 # TOR Exit Nodes
+185.100.86.86 # TOR Exit Nodes
+185.100.87.206 # TOR Exit Nodes
+185.100.87.207 # TOR Exit Nodes
+185.100.87.82 # TOR Exit Nodes
+185.103.99.60 # TOR Exit Nodes
+185.104.120.2 # TOR Exit Nodes
+185.104.120.3 # TOR Exit Nodes
+185.104.120.4 # TOR Exit Nodes
+185.104.120.7 # TOR Exit Nodes
+185.107.81.233 # TOR Exit Nodes
+185.107.81.234 # TOR Exit Nodes
+185.11.167.4 # TOR Exit Nodes
+185.112.157.135 # TOR Exit Nodes
+185.112.254.195 # TOR Exit Nodes
+185.117.215.9 # TOR Exit Nodes
+185.127.25.68 # TOR Exit Nodes
+185.129.62.62 # TOR Exit Nodes
+185.157.232.64 # TOR Exit Nodes
+185.159.128.193 # TOR Exit Nodes
+185.16.200.176 # TOR Exit Nodes
+185.163.1.11 # TOR Exit Nodes
+185.165.168.229 # TOR Exit Nodes
+185.165.168.42 # TOR Exit Nodes
+185.165.168.77 # TOR Exit Nodes
+185.165.169.23 # TOR Exit Nodes
+185.169.235.5 # TOR Exit Nodes
+185.170.42.18 # TOR Exit Nodes
+185.177.59.206 # TOR Exit Nodes
+185.186.77.27 # TOR Exit Nodes
+185.189.14.230 # TOR Exit Nodes
+185.189.14.61 # TOR Exit Nodes
+185.203.240.111 # TOR Exit Nodes
+185.203.241.120 # TOR Exit Nodes
+185.203.242.105 # TOR Exit Nodes
+185.209.20.165 # TOR Exit Nodes
+185.209.20.209 # TOR Exit Nodes
+185.209.21.47 # TOR Exit Nodes
+185.219.82.241 # TOR Exit Nodes
+185.219.82.242 # TOR Exit Nodes
+185.219.82.243 # TOR Exit Nodes
+185.31.172.234 # TOR Exit Nodes
+185.34.33.2 # TOR Exit Nodes
+185.38.14.171 # TOR Exit Nodes
+185.38.14.215 # TOR Exit Nodes
+185.61.138.207 # TOR Exit Nodes
+185.61.149.193 # TOR Exit Nodes
+185.62.57.91 # TOR Exit Nodes
+185.65.205.10 # TOR Exit Nodes
+185.66.200.10 # TOR Exit Nodes
+185.70.11.132 # TOR Exit Nodes
+185.72.244.24 # TOR Exit Nodes
+185.82.216.233 # TOR Exit Nodes
+185.82.217.51 # TOR Exit Nodes
+185.82.217.70 # TOR Exit Nodes
+185.86.149.175 # TOR Exit Nodes
+185.87.111.113 # TOR Exit Nodes
+185.87.185.45 # TOR Exit Nodes
+186.120.225.119 # TOR Exit Nodes
+187.20.55.95 # TOR Exit Nodes
+188.116.11.181 # TOR Exit Nodes
+188.143.42.27 # TOR Exit Nodes
+188.166.127.251 # TOR Exit Nodes
+188.214.104.146 # TOR Exit Nodes
+188.235.14.159 # TOR Exit Nodes
+188.235.37.42 # TOR Exit Nodes
+189.207.179.80 # TOR Exit Nodes
+189.84.21.44 # TOR Exit Nodes
+190.10.8.50 # TOR Exit Nodes
+190.210.98.90 # TOR Exit Nodes
+191.34.129.22 # TOR Exit Nodes
+191.96.249.110 # TOR Exit Nodes
+192.150.187.46 # TOR Exit Nodes
+192.160.102.164 # TOR Exit Nodes
+192.160.102.165 # TOR Exit Nodes
+192.160.102.166 # TOR Exit Nodes
+192.160.102.168 # TOR Exit Nodes
+192.160.102.169 # TOR Exit Nodes
+192.160.102.170 # TOR Exit Nodes
+192.195.80.10 # TOR Exit Nodes
+192.241.79.178 # TOR Exit Nodes
+192.243.113.200 # TOR Exit Nodes
+192.34.80.176 # TOR Exit Nodes
+192.36.27.4 # TOR Exit Nodes
+192.36.27.6 # TOR Exit Nodes
+192.36.27.7 # TOR Exit Nodes
+192.42.115.102 # TOR Exit Nodes
+192.42.116.16 # TOR Exit Nodes
+192.81.131.49 # TOR Exit Nodes
+193.107.85.56 # TOR Exit Nodes
+193.107.85.57 # TOR Exit Nodes
+193.110.157.151 # TOR Exit Nodes
+193.15.16.4 # TOR Exit Nodes
+193.164.131.95 # TOR Exit Nodes
+193.171.202.150 # TOR Exit Nodes
+193.201.225.45 # TOR Exit Nodes
+193.233.60.154 # TOR Exit Nodes
+193.70.39.41 # TOR Exit Nodes
+193.90.12.115 # TOR Exit Nodes
+193.90.12.116 # TOR Exit Nodes
+193.90.12.117 # TOR Exit Nodes
+193.90.12.118 # TOR Exit Nodes
+193.90.12.119 # TOR Exit Nodes
+194.218.3.79 # TOR Exit Nodes
+194.54.162.212 # TOR Exit Nodes
+194.88.143.66 # TOR Exit Nodes
+195.219.163.68 # TOR Exit Nodes
+195.219.166.53 # TOR Exit Nodes
+195.22.126.177 # TOR Exit Nodes
+195.22.126.178 # TOR Exit Nodes
+195.228.45.176 # TOR Exit Nodes
+195.254.135.76 # TOR Exit Nodes
+196.41.123.180 # TOR Exit Nodes
+196.54.55.14 # TOR Exit Nodes
+197.231.221.211 # TOR Exit Nodes
+198.100.148.112 # TOR Exit Nodes
+198.167.223.38 # TOR Exit Nodes
+198.211.122.191 # TOR Exit Nodes
+198.245.60.8 # TOR Exit Nodes
+198.46.138.18 # TOR Exit Nodes
+198.50.159.155 # TOR Exit Nodes
+198.50.159.204 # TOR Exit Nodes
+198.50.200.129 # TOR Exit Nodes
+198.50.200.131 # TOR Exit Nodes
+198.50.200.134 # TOR Exit Nodes
+198.50.200.135 # TOR Exit Nodes
+198.50.200.147 # TOR Exit Nodes
+198.58.100.240 # TOR Exit Nodes
+198.58.107.53 # TOR Exit Nodes
+198.73.50.71 # TOR Exit Nodes
+198.96.155.3 # TOR Exit Nodes
+199.127.226.150 # TOR Exit Nodes
+199.249.223.40 # TOR Exit Nodes
+199.249.223.41 # TOR Exit Nodes
+199.249.223.42 # TOR Exit Nodes
+199.249.223.43 # TOR Exit Nodes
+199.249.223.44 # TOR Exit Nodes
+199.249.223.45 # TOR Exit Nodes
+199.249.223.46 # TOR Exit Nodes
+199.249.223.47 # TOR Exit Nodes
+199.249.223.48 # TOR Exit Nodes
+199.249.223.49 # TOR Exit Nodes
+199.249.223.60 # TOR Exit Nodes
+199.249.223.61 # TOR Exit Nodes
+199.249.223.62 # TOR Exit Nodes
+199.249.223.63 # TOR Exit Nodes
+199.249.223.64 # TOR Exit Nodes
+199.249.223.65 # TOR Exit Nodes
+199.249.223.66 # TOR Exit Nodes
+199.249.223.67 # TOR Exit Nodes
+199.249.223.68 # TOR Exit Nodes
+199.249.223.69 # TOR Exit Nodes
+199.249.223.71 # TOR Exit Nodes
+199.249.223.72 # TOR Exit Nodes
+199.249.223.73 # TOR Exit Nodes
+199.249.223.74 # TOR Exit Nodes
+199.249.223.75 # TOR Exit Nodes
+199.249.223.76 # TOR Exit Nodes
+199.249.223.77 # TOR Exit Nodes
+199.249.223.78 # TOR Exit Nodes
+199.249.223.79 # TOR Exit Nodes
+199.249.223.81 # TOR Exit Nodes
+199.249.224.40 # TOR Exit Nodes
+199.249.224.41 # TOR Exit Nodes
+199.249.224.42 # TOR Exit Nodes
+199.249.224.43 # TOR Exit Nodes
+199.249.224.44 # TOR Exit Nodes
+199.249.224.45 # TOR Exit Nodes
+199.249.224.46 # TOR Exit Nodes
+199.249.224.47 # TOR Exit Nodes
+199.249.224.48 # TOR Exit Nodes
+199.249.224.49 # TOR Exit Nodes
+199.249.224.60 # TOR Exit Nodes
+199.249.224.61 # TOR Exit Nodes
+199.249.224.62 # TOR Exit Nodes
+199.249.224.63 # TOR Exit Nodes
+199.249.224.64 # TOR Exit Nodes
+199.249.224.65 # TOR Exit Nodes
+199.249.224.66 # TOR Exit Nodes
+199.249.224.67 # TOR Exit Nodes
+199.249.224.68 # TOR Exit Nodes
+199.249.224.69 # TOR Exit Nodes
+199.68.196.124 # TOR Exit Nodes
+199.87.154.255 # TOR Exit Nodes
+2.238.18.141 # TOR Exit Nodes
+203.88.136.199 # TOR Exit Nodes
+204.11.50.131 # TOR Exit Nodes
+204.194.29.4 # TOR Exit Nodes
+204.8.156.142 # TOR Exit Nodes
+204.85.191.30 # TOR Exit Nodes
+204.85.191.31 # TOR Exit Nodes
+205.166.94.153 # TOR Exit Nodes
+205.168.84.133 # TOR Exit Nodes
+206.55.74.0 # TOR Exit Nodes
+207.154.238.204 # TOR Exit Nodes
+207.244.70.35 # TOR Exit Nodes
+208.67.1.79 # TOR Exit Nodes
+208.67.1.83 # TOR Exit Nodes
+208.94.110.37 # TOR Exit Nodes
+209.123.234.23 # TOR Exit Nodes
+210.3.102.152 # TOR Exit Nodes
+210.50.9.88 # TOR Exit Nodes
+211.21.48.217 # TOR Exit Nodes
+212.16.104.33 # TOR Exit Nodes
+212.19.17.213 # TOR Exit Nodes
+212.21.66.6 # TOR Exit Nodes
+212.47.229.60 # TOR Exit Nodes
+212.47.239.73 # TOR Exit Nodes
+212.47.243.140 # TOR Exit Nodes
+212.47.246.21 # TOR Exit Nodes
+212.81.199.159 # TOR Exit Nodes
+212.83.40.239 # TOR Exit Nodes
+212.92.219.15 # TOR Exit Nodes
+213.108.105.71 # TOR Exit Nodes
+213.108.105.92 # TOR Exit Nodes
+213.61.149.100 # TOR Exit Nodes
+213.95.21.54 # TOR Exit Nodes
+216.218.134.12 # TOR Exit Nodes
+216.218.222.11 # TOR Exit Nodes
+216.218.222.12 # TOR Exit Nodes
+216.239.90.19 # TOR Exit Nodes
+217.115.10.131 # TOR Exit Nodes
+217.170.197.83 # TOR Exit Nodes
+217.182.207.27 # TOR Exit Nodes
+217.182.74.253 # TOR Exit Nodes
+217.182.76.240 # TOR Exit Nodes
+217.182.78.177 # TOR Exit Nodes
+217.197.81.19 # TOR Exit Nodes
+220.227.48.213 # TOR Exit Nodes
+222.110.3.1 # TOR Exit Nodes
+223.26.48.248 # TOR Exit Nodes
+23.129.64.11 # TOR Exit Nodes
+23.129.64.12 # TOR Exit Nodes
+23.129.64.13 # TOR Exit Nodes
+23.129.64.14 # TOR Exit Nodes
+23.129.64.15 # TOR Exit Nodes
+23.83.238.245 # TOR Exit Nodes
+23.92.27.23 # TOR Exit Nodes
+23.92.28.23 # TOR Exit Nodes
+24.207.212.154 # TOR Exit Nodes
+24.27.178.106 # TOR Exit Nodes
+31.179.151.198 # TOR Exit Nodes
+31.185.104.19 # TOR Exit Nodes
+31.185.104.20 # TOR Exit Nodes
+31.185.104.21 # TOR Exit Nodes
+31.185.27.208 # TOR Exit Nodes
+31.220.111.120 # TOR Exit Nodes
+35.184.106.64 # TOR Exit Nodes
+35.193.100.176 # TOR Exit Nodes
+36.227.161.175 # TOR Exit Nodes
+37.139.8.104 # TOR Exit Nodes
+37.187.129.166 # TOR Exit Nodes
+37.187.53.94 # TOR Exit Nodes
+37.187.7.74 # TOR Exit Nodes
+37.218.240.21 # TOR Exit Nodes
+37.218.240.50 # TOR Exit Nodes
+37.218.240.68 # TOR Exit Nodes
+37.218.240.80 # TOR Exit Nodes
+37.220.35.202 # TOR Exit Nodes
+37.220.36.240 # TOR Exit Nodes
+37.48.120.196 # TOR Exit Nodes
+37.59.101.176 # TOR Exit Nodes
+37.59.112.7 # TOR Exit Nodes
+37.59.116.170 # TOR Exit Nodes
+37.59.119.196 # TOR Exit Nodes
+37.97.228.159 # TOR Exit Nodes
+41.100.127.24 # TOR Exit Nodes
+41.100.95.92 # TOR Exit Nodes
+41.103.213.190 # TOR Exit Nodes
+41.206.188.206 # TOR Exit Nodes
+41.78.128.113 # TOR Exit Nodes
+45.33.23.23 # TOR Exit Nodes
+45.33.48.204 # TOR Exit Nodes
+45.35.72.85 # TOR Exit Nodes
+45.62.236.66 # TOR Exit Nodes
+45.62.251.245 # TOR Exit Nodes
+45.76.115.159 # TOR Exit Nodes
+45.79.137.11 # TOR Exit Nodes
+45.79.144.222 # TOR Exit Nodes
+45.79.198.115 # TOR Exit Nodes
+45.79.208.219 # TOR Exit Nodes
+45.79.73.22 # TOR Exit Nodes
+45.79.85.112 # TOR Exit Nodes
+46.101.127.145 # TOR Exit Nodes
+46.101.139.248 # TOR Exit Nodes
+46.101.150.49 # TOR Exit Nodes
+46.101.164.37 # TOR Exit Nodes
+46.165.230.5 # TOR Exit Nodes
+46.165.254.166 # TOR Exit Nodes
+46.17.97.112 # TOR Exit Nodes
+46.182.106.190 # TOR Exit Nodes
+46.182.18.214 # TOR Exit Nodes
+46.182.18.40 # TOR Exit Nodes
+46.182.18.46 # TOR Exit Nodes
+46.182.19.15 # TOR Exit Nodes
+46.182.19.219 # TOR Exit Nodes
+46.183.218.199 # TOR Exit Nodes
+46.194.136.3 # TOR Exit Nodes
+46.194.23.204 # TOR Exit Nodes
+46.226.108.26 # TOR Exit Nodes
+46.233.0.70 # TOR Exit Nodes
+46.235.227.70 # TOR Exit Nodes
+46.246.35.71 # TOR Exit Nodes
+46.246.35.72 # TOR Exit Nodes
+46.246.35.81 # TOR Exit Nodes
+46.246.49.100 # TOR Exit Nodes
+46.246.49.106 # TOR Exit Nodes
+46.246.49.186 # TOR Exit Nodes
+46.29.248.238 # TOR Exit Nodes
+46.4.55.177 # TOR Exit Nodes
+46.4.77.210 # TOR Exit Nodes
+46.4.81.178 # TOR Exit Nodes
+46.72.103.95 # TOR Exit Nodes
+46.72.118.182 # TOR Exit Nodes
+46.72.66.220 # TOR Exit Nodes
+46.72.77.67 # TOR Exit Nodes
+46.98.198.16 # TOR Exit Nodes
+46.98.198.232 # TOR Exit Nodes
+46.98.199.228 # TOR Exit Nodes
+46.98.199.45 # TOR Exit Nodes
+46.98.200.204 # TOR Exit Nodes
+46.98.201.202 # TOR Exit Nodes
+46.98.205.117 # TOR Exit Nodes
+46.98.205.60 # TOR Exit Nodes
+46.98.206.9 # TOR Exit Nodes
+46.98.207.186 # TOR Exit Nodes
+49.50.108.240 # TOR Exit Nodes
+5.164.205.245 # TOR Exit Nodes
+5.165.66.7 # TOR Exit Nodes
+5.165.79.216 # TOR Exit Nodes
+5.188.11.165 # TOR Exit Nodes
+5.189.146.133 # TOR Exit Nodes
+5.189.188.111 # TOR Exit Nodes
+5.196.0.149 # TOR Exit Nodes
+5.196.1.129 # TOR Exit Nodes
+5.196.121.161 # TOR Exit Nodes
+5.196.29.217 # TOR Exit Nodes
+5.196.66.162 # TOR Exit Nodes
+5.199.130.188 # TOR Exit Nodes
+5.254.112.154 # TOR Exit Nodes
+5.254.79.66 # TOR Exit Nodes
+5.39.217.14 # TOR Exit Nodes
+5.56.214.118 # TOR Exit Nodes
+5.9.195.140 # TOR Exit Nodes
+50.247.195.124 # TOR Exit Nodes
+50.76.159.218 # TOR Exit Nodes
+51.15.134.120 # TOR Exit Nodes
+51.15.141.220 # TOR Exit Nodes
+51.15.196.158 # TOR Exit Nodes
+51.15.199.104 # TOR Exit Nodes
+51.15.212.104 # TOR Exit Nodes
+51.15.217.56 # TOR Exit Nodes
+51.15.34.210 # TOR Exit Nodes
+51.15.34.214 # TOR Exit Nodes
+51.15.40.233 # TOR Exit Nodes
+51.15.43.205 # TOR Exit Nodes
+51.15.43.232 # TOR Exit Nodes
+51.15.44.197 # TOR Exit Nodes
+51.15.45.97 # TOR Exit Nodes
+51.15.46.115 # TOR Exit Nodes
+51.15.46.49 # TOR Exit Nodes
+51.15.50.133 # TOR Exit Nodes
+51.15.53.118 # TOR Exit Nodes
+51.15.53.83 # TOR Exit Nodes
+51.15.54.136 # TOR Exit Nodes
+51.15.56.11 # TOR Exit Nodes
+51.15.57.177 # TOR Exit Nodes
+51.15.57.79 # TOR Exit Nodes
+51.15.60.255 # TOR Exit Nodes
+51.15.60.62 # TOR Exit Nodes
+51.15.62.146 # TOR Exit Nodes
+51.15.63.229 # TOR Exit Nodes
+51.15.63.98 # TOR Exit Nodes
+51.15.64.212 # TOR Exit Nodes
+51.15.70.13 # TOR Exit Nodes
+51.15.70.226 # TOR Exit Nodes
+51.15.70.228 # TOR Exit Nodes
+51.15.71.118 # TOR Exit Nodes
+51.15.72.53 # TOR Exit Nodes
+51.15.73.182 # TOR Exit Nodes
+51.15.76.81 # TOR Exit Nodes
+51.15.79.107 # TOR Exit Nodes
+51.15.8.100 # TOR Exit Nodes
+51.15.84.183 # TOR Exit Nodes
+51.15.87.157 # TOR Exit Nodes
+51.255.202.66 # TOR Exit Nodes
+54.36.81.57 # TOR Exit Nodes
+59.127.163.155 # TOR Exit Nodes
+60.248.162.179 # TOR Exit Nodes
+61.228.92.249 # TOR Exit Nodes
+62.102.148.67 # TOR Exit Nodes
+62.12.115.107 # TOR Exit Nodes
+62.133.130.105 # TOR Exit Nodes
+62.141.39.47 # TOR Exit Nodes
+62.149.12.153 # TOR Exit Nodes
+62.176.4.10 # TOR Exit Nodes
+62.198.32.223 # TOR Exit Nodes
+62.210.105.116 # TOR Exit Nodes
+62.210.105.86 # TOR Exit Nodes
+62.210.129.246 # TOR Exit Nodes
+62.210.37.82 # TOR Exit Nodes
+62.212.73.141 # TOR Exit Nodes
+62.219.3.47 # TOR Exit Nodes
+62.219.3.48 # TOR Exit Nodes
+62.235.222.192 # TOR Exit Nodes
+64.113.32.29 # TOR Exit Nodes
+64.124.32.84 # TOR Exit Nodes
+64.137.162.142 # TOR Exit Nodes
+64.137.205.124 # TOR Exit Nodes
+64.137.210.30 # TOR Exit Nodes
+64.27.17.140 # TOR Exit Nodes
+65.129.144.43 # TOR Exit Nodes
+65.181.123.254 # TOR Exit Nodes
+65.19.167.130 # TOR Exit Nodes
+65.19.167.131 # TOR Exit Nodes
+65.19.167.132 # TOR Exit Nodes
+66.110.216.10 # TOR Exit Nodes
+66.155.4.213 # TOR Exit Nodes
+66.180.193.219 # TOR Exit Nodes
+66.220.3.179 # TOR Exit Nodes
+67.205.146.164 # TOR Exit Nodes
+67.215.255.140 # TOR Exit Nodes
+69.162.107.5 # TOR Exit Nodes
+69.164.207.234 # TOR Exit Nodes
+71.46.220.68 # TOR Exit Nodes
+72.12.207.14 # TOR Exit Nodes
+72.14.179.10 # TOR Exit Nodes
+72.14.182.209 # TOR Exit Nodes
+72.204.193.71 # TOR Exit Nodes
+72.210.252.137 # TOR Exit Nodes
+72.221.196.141 # TOR Exit Nodes
+72.52.75.27 # TOR Exit Nodes
+72.93.243.211 # TOR Exit Nodes
+74.142.74.156 # TOR Exit Nodes
+74.252.14.154 # TOR Exit Nodes
+74.50.54.69 # TOR Exit Nodes
+75.54.229.204 # TOR Exit Nodes
+77.191.12.176 # TOR Exit Nodes
+77.191.19.135 # TOR Exit Nodes
+77.191.24.100 # TOR Exit Nodes
+77.246.163.141 # TOR Exit Nodes
+77.247.181.162 # TOR Exit Nodes
+77.250.227.12 # TOR Exit Nodes
+77.81.107.138 # TOR Exit Nodes
+77.81.247.72 # TOR Exit Nodes
+78.107.237.16 # TOR Exit Nodes
+78.109.23.1 # TOR Exit Nodes
+78.129.137.28 # TOR Exit Nodes
+78.13.203.226 # TOR Exit Nodes
+78.13.238.7 # TOR Exit Nodes
+78.142.175.70 # TOR Exit Nodes
+78.21.52.58 # TOR Exit Nodes
+78.31.164.41 # TOR Exit Nodes
+78.46.50.7 # TOR Exit Nodes
+78.70.167.74 # TOR Exit Nodes
+78.84.240.48 # TOR Exit Nodes
+79.137.79.167 # TOR Exit Nodes
+79.137.80.94 # TOR Exit Nodes
+79.172.193.32 # TOR Exit Nodes
+79.199.245.10 # TOR Exit Nodes
+79.199.255.156 # TOR Exit Nodes
+79.78.147.142 # TOR Exit Nodes
+80.209.252.72 # TOR Exit Nodes
+80.241.60.207 # TOR Exit Nodes
+80.67.172.162 # TOR Exit Nodes
+80.73.242.142 # TOR Exit Nodes
+80.79.23.7 # TOR Exit Nodes
+80.82.67.166 # TOR Exit Nodes
+80.82.67.186 # TOR Exit Nodes
+80.85.84.23 # TOR Exit Nodes
+81.171.19.32 # TOR Exit Nodes
+82.146.58.35 # TOR Exit Nodes
+82.165.100.196 # TOR Exit Nodes
+82.165.142.79 # TOR Exit Nodes
+82.221.112.122 # TOR Exit Nodes
+82.221.128.217 # TOR Exit Nodes
+82.221.139.190 # TOR Exit Nodes
+82.221.139.25 # TOR Exit Nodes
+82.223.27.82 # TOR Exit Nodes
+82.247.198.227 # TOR Exit Nodes
+83.134.133.198 # TOR Exit Nodes
+83.92.47.99 # TOR Exit Nodes
+84.105.18.164 # TOR Exit Nodes
+84.17.21.50 # TOR Exit Nodes
+84.19.181.25 # TOR Exit Nodes
+84.190.181.254 # TOR Exit Nodes
+84.200.50.18 # TOR Exit Nodes
+84.200.82.163 # TOR Exit Nodes
+84.209.48.106 # TOR Exit Nodes
+84.217.13.138 # TOR Exit Nodes
+84.3.10.87 # TOR Exit Nodes
+84.42.239.35 # TOR Exit Nodes
+84.42.239.36 # TOR Exit Nodes
+84.48.199.78 # TOR Exit Nodes
+84.53.192.243 # TOR Exit Nodes
+84.53.225.118 # TOR Exit Nodes
+85.195.107.250 # TOR Exit Nodes
+85.248.227.163 # TOR Exit Nodes
+85.248.227.165 # TOR Exit Nodes
+85.90.244.23 # TOR Exit Nodes
+85.93.218.204 # TOR Exit Nodes
+86.149.159.224 # TOR Exit Nodes
+86.149.159.8 # TOR Exit Nodes
+87.118.115.176 # TOR Exit Nodes
+87.118.116.12 # TOR Exit Nodes
+87.118.116.90 # TOR Exit Nodes
+87.118.122.201 # TOR Exit Nodes
+87.118.122.254 # TOR Exit Nodes
+87.118.122.30 # TOR Exit Nodes
+87.118.122.50 # TOR Exit Nodes
+87.118.123.191 # TOR Exit Nodes
+87.118.82.3 # TOR Exit Nodes
+87.118.92.43 # TOR Exit Nodes
+87.118.94.2 # TOR Exit Nodes
+87.120.254.130 # TOR Exit Nodes
+87.180.235.230 # TOR Exit Nodes
+87.180.238.160 # TOR Exit Nodes
+87.180.239.118 # TOR Exit Nodes
+87.81.148.61 # TOR Exit Nodes
+87.98.178.61 # TOR Exit Nodes
+88.198.125.96 # TOR Exit Nodes
+88.76.29.216 # TOR Exit Nodes
+88.77.195.36 # TOR Exit Nodes
+88.77.211.4 # TOR Exit Nodes
+88.83.40.246 # TOR Exit Nodes
+89.144.12.15 # TOR Exit Nodes
+89.163.155.202 # TOR Exit Nodes
+89.187.150.12 # TOR Exit Nodes
+89.187.150.13 # TOR Exit Nodes
+89.187.150.14 # TOR Exit Nodes
+89.187.150.15 # TOR Exit Nodes
+89.207.129.150 # TOR Exit Nodes
+89.212.99.66 # TOR Exit Nodes
+89.234.157.254 # TOR Exit Nodes
+89.236.34.117 # TOR Exit Nodes
+89.248.166.157 # TOR Exit Nodes
+89.31.57.5 # TOR Exit Nodes
+89.31.96.168 # TOR Exit Nodes
+89.34.237.226 # TOR Exit Nodes
+89.38.208.57 # TOR Exit Nodes
+89.45.226.28 # TOR Exit Nodes
+91.117.98.197 # TOR Exit Nodes
+91.121.52.156 # TOR Exit Nodes
+91.122.52.9 # TOR Exit Nodes
+91.134.232.48 # TOR Exit Nodes
+91.138.253.244 # TOR Exit Nodes
+91.146.121.3 # TOR Exit Nodes
+91.219.236.232 # TOR Exit Nodes
+91.219.237.244 # TOR Exit Nodes
+91.221.57.129 # TOR Exit Nodes
+91.233.106.121 # TOR Exit Nodes
+91.233.117.81 # TOR Exit Nodes
+91.244.10.34 # TOR Exit Nodes
+92.111.156.14 # TOR Exit Nodes
+92.169.87.4 # TOR Exit Nodes
+92.222.207.227 # TOR Exit Nodes
+92.222.6.12 # TOR Exit Nodes
+92.222.74.226 # TOR Exit Nodes
+92.63.173.28 # TOR Exit Nodes
+92.87.236.230 # TOR Exit Nodes
+93.115.95.201 # TOR Exit Nodes
+93.115.95.202 # TOR Exit Nodes
+93.115.95.204 # TOR Exit Nodes
+93.115.95.205 # TOR Exit Nodes
+93.115.95.206 # TOR Exit Nodes
+93.115.95.207 # TOR Exit Nodes
+93.123.73.123 # TOR Exit Nodes
+93.174.93.133 # TOR Exit Nodes
+93.174.93.71 # TOR Exit Nodes
+93.188.162.188 # TOR Exit Nodes
+93.64.207.55 # TOR Exit Nodes
+93.88.74.140 # TOR Exit Nodes
+94.102.50.42 # TOR Exit Nodes
+94.130.28.151 # TOR Exit Nodes
+94.142.242.84 # TOR Exit Nodes
+94.156.77.83 # TOR Exit Nodes
+94.177.123.116 # TOR Exit Nodes
+94.198.100.17 # TOR Exit Nodes
+94.23.201.80 # TOR Exit Nodes
+94.23.239.44 # TOR Exit Nodes
+94.242.205.2 # TOR Exit Nodes
+94.242.57.161 # TOR Exit Nodes
+94.242.57.2 # TOR Exit Nodes
+94.248.3.184 # TOR Exit Nodes
+94.248.36.241 # TOR Exit Nodes
+94.248.40.132 # TOR Exit Nodes
+94.34.7.140 # TOR Exit Nodes
+95.128.43.164 # TOR Exit Nodes
+95.130.11.170 # TOR Exit Nodes
+95.130.12.12 # TOR Exit Nodes
+95.130.9.210 # TOR Exit Nodes
+95.211.118.194 # TOR Exit Nodes
+95.211.230.94 # TOR Exit Nodes
+95.215.44.194 # TOR Exit Nodes
+95.249.94.233 # TOR Exit Nodes
+95.79.145.72 # TOR Exit Nodes
+96.255.14.191 # TOR Exit Nodes
+96.64.149.101 # TOR Exit Nodes
+97.74.237.196 # TOR Exit Nodes
+98.174.90.43 # TOR Exit Nodes

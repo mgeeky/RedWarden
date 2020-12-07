@@ -4,7 +4,9 @@
 
 import time
 import sys, os
+import threading
 
+globalLock = threading.Lock()
 
 class ProxyLogger:
     options = {
@@ -22,8 +24,8 @@ class ProxyLogger:
         'blue':     34, 
         'magenta':  35, 
         'cyan':     36,
-        'white':    37, 
-        'grey':     38,
+        'white':    30, 
+        'grey':     37,
     }
 
     colors_dict = {
@@ -40,7 +42,7 @@ class ProxyLogger:
 
     @staticmethod
     def with_color(c, s):
-        return "\x1b[%dm%s\x1b[0m" % (c, s)
+        return "\x1b[1;{}m{}\x1b[0m".format(c, s)
         
 
     # Invocation:
@@ -82,10 +84,13 @@ class ProxyLogger:
                 nl = '\n'
 
         if type(fd) == str:
-            with open(fd, 'a') as f:
-                prefix2 = '%s%s: ' % (mode.upper(), tm)
-                f.write(prefix2 + txt + nl)
-                f.flush()
+            prefix2 = '%s%s: ' % (mode.upper(), tm)
+            line = prefix2 + txt + nl
+            ProxyLogger.writeToLogfile(fd, line)
+            
+            #with open(fd, 'a+') as f:
+            #    f.write(line)
+            #    f.flush()
 
             if args['tee']:
                 sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
@@ -93,6 +98,14 @@ class ProxyLogger:
 
         else:
             fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)
+
+    @staticmethod
+    def writeToLogfile(fd, line):
+        with globalLock:
+            with open(fd, 'a') as f:
+                f.write(line)
+                f.flush()
+
 
     # Info shall be used as an ordinary logging facility, for every desired output.
     def info(self, txt, forced = False, **kwargs):

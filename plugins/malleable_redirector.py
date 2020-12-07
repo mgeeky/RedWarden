@@ -105,16 +105,16 @@ BANNED_AGENTS = (
     'comodo', 'crowdstrike', 'cybereason', 'cylance', 'cyren', 
     'drweb', 'emsisoft', 'endgame', 'escan', 'eset', 'f-secure', 
     'fireeye', 'fortinet', 'gdata', 'ikarussecurity', 'k7antivirus', 
-    'k7computing', 'kaspersky', 'malwarebytes', 'mcafee', 'nanoav', 
+    'k7computing', 'kaspersky', 'malwarebytes', 'mcafee', 'nanoav', 'paloalto',
     'paloaltonetworks', 'panda', '360totalsecurity', 'sentinelone', 
     'sophos', 'symantec', 'tencent', 'trapmine', 'trendmicro', 'virusblokada', 
     'anti-virus', 'antivirus', 'yandex', 'zillya', 'zonealarm', 
     'checkpoint', 'baidu', 'kingsoft', 'superantispyware', 'tachyon', 
-    'totaldefense', 'webroot', 'egambit', 'trustlook'
+    'totaldefense', 'webroot', 'egambit', 'trustlook', 'proofpoint',
 
     # Other proxies, sandboxes etc
     'zscaler', 'barracuda', 'sonicwall', 'f5 network', 'palo alto network', 'juniper', 'check point',
-    'microsoft corporation'
+    'microsoft corporation', 'fortigate',
 )
 
 class IPLookupHelper:
@@ -336,7 +336,7 @@ class IPLookupHelper:
             return r.json()
 
         except Exception as e:
-            self.logger.err(f'Exception catched while querying ip-api.com with {ipAddress}:\nName: {e}')
+            self.logger.err(f'Exception catched while querying ip-api.com with {ipAddress}:\nName: {e}', color='cyan')
 
         return {}
 
@@ -379,7 +379,7 @@ class IPLookupHelper:
             return r.json()
 
         except Exception as e:
-            self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}')
+            self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}', color='cyan')
 
         return {}
 
@@ -431,7 +431,7 @@ class IPLookupHelper:
             return r.json()
 
         except Exception as e:
-            self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}')
+            self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}', color='cyan')
 
         return {}
 
@@ -514,8 +514,7 @@ class IPGeolocationDeterminant:
         if type(v) == str:
             if ' ' in v:
                 values.extend(v.split(' '))
-            else:
-                values.append(v)
+            values.append(v)
         elif type(v) == int or type(v) == float:
             values.extend([str(v)])
         elif type(v) == tuple or type(v) == list:
@@ -547,11 +546,16 @@ class IPGeolocationDeterminant:
         self.logger.dbg(f"Extracted keywords from Peer's IP Geolocation metadata: ({words})")
 
         for w in words:
-            if w.lower() in BANNED_AGENTS:
-                self.logger.dbg(f"Peer's IP Geolocation metadata contained banned keyword: ({w})")
-                return (False, w)
+            for x in BANNED_AGENTS:
+                if ((' ' in x) and (x.lower() in w.lower())):
+                    self.logger.dbg(f"Peer's IP Geolocation metadata contained banned phrase: ({w})")
+                    return (False, w)
 
-        self.logger.dbg(f"Peer's IP Geolocation metadata didn't raise suspicions.")
+                elif (w.lower() in x.lower()):
+                    self.logger.dbg(f"Peer's IP Geolocation metadata contained banned keyword: ({w})")
+                    return (False, w)
+
+        self.logger.dbg(f"Peer's IP Geolocation metadata didn't raise any suspicion.")
         return (True, '')
 
 class MalleableParser:
@@ -898,7 +902,7 @@ class ProxyPlugin(IProxyPlugin):
         return 'malleable_redirector'
 
     def drop_reason(self, text):
-        self.logger.err(text)
+        self.logger.err(text, color='magenta')
         if not self.proxyOptions['report_only']:
             if 'X-Drop-Reason' in self.addToResHeaders.keys():
                 self.addToResHeaders['X-Drop-Reason'] += '; ' + text
@@ -1317,7 +1321,7 @@ class ProxyPlugin(IProxyPlugin):
 
                 self.logger.err('[PROXYING invalid request from {}] {} {}'.format(
                     req.client_address[0], req.command, req.path
-                ))
+                ), color = 'cyan')
                 return self.redirect(req, url, malleable_meta)
 
             return self.drop_action(req, req_body, None, None)
@@ -1431,7 +1435,7 @@ class ProxyPlugin(IProxyPlugin):
         if not quiet: 
             self.logger.err('[{} invalid request from {}] {} {}'.format(
                 todo, peer, req.command, path
-            ))
+            ), color='cyan')
 
         if self.proxyOptions['log_dropped'] == True:
             req_headers = req.headers
@@ -1447,7 +1451,7 @@ class ProxyPlugin(IProxyPlugin):
                 req.command, path, 'HTTP/1.1', req_headers, rb
             )
 
-            if not quiet: self.logger.err('\n\n{}'.format(request))
+            if not quiet: self.logger.err('\n\n{}'.format(request), color='cyan')
 
         if self.proxyOptions['drop_action'] == 'reset':
             return DropConnectionException('Not a conformant beacon request.')
@@ -1526,6 +1530,16 @@ The document has moved
         if self.malleable != None:
             userAgentValue = req.headers.get('User-Agent')
 
+        if self.proxyOptions['whitelisted_ip_addresses'] != None and len(self.proxyOptions['whitelisted_ip_addresses']) > 0:
+            for cidr in self.proxyOptions['whitelisted_ip_addresses']:
+                cidr = cidr.strip()
+                if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):
+                    self.logger.info('[ALLOW, {}, reason:1, {}] peer\'s IP address is whitelisted: ({})'.format(
+                        ts, peerIP, cidr
+                    ), color='green')
+                    return self.report(False, ts, peerIP, req.path, userAgentValue)
+
+
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
             len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0:
             with SqliteDict(ProxyPlugin.DynamicWhitelistFile) as mydict:
@@ -1534,19 +1548,6 @@ The document has moved
                         ts, peerIP
                     ), color='green')
                     return self.report(False, ts, peerIP, req.path, userAgentValue)
-
-        # Reverse-IP lookup check
-        try:
-            resolved = socket.gethostbyaddr(req.client_address[0])[0]
-            for part in resolved.split('.')[:-1]:
-                if part.lower() in BANNED_AGENTS \
-                and self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
-                    self.drop_reason('[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part))
-                    self.printPeerInfos(peerIP)
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-        except Exception as e:
-            pass
 
         if self.proxyOptions['ban_blacklisted_ip_addresses']:
             for cidr, _comment in self.banned_ips.items():
@@ -1562,21 +1563,83 @@ The document has moved
 
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
+        # Reverse-IP lookup check
+        if self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
+            try:
+                resolved = socket.gethostbyaddr(req.client_address[0])[0]
+                for part in resolved.split('.')[:-1]:
+                    foo = any(re.search(r'\b'+re.escape(part)+r'\b', b, re.I) for b in BANNED_AGENTS)
+                    if foo or part.lower() in BANNED_AGENTS:
+                        self.drop_reason('[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part))
+                        self.printPeerInfos(peerIP)
+                        return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+            except Exception as e:
+                pass
+
         # Banned words check
-        for k, v in req.headers.items():
-            kv = k.split('-')
-            vv = v.split(' ') + v.split('-')
-            for kv1 in kv:
-                if kv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_names']:
-                    self.drop_reason('[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}"'.format(ts, peerIP, kv1))
-                    self.printPeerInfos(peerIP)
+        if self.proxyOptions['policy']['drop_http_banned_header_names'] or self.proxyOptions['policy']['drop_http_banned_header_value']:
+            for k, v in req.headers.items():
+                kv = k.split('-')
+                vv = v.split(' ') + v.split('-')
+                if self.proxyOptions['policy']['drop_http_banned_header_names']:
+                    for kv1 in kv:
+                        foo = any(re.search(r'\b'+re.escape(kv1)+r'\b', b, re.I) for b in BANNED_AGENTS)
+                        if foo or kv1.lower() in BANNED_AGENTS:
+                            self.drop_reason(
+                                '[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}" ({}: {})'.format(
+                                    ts, peerIP, kv1, kv, vv))
+                            self.printPeerInfos(peerIP)
+                            return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+                if self.proxyOptions['policy']['drop_http_banned_header_value']:
+                    for vv1 in vv:
+                        foo = any(re.search(r'\b'+re.escape(vv1)+r'\b', b, re.I) for b in BANNED_AGENTS)
+                        if foo or vv1.lower() in BANNED_AGENTS:
+                            self.drop_reason(
+                                '[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}" ({}: {})'.format(
+                                    ts, peerIP, vv1, kv, vv))
+                            self.printPeerInfos(peerIP)
+                            return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+        if self.proxyOptions['verify_peer_ip_details']:
+            ipLookupDetails = None
+            try:
+                ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
+
+                if ipLookupDetails and len(ipLookupDetails) > 0:
+                    if 'organization' in ipLookupDetails.keys():
+                        for orgWord in ipLookupDetails['organization']:
+                            for word in orgWord.split(' '):
+                                foo = any(b.lower().find(word.lower()) != -1 for b in BANNED_AGENTS)
+                                if foo or word.lower() in BANNED_AGENTS:
+                                    self.drop_reason('[DROP, {}, reason:4c, {}] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(ts, peerIP, orgWord, word))
+                                    return self.report(True, ts, peerIP, req.path, userAgentValue)
+
+            except Exception as e:
+                self.logger.err(f'IP Lookup failed for some reason on IP ({peerIP}): {e}', color='cyan')
+
+            try:
+                if not self.ipGeolocationDeterminer.determine(ipLookupDetails):
+                    self.drop_reason('[DROP, {}, reason:4d, {}] peer\'s IP geolocation ("{}", "{}", "{}", "{}", "{}") DID NOT met expected conditions'.format(
+                        ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone']
+                    ))
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
 
-            for vv1 in vv:
-                if vv1.lower() in BANNED_AGENTS and self.proxyOptions['policy']['drop_http_banned_header_value']:
-                    self.drop_reason('[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}"'.format(ts, peerIP, vv1))
-                    self.printPeerInfos(peerIP)
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
+            except Exception as e:
+                self.logger.err(f'IP Geolocation determinant failed for some reason on IP ({peerIP}): {e}', color='cyan')
+
+            if self.proxyOptions['policy']['drop_ipgeo_metadata_containing_banned_keywords']:
+                self.logger.dbg("Analysing IP Geo metadata keywords...")
+                try:
+                    metaAnalysis = self.ipGeolocationDeterminer.validateIpGeoMetadata(ipLookupDetails)
+                    if metaAnalysis[0] == False:
+                        self.drop_reason('[DROP, {}, reason:4e, {}] Peer\'s IP geolocation metadata ("{}", "{}", "{}", "{}", "{}") contained banned keyword: ({})! Peer banned in generic fashion.'.format(
+                            ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone'], metaAnalysis[1]
+                        ))
+                        return self.report(True, ts, peerIP, req.path, userAgentValue)
+                except Exception as e:
+                    self.logger.dbg(f"Exception was thrown during drop_ipgeo_metadata_containing_banned_keywords verifcation:\n\t({e})")
 
         if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0 \
             and self.proxyOptions['policy']['allow_proxy_pass']:
@@ -1584,7 +1647,8 @@ The document has moved
                 (url, host) = entry
 
                 if re.match('^' + url + '$', req.path, re.I) != None:
-                    self.logger.info('[ALLOW, {}, reason:0, {}]  Request conforms ProxyPass entry (url="{}" host="{}"). Passing request to specified host.'.format(
+                    self.logger.info(
+                        '[ALLOW, {}, reason:0, {}]  Request conforms ProxyPass entry (url="{}" host="{}"). Passing request to specified host.'.format(
                         ts, peerIP, url, host
                     ), color='green')
                     self.printPeerInfos(peerIP)
@@ -1596,15 +1660,6 @@ The document has moved
 
                 else:
                     self.logger.dbg('(ProxyPass) Processed request with URL ("{}"...) didnt match ProxyPass entry URL regex: "^{}$".'.format(req.path[:32], url))
-
-        if self.proxyOptions['whitelisted_ip_addresses'] != None and len(self.proxyOptions['whitelisted_ip_addresses']) > 0:
-            for cidr in self.proxyOptions['whitelisted_ip_addresses']:
-                cidr = cidr.strip()
-                if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):
-                    self.logger.info('[ALLOW, {}, reason:1, {}] peer\'s IP address is whitelisted: ({})'.format(
-                        ts, peerIP, cidr
-                    ), color='green')
-                    return self.report(False, ts, peerIP, req.path, userAgentValue)
 
         # User-agent conformancy
         if self.malleable != None:
@@ -1623,44 +1678,6 @@ The document has moved
                 if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
                     self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
                     return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-        if self.proxyOptions['verify_peer_ip_details']:
-            ipLookupDetails = None
-            try:
-                ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
-
-                if ipLookupDetails and len(ipLookupDetails) > 0:
-                    if 'organization' in ipLookupDetails.keys():
-                        for orgWord in ipLookupDetails['organization']:
-                            for word in orgWord.split(' '):
-                                if word.lower() in BANNED_AGENTS:
-                                    self.drop_reason('[DROP, {}, reason:4c, {}] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(ts, peerIP, orgWord, word))
-                                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-            except Exception as e:
-                self.logger.err(f'IP Lookup failed for some reason on IP ({peerIP}): {e}')
-
-            try:
-                if not self.ipGeolocationDeterminer.determine(ipLookupDetails):
-                    self.drop_reason('[DROP, {}, reason:4d, {}] peer\'s IP geolocation ("{}", "{}", "{}", "{}", "{}") DID NOT met expected conditions'.format(
-                        ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone']
-                    ))
-                    return self.report(True, ts, peerIP, req.path, userAgentValue)
-
-            except Exception as e:
-                self.logger.err(f'IP Geolocation determinant failed for some reason on IP ({peerIP}): {e}')
-
-            if self.proxyOptions['policy']['drop_ipgeo_metadata_containing_banned_keywords']:
-                self.logger.dbg("Analysing IP Geo metadata keywords...")
-                try:
-                    metaAnalysis = self.ipGeolocationDeterminer.validateIpGeoMetadata(ipLookupDetails)
-                    if metaAnalysis[0] == False:
-                        self.drop_reason('[DROP, {}, reason:4e, {}] Peer\'s IP geolocation metadata ("{}", "{}", "{}", "{}", "{}") contained banned keyword: ({})! Peer banned in generic fashion.'.format(
-                            ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone'], metaAnalysis[1]
-                        ))
-                        return self.report(True, ts, peerIP, req.path, userAgentValue)
-                except Exception as e:
-                    self.logger.dbg(f"Exception was thrown during drop_ipgeo_metadata_containing_banned_keywords verifcation:\n\t({e})")
 
         fetched_uri = ''
         fetched_host = req.headers['Host']
@@ -1728,7 +1745,7 @@ The document has moved
         try:
             ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
             if ipLookupDetails and len(ipLookupDetails) > 0:
-                self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='yellow')
+                self.logger.info('Here is what we know about that address ({}): ({})'.format(peerIP, ipLookupDetails), color='grey')
 
         except Exception as e:
             pass

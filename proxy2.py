@@ -1102,6 +1102,7 @@ def serve_proxy(bind, port, _ssl = False):
     except OSError as e:
         if 'Address already in use' in str(e):
             logger.err("Could not bind to specified port as it is already in use!")
+            return
         else:
             raise
 
@@ -1151,7 +1152,7 @@ def main():
             th.daemon = True
             th.start()
         
-        while True:
+        while any(t.is_alive() for t in threads):
             time.sleep(1)
 
     except KeyboardInterrupt:

@@ -68,7 +68,8 @@ class ProxyLogger:
         else:
             col = ProxyLogger.colors_dict.setdefault(mode, ProxyLogger.colors_map['grey'])
 
-        tm = str(time.strftime("%H:%M:%S", time.gmtime()))
+        #tm = str(time.strftime("%H:%M:%S", time.gmtime()))
+        tm = str(time.strftime("%Y-%m-%d/%H:%M:%S", time.gmtime()))
 
         prefix = ''
         if mode:

@@ -391,3 +391,75 @@ policy:
 #
 #protect_these_headers_from_tampering:
 #  - Accept-Encoding
+
+
+#
+# Malleable Redirector plugin can act as a basic oracle API responding to calls
+# containing full request contents with classification whether that request would be
+# blocked or passed along. The API may be used by custom payload droppers, HTML Smuggling
+# payloads or any other javascript-based landing pages.
+#
+# The way to invoke it is as follows:
+#   1. Issue a POST request to the proxy2 server with the below specified URI in path.
+#   2. Include following JSON in your POST request:
+#
+#   POST /malleable_redirector_hidden_api_endpoint
+#   Content-Type: application/json
+#
+#     {
+#         "peerIP" : "IP-of-connecting-Peer",
+#         "headers" : {
+#              "headerName1" : "headerValue1",
+#              ...
+#              "headerNameN" : "headerValueN",
+#         },
+#     }
+# 
+# If "peerIP" is empty (or was not given), proxy2 will try to extract peer's IP from HTTP 
+# headers such as (X-Forwarded-For, CF-Connecting-IP, X-Real-IP, etc.). If no IP will be present
+# in headers, an error will be returned.:
+#
+#     HTTP 404 Not Found
+#     {
+#         "error" : "number",
+#         "message" : "explanation"
+#     }
+#
+# Proxy2 will take any non-empty field from a given JSON and evaluate it as it would do
+# under currently provided configuration and all the knowledge it possesses. 
+# The response will contain following JSON:
+#
+#    { 
+#        "action": "allow|drop",
+#        "peerIP" : "returned-peerIP",
+#        "ipgeo" : {ip-geo-metadata-extracted}
+#        "message": "explanation",
+#        "reason": "reason",
+#        "drop_type": "proxy|reset|redirect",
+#        "action_url": ["proxy-URL-1|redirect-URL-1", ..., "proxy-URL-N|redirect-URL-N"]
+#    }
+#
+# Availbale Allow/Drop reasons for this endpoint:
+#    ALLOW:
+#       - Reason: 99 - Peer IP and HTTP headers did not contain anything suspicious
+#       - Reason: 1  - peer's IP address is whitelisted
+#       - Reason: 2  - Peer's IP was added dynamically to a whitelist based on a number of allowed requests
+#    DROP:
+#       - Reason: 2 - HTTP header name contained banned word
+#       - Reason: 3 - HTTP header value contained banned word
+#       - Reason: 4a - Peer's IP address is blacklisted
+#       - Reason: 4b - Peer's reverse-IP lookup contained banned word
+#       - Reason: 4c - Peer's IP lookup organization field contained banned word
+#       - Reason: 4d - Peer's IP geolocation DID NOT met expected conditions
+#       - Reason: 4e - Peer's IP geolocation metadata contained banned keyword! Peer banned in generic fashion
+#
+# Sample curl to debug:
+#   $ curl -sD- --request POST --data "{\"headers\":{\"Accept\": \"*/*\", \"Sec-Fetch-Site\": \"same-origin\", \
+#        \"Sec-Fetch-Mode\": \"no-cors\", \"Sec-Fetch-Dest\": \"script\", \"Accept-Language\": \"en-US,en;q=0.9\", \
+#        \"Cookie\": \"__cfduid2=cHux014r17SG3v4gPUrZ0BZjDabMTY2eWDj1tuYdREBg\", \"User-Agent\": \
+#        \"Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko\"}}" \
+#        https://attacker.com/12345678-9abc-def0-1234-567890abcdef
+#
+# Default: Turned off / not available
+#
+malleable_redirector_hidden_api_endpoint: /12345678-9abc-def0-1234-567890abcdef

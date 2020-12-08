@@ -87,12 +87,12 @@ class ProxyLogger:
             prefix2 = '%s%s: ' % (mode.upper(), tm)
             line = prefix2 + txt + nl
             ProxyLogger.writeToLogfile(fd, line)
-            
+
             #with open(fd, 'a+') as f:
             #    f.write(line)
             #    f.flush()
 
-            if args['tee']:
+            if 'tee' in args.keys() and args['tee']:
                 sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
                 sys.stdout.flush()
 

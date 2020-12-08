@@ -588,6 +588,9 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
 
             res_body_plain = self.decode_content_body(res_body, content_encoding)
 
+        else:
+            logger.dbg("Response deliberately not fetched as for plugin's request.")
+
         (modified, res_body_modified) = self.response_handler(req, req_body, res, res_body_plain)
 
         if modified: 

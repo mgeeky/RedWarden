@@ -34,8 +34,6 @@ from socketserver import ThreadingMixIn
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
 
-normpath = lambda p: os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), p))
-
 # Global instance that will be passed to every loaded plugin at it's __init__.
 logger = None
 

@@ -38,6 +38,9 @@ from lib.proxylogger import ProxyLogger
 from lib.proxyhandler import *
 
 
+normpath = lambda p: os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), p))
+
+
 # Global options dictonary, that will get modified after parsing 
 # program arguments. Below state represents default values.
 options = {

@@ -35,16 +35,18 @@ import traceback
 import threading
 import requests
 import urllib3
+
 from urllib.parse import urlparse, parse_qsl
 from subprocess import Popen, PIPE
-from proxylogger import ProxyLogger
-from pluginsloader import PluginsLoader
-from sslintercept import SSLInterception
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-import plugins.IProxyPlugin
 from io import StringIO, BytesIO
 from html.parser import HTMLParser
+
+import lib.plugins.IProxyPlugin
+from lib.proxylogger import ProxyLogger
+from lib.pluginsloader import PluginsLoader
+from lib.sslintercept import SSLInterception
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -94,27 +96,22 @@ class IPLookupHelper:
 
     cached_lookups_file = 'ip-lookups-cache.json'
 
-    def __init__(self, apiKeys):
+    def __init__(self, logger, apiKeys):
+        self.logger = logger
         self.apiKeys = {
             'ip_api_com': 'this-provider-not-requires-api-key-for-free-plan',
             'ipapi_co': 'this-provider-not-requires-api-key-for-free-plan',
         }
 
-        self.httpHeaders = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit (KHTML, like Gecko) Chrome/87',
-            'Accept': 'text/json, */*',
-            'Host': '',
-        }
-
         if len(apiKeys) > 0:
             for prov in IPLookupHelper.supported_providers:
                 if prov in apiKeys.keys():
-                    if len(apiKeys[prov].strip()) < 2: continue
+                    if apiKeys[prov] == None or len(apiKeys[prov].strip()) < 2: continue
                     self.apiKeys[prov] = apiKeys[prov].strip()
 
         self.cachedLookups = {}
 
-        Logger.dbg('Following IP Lookup providers will be used: ' + str(list(self.apiKeys.keys())))
+        self.logger.dbg('Following IP Lookup providers will be used: ' + str(list(self.apiKeys.keys())))
 
         try:
             with open(IPLookupHelper.cached_lookups_file) as f:
@@ -122,10 +119,10 @@ class IPLookupHelper:
                 if len(data) > 0:
                     cached = json.loads(data)
                     self.cachedLookups = cached
-                    Logger.dbg(f'Read {len(cached)} cached entries from file.')
+                    self.logger.dbg(f'Read {len(cached)} cached entries from file.')
 
         except json.decoder.JSONDecodeError as e:
-            Logger.err(f'Corrupted JSON data in cache file: {IPLookupHelper.cached_lookups_file}! Error: {e}')
+            self.logger.err(f'Corrupted JSON data in cache file: {IPLookupHelper.cached_lookups_file}! Error: {e}')
             raise
 
         except FileNotFoundError as e:
@@ -133,15 +130,15 @@ class IPLookupHelper:
                 json.dump({}, f)
 
         except Exception as e:
-            Logger.err(f'Exception raised while loading cached lookups from file ({IPLookupHelper.cached_lookups_file}: {e}')
+            self.logger.err(f'Exception raised while loading cached lookups from file ({IPLookupHelper.cached_lookups_file}: {e}')
             raise
 
     def lookup(self, ipAddress):
         if len(self.apiKeys) == 0:
-            return
+            return {}
 
         if ipAddress in self.cachedLookups.keys():
-            Logger.dbg(f'Returning cached entry for IP address: {ipAddress}')
+            self.logger.dbg(f'Returning cached entry for IP address: {ipAddress}')
             return self.cachedLookups[ipAddress]
 
         leftProvs = list(self.apiKeys.keys())
@@ -152,7 +149,7 @@ class IPLookupHelper:
 
             if hasattr(self, prov) != None:
                 method = getattr(self, prov)
-                Logger.dbg(f'Calling IP Lookup provider: {prov}')
+                self.logger.dbg(f'Calling IP Lookup provider: {prov}')
                 result = method(ipAddress)
 
                 if len(result) > 0:
@@ -167,7 +164,7 @@ class IPLookupHelper:
             with open(IPLookupHelper.cached_lookups_file, 'w') as f:
                 json.dump(self.cachedLookups, f)
 
-            Logger.dbg(f'New IP lookup entry cached: {ipAddress}')
+            self.logger.dbg(f'New IP lookup entry cached: {ipAddress}')
 
         return result
 
@@ -282,7 +279,7 @@ class IPLookupHelper:
         return output
 
     def ip_api_com(self, ipAddress):
-        # $ curl -s ip-api.com/json/89.167.131.40
+        # $ curl -s ip-api.com/json/89.167.131.40                                                                                                                  [21:05]
         # {
         #   "status": "success",
         #   "country": "Germany",
@@ -301,9 +298,7 @@ class IPLookupHelper:
         # }
 
         try:
-            self.httpHeaders['Host'] = 'ip-api.com'
-            r = requests.get(f'http://ip-api.com/json/{ipAddress}',
-                headers = self.httpHeaders)
+            r = requests.get(f'http://ip-api.com/json/{ipAddress}')
 
             if r.status_code != 200:
                 raise Exception(f'ip-api.com returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
@@ -311,7 +306,7 @@ class IPLookupHelper:
             return r.json()
 
         except Exception as e:
-            Logger.err(f'Exception catched while querying ip-api.com with {ipAddress}:\nName: {e}')
+            self.logger.err(f'Exception catched while querying ip-api.com with {ipAddress}:\nName: {e}', color='cyan')
 
         return {}
 
@@ -346,9 +341,7 @@ class IPLookupHelper:
         # }
 
         try:
-            self.httpHeaders['Host'] = 'ipapi.co'
-            r = requests.get(f'https://ipapi.co/{ipAddress}/json/',
-                headers = self.httpHeaders)
+            r = requests.get(f'https://ipapi.co/{ipAddress}/json/')
 
             if r.status_code != 200:
                 raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
@@ -356,7 +349,7 @@ class IPLookupHelper:
             return r.json()
 
         except Exception as e:
-            Logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}')
+            self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}', color='cyan')
 
         return {}
 
@@ -400,9 +393,7 @@ class IPLookupHelper:
         #   }
         # }
         try:
-            self.httpHeaders['Host'] = 'api.ipgeolocation.io'
-            r = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey={self.apiKeys["ipgeolocation_io"]}&ip={ipAddress}',
-                headers = self.httpHeaders)
+            r = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey={self.apiKeys["ipgeolocation_io"]}&ip={ipAddress}')
 
             if r.status_code != 200:
                 raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
@@ -410,7 +401,7 @@ class IPLookupHelper:
             return r.json()
 
         except Exception as e:
-            Logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}')
+            self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}', color='cyan')
 
         return {}
 
@@ -425,7 +416,8 @@ class IPGeolocationDeterminant:
         'timezone'
     )
 
-    def __init__(self, determinants):
+    def __init__(self, logger, determinants):
+        self.logger = logger
         if type(determinants) != dict:
             raise Exception('Specified ip_geolocation_requirements must be a valid dictonary!')
 
@@ -466,13 +458,13 @@ class IPGeolocationDeterminant:
 
                     for exp in expected:
                         if georesult in exp.lower():
-                            Logger.dbg(f'IP Geo result {determinant} value "{georesult}" met expected value "{exp}"')
+                            self.logger.dbg(f'IP Geo result {determinant} value "{georesult}" met expected value "{exp}"')
                             matched = True
                             break
 
                         m = re.search(exp, georesult, re.I)
                         if m:
-                            Logger.dbg(f'IP Geo result {determinant} value "{georesult}" met expected regular expression: ({exp})')
+                            self.logger.dbg(f'IP Geo result {determinant} value "{georesult}" met expected regular expression: ({exp})')
                             matched = True
                             break    
 
@@ -480,10 +472,61 @@ class IPGeolocationDeterminant:
                         break                    
 
                 if not matched:
-                    Logger.dbg(f'IP Geo result {determinant} values {ipLookupResult[determinant]} DID NOT met expected set {expected}')
+                    self.logger.dbg(f'IP Geo result {determinant} values {ipLookupResult[determinant]} DID NOT met expected set {expected}')
                     result = False
 
         return result
+
+    @staticmethod
+    def getValues(v, n = 0):
+        values = []
+
+        if type(v) == str:
+            if ' ' in v:
+                values.extend(v.split(' '))
+            values.append(v)
+        elif type(v) == int or type(v) == float:
+            values.extend([str(v)])
+        elif type(v) == tuple or type(v) == list:
+            for w in v:
+                values.extend(IPGeolocationDeterminant.getValues(w, n+1))
+        elif type(v) == dict and n < 10:
+            values.extend(IPGeolocationDeterminant.getValuesDict(v, n+1))
+
+        return values
+
+    @staticmethod
+    def getValuesDict(data, n = 0):
+        values = []
+
+        for k, v in data.items():
+            if type(v) == dict and n < 10:
+                values.extend(IPGeolocationDeterminant.getValuesDict(v, n+1))
+            elif n < 10:
+                values.extend(IPGeolocationDeterminant.getValues(v, n+1))
+
+        return values
+
+    def validateIpGeoMetadata(self, ipLookupDetails):
+        if len(ipLookupDetails) == 0: return (True, '')
+
+        words = set(list(filter(None, IPGeolocationDeterminant.getValuesDict(ipLookupDetails))))
+        if len(words) == 0: return (True, '')
+
+        self.logger.dbg(f"Extracted keywords from Peer's IP Geolocation metadata: ({words})")
+
+        for w in words:
+            for x in BANNED_AGENTS:
+                if ((' ' in x) and (x.lower() in w.lower())):
+                    self.logger.dbg(f"Peer's IP Geolocation metadata contained banned phrase: ({w})")
+                    return (False, w)
+
+                elif (w.lower() == x.lower()):
+                    self.logger.dbg(f"Peer's IP Geolocation metadata contained banned keyword: ({w})")
+                    return (False, w)
+
+        self.logger.dbg(f"Peer's IP Geolocation metadata didn't raise any suspicion.")
+        return (True, '')
 
 def main(argv):
     if len(argv) < 2:

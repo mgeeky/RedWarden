@@ -149,16 +149,23 @@ action_url:
 # 
 # Syntax:
 #   proxy_pass:
-#     - /url_to_be_passed example.com
+#     - /url_to_be_passed example.com [option1,option2=value2]
 #
 # The first parameter 'url' is a regex (case-insensitive). Must start with '/'.
-# The begin/end regex operands are implicit and will constitute following regex with URL:
-#     '^' + url + '$'
+# The regex begin/end operators are implied and will constitute following regex to be 
+# matched against inbound request's URL:
+#     '^/' + url_to_be_passed + '$'
+#
+# Following options are supported:
+#   - nodrop  - Process this rule at first, before evaluating any DROP-logic. 
+#               Ensures requests with matching URL to be proxy-passed no matter what.
 #
 # Default: No proxy pass rules.
 #
 proxy_pass:
   - /foobar\d* bing.com
+  - /alwayspass google.com nodrop
+
 
 #
 # If set, removes all HTTP headers sent by Client that are not expected by Teamserver according

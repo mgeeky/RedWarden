@@ -42,7 +42,6 @@ import http.client
 import threading
 import gzip, zlib
 import json, re
-import optionsparser
 import traceback
 import threading
 import requests
@@ -50,15 +49,17 @@ import urllib3
 
 from urllib.parse import urlparse, parse_qsl
 from subprocess import Popen, PIPE
-from proxylogger import ProxyLogger
-from pluginsloader import PluginsLoader
-from sslintercept import SSLInterception
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from socketserver import ThreadingMixIn, ForkingMixIn
-
-import plugins.IProxyPlugin
+from socketserver import ThreadingMixIn
 from io import StringIO, BytesIO
 from html.parser import HTMLParser
+
+import lib.optionsparser
+import plugins.IProxyPlugin
+from lib.proxylogger import ProxyLogger
+from lib.pluginsloader import PluginsLoader
+from lib.sslintercept import SSLInterception
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -100,8 +101,7 @@ sslintercept = None
 
 
 # Asynchronously serving HTTP server class.
-#class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
-class ThreadingHTTPServer(ForkingMixIn, HTTPServer):
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     address_family = socket.AF_INET
 
     # ThreadMixIn, Should the server wait for thread termination?
@@ -1043,7 +1043,7 @@ def init():
     global logger
     global sslintercept
 
-    optionsparser.parse_options(options, VERSION)
+    lib.optionsparser.parse_options(options, VERSION)
     logger = ProxyLogger(options)
     pluginsloaded = PluginsLoader(logger, options)
     sslintercept = SSLInterception(logger, options)

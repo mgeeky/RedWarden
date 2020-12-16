@@ -2,3 +2,4 @@ brotli
 requests
 PyYaml
 sqlitedict
+tornado

@@ -34,6 +34,10 @@ VERSION = '0.5'
 
 import sys, os
 
+import tornado.web
+import tornado.ioloop
+import tornado.httpserver
+
 from lib.proxylogger import ProxyLogger
 from lib.proxyhandler import *
 
@@ -68,6 +72,12 @@ options = {
 logger = None
 
 
+def create_ssl_context():
+    ssl_ctx  = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_ctx.load_cert_chain(options['cacert'], options['cakey'])
+
+    return ssl_ctx 
+
 def serve_proxy(bind, port, _ssl = False):
     ProxyRequestHandler.protocol_version = "HTTP/1.1"
     scheme = None
@@ -90,11 +100,15 @@ def serve_proxy(bind, port, _ssl = False):
     if scheme == None: scheme = 'http'
 
     server_address = (bind, port)
-    httpd = None
+    app = None
 
     try:
-        httpd = ThreadingHTTPServer(server_address, ProxyRequestHandler)
-        httpd.timeout = options['timeout']
+        params = dict(server_bind=bind, server_port=port)
+        app = tornado.web.Application([
+            (r'/.*', ProxyRequestHandler, params),
+            (scheme + r'://.*', ProxyRequestHandler, params),
+        ],
+        transforms=[RemoveXProxy2HeadersTransform, ])
 
     except OSError as e:
         if 'Address already in use' in str(e):
@@ -107,14 +121,13 @@ def serve_proxy(bind, port, _ssl = False):
         color=ProxyLogger.colors_map['yellow'])
 
     if scheme == 'https':
-        httpd.socket = ssl.wrap_socket(
-            httpd.socket, 
-            certfile=options['cacert'], 
-            keyfile=options['cakey'], 
-            server_side=True
-        )
+        ssl_ctx = create_ssl_context()
+        server = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
+        server.listen(port, address = bind)
+    else:
+        server = tornado.httpserver.HTTPServer(app)
+        server.listen(port, address = bind)
 
-    httpd.serve_forever()
 
 def main():
     global options
@@ -148,16 +161,12 @@ def main():
                 if p < 0 or p > 65535: raise Exception()
 
             except:
-                logger.error('Specified port ({}) is not a valid number in range of 1-65535!'.format(port))
+                logger.err('Specified port ({}) is not a valid number in range of 1-65535!'.format(port))
                 return False
 
-            th = threading.Thread(target=serve_proxy, args = (bind, p, scheme.lower() == 'https'))
-            threads.append(th)
-            th.daemon = True
-            th.start()
-        
-        while any(t.is_alive() for t in threads):
-            time.sleep(1)
+            serve_proxy(bind, p, scheme.lower() == 'https')
+
+        tornado.ioloop.IOLoop.instance().start()
 
     except KeyboardInterrupt:
         logger.info('\nProxy serving interrupted by user.', noprefix=True)

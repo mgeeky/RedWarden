@@ -582,11 +582,19 @@ class ProxyPlugin(IProxyPlugin):
 
                     url = splits[0].strip()
                     host = splits[1].strip()
+                    scheme = ''
+
+                    if host.startswith('https://'):
+                        scheme = 'https'
+                    elif host.startswith('http://'):
+                        scheme = 'http'
+
                     host = host.strip().replace('https://', '').replace('http://', '').replace('/', '')
 
                     passes[num] = {}
                     passes[num]['url'] = url
                     passes[num]['redir'] = host
+                    passes[num]['scheme'] = schene
                     passes[num]['options'] = {}
 
                     if len(splits) > 2:
@@ -805,11 +813,11 @@ class ProxyPlugin(IProxyPlugin):
         return inport, scheme, host, port
 
     def pickTeamserver(self, req):
-        self.logger.dbg('Peer reached the server at port: ' + str(req.server.server_port))
+        self.logger.dbg('Peer reached the server at port: ' + str(req.server_port))
         for s in self.proxyOptions['teamserver_url']:
             u = urlparse(req.path)
             inport, scheme, host, port = self.interpretTeamserverUrl(s)
-            if inport == req.server.server_port:
+            if inport == req.server_port:
                 return s
             elif inport == '':
                 return s
@@ -954,6 +962,7 @@ class ProxyPlugin(IProxyPlugin):
         try:
             drop_request = self.drop_check(req, req_body, malleable_meta)
             host_action = 1
+            
         except ProxyPlugin.AlterHostHeader as e:
             host_action = 2
             drop_request = True
@@ -1401,6 +1410,7 @@ The document has moved
             and self.proxyOptions['policy']['allow_proxy_pass']:
 
             for num, entry in self.proxyOptions['proxy_pass'].items():
+                scheme = entry['scheme']
                 url = entry['url']
                 host = entry['redir']
                 opts = ''
@@ -1423,6 +1433,10 @@ The document has moved
                     del req.headers['Host']
                     req.headers['Host'] = host
                     req.headers[proxy2_metadata_headers['override_host_header']] = host
+                    
+                    if scheme:
+                        req.path = '{}://{}{}'.format(scheme, host, url)
+
                     raise ProxyPlugin.AlterHostHeader(host)
 
                 else:

@@ -16,41 +16,18 @@
 
 VERSION = '0.4'
 
+import sys
 import pprint
 import json, re
 import requests
 import random
 import yaml
-
-import time
-import html
-import sys, os
-import brotli
-import socket, ssl, select
-import http.client
-import threading
-import gzip, zlib
-import optionsparser
-import traceback
-import threading
-import requests
-import urllib3
+import urllib3, ssl
 
 from urllib.parse import urlparse, parse_qsl
-from subprocess import Popen, PIPE
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from socketserver import ThreadingMixIn
-from io import StringIO, BytesIO
-from html.parser import HTMLParser
-
-import lib.plugins.IProxyPlugin
-from lib.proxylogger import ProxyLogger
-from lib.pluginsloader import PluginsLoader
-from lib.sslintercept import SSLInterception
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
-
 
 API_KEYS = {
   'ipgeolocation_io': '',
@@ -301,7 +278,11 @@ class IPLookupHelper:
             r = requests.get(f'http://ip-api.com/json/{ipAddress}')
 
             if r.status_code != 200:
-                raise Exception(f'ip-api.com returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
+                out = r.json()
+                if not out: out = ''
+                if type(out) != str: out = str(out)
+
+                raise Exception(f'ip-api.com returned unexpected status code: {r.status_code}.\nOutput text:\n{out}')
 
             return r.json()
 
@@ -344,7 +325,11 @@ class IPLookupHelper:
             r = requests.get(f'https://ipapi.co/{ipAddress}/json/')
 
             if r.status_code != 200:
-                raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
+                out = r.json()
+                if not out: out = ''
+                if type(out) != str: out = str(out)
+
+                raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n{out}')
 
             return r.json()
 
@@ -396,7 +381,11 @@ class IPLookupHelper:
             r = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey={self.apiKeys["ipgeolocation_io"]}&ip={ipAddress}')
 
             if r.status_code != 200:
-                raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n' + r.json())
+                out = r.json()
+                if not out: out = ''
+                if type(out) != str: out = str(out)
+
+                raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n{out}')
 
             return r.json()
 
@@ -441,7 +430,8 @@ class IPGeolocationDeterminant:
 
     def determine(self, ipLookupResult):
         if type(ipLookupResult) != dict or len(ipLookupResult) == 0:
-            raise Exception(f'Given IP geolocation results object was either empty or not a dictionary: {ipLookupResult}!')
+            self.logger.err(f'Given IP geolocation results object was either empty or not a dictionary: {ipLookupResult}')
+            return ''
 
         result = True
         checked = 0
@@ -545,7 +535,8 @@ IP address. If second param is not given - no IP Geolocation evaluation will be 
     conf = ''
     if len(argv) == 3: conf = sys.argv[2]
 
-    lookup = IPLookupHelper(API_KEYS)
+    logger = Logger()
+    lookup = IPLookupHelper(logger, API_KEYS)
 
     print('[.] Lookup of: ' + ipaddr)
     result = lookup.lookup(ipaddr)
@@ -554,11 +545,14 @@ IP address. If second param is not given - no IP Geolocation evaluation will be 
     if conf != '':
         config = {}
         with open('malleable-redirector-config.yml') as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+            try:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+            except:
+                config = yaml.load(f)
 
         deter = IPGeolocationDeterminant(config['ip_geolocation_requirements'])
-        deter.determine(result)
-
+        out = deter.determine(result)
+        print('[.] IP Geolocation determination as instructed by malleable config returned: ' + str(out))
 
 if __name__ == '__main__':
     main(sys.argv)

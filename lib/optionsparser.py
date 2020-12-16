@@ -173,8 +173,10 @@ def parseParametersFromConfigFile(_params):
 
     try:
         with open(outparams['config']) as f:
-            #config = yaml.load(f, Loader=yaml.FullLoader)
-            config = yaml.load(f)
+            try:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+            except:
+                config = yaml.load(f)
 
         outparams.update(config)
 

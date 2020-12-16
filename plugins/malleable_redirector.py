@@ -338,6 +338,8 @@ class IPLookupHelper:
         except Exception as e:
             self.logger.err(f'Exception catched while querying ip-api.com with {ipAddress}:\nName: {e}', color='cyan')
 
+            raise
+
         return {}
 
     def ipapi_co(self, ipAddress):
@@ -380,6 +382,8 @@ class IPLookupHelper:
 
         except Exception as e:
             self.logger.err(f'Exception catched while querying ipapi.co with {ipAddress}:\nName: {e}', color='cyan')
+
+            raise
 
         return {}
 
@@ -892,6 +896,10 @@ class ProxyPlugin(IProxyPlugin):
         self.ipGeolocationDeterminer = None
 
         self.banned_ips = {}
+
+        for k, v in ProxyPlugin.DefaultRedirectorConfig.items():
+            if k not in self.proxyOptions.keys():
+                self.proxyOptions[k] = v
 
         open(ProxyPlugin.DynamicWhitelistFile, 'w').close()
         with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:

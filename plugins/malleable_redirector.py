@@ -856,8 +856,6 @@ class ProxyPlugin(IProxyPlugin):
         newhost = ''
         orighost = req.headers['Host']
 
-        self.logger.dbg(f"In redirect('{req.uri}', '{_target}', {malleable_meta})")
-
         if target in self.proxyOptions['teamserver_url']:
             inport, scheme, host, port = self.interpretTeamserverUrl(target)
             if not scheme: scheme = 'https'
@@ -891,6 +889,9 @@ class ProxyPlugin(IProxyPlugin):
 
         req.headers[proxy2_metadata_headers['ignore_response_decompression_errors']] = "1"
         req.headers[proxy2_metadata_headers['override_host_header']] = newhost
+
+        if 'host' in malleable_meta.keys() and len(malleable_meta['host']) > 0:
+            req.headers[proxy2_metadata_headers['domain_front_host_header']] = malleable_meta['host']
 
         return None
 
@@ -977,7 +978,7 @@ class ProxyPlugin(IProxyPlugin):
         self.res = None
         self.res_body = None
 
-        drop_request = -1
+        drop_request = False
         newhost = ''
         malleable_meta = {
             'section' : '',
@@ -1014,6 +1015,7 @@ class ProxyPlugin(IProxyPlugin):
                 ), color = 'cyan')
                 return self.redirect(req, url, malleable_meta)
 
+            self.logger.err(f"DROPPING IN REQUEST_HANDLER: drop_request ({drop_request}), host_action == 1")
             return self.drop_action(req, req_body, None, None)
 
         elif drop_request and host_action == 2:
@@ -1314,6 +1316,7 @@ The document has moved
                 vv = v.split(' ') + v.split('-')
                 if self.proxyOptions['policy']['drop_http_banned_header_names']:
                     for kv1 in kv:
+                        if not kv1: continue
                         foo = any(re.search(r'\b'+re.escape(kv1)+r' \b', b, re.I) for b in BANNED_AGENTS)
                         if foo or kv1.lower() in BANNED_AGENTS:
                             msg = '[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}" ({}: {})'.format(
@@ -1333,6 +1336,7 @@ The document has moved
 
                 if self.proxyOptions['policy']['drop_http_banned_header_value']:
                     for vv1 in vv:
+                        if not vv1: continue
                         foo = any(re.search(r'\b'+re.escape(vv1)+r' \b', b, re.I) for b in BANNED_AGENTS)
                         if foo or vv1.lower() in BANNED_AGENTS:
                             msg = '[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}" ({}: {})'.format(
@@ -1435,7 +1439,7 @@ The document has moved
             respJson['message'] = msg
             return (False, respJson)
         else:
-            return (False, '')
+            return (False, False)
 
     def processProxyPass(self, ts, peerIP, req, processNodrops):
         if self.proxyOptions['proxy_pass'] != None and len(self.proxyOptions['proxy_pass']) > 0 \

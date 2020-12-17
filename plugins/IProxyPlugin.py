@@ -10,6 +10,7 @@ proxy2_metadata_headers = {
     'strip_headers_during_forward' : 'X-Proxy2-Strip-Headers-During-Forward',
     'ignore_response_decompression_errors' : 'X-Proxy2-Ignore-Response-Decompression-Errors',
     'override_host_header' : 'X-Proxy2-Override-Host-Header',
+    'domain_front_host_header' : 'X-Proxy2-Domain-Front-Host-Header',
 }
 
 class DropConnectionException(Exception):

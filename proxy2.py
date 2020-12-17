@@ -39,6 +39,7 @@ import sys, os
 import tornado.web
 import tornado.ioloop
 import tornado.httpserver
+import tornado.netutil
 
 from lib.proxylogger import ProxyLogger
 from lib.proxyhandler import *
@@ -80,7 +81,7 @@ def create_ssl_context():
 
     return ssl_ctx 
 
-def serve_proxy(bind, port, _ssl = False):
+def serve_proxy(bind, port, _ssl, foosock):
     ProxyRequestHandler.protocol_version = "HTTP/1.1"
     scheme = None
     certpath = ''
@@ -122,13 +123,23 @@ def serve_proxy(bind, port, _ssl = False):
     logger.info("Serving proxy on: {}://{}:{} ...".format(scheme, bind, port), 
         color=ProxyLogger.colors_map['yellow'])
 
+    server = None
     if scheme == 'https':
         ssl_ctx = create_ssl_context()
-        server = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
-        server.listen(port, address = bind)
+        server = tornado.httpserver.HTTPServer(
+            app, 
+            ssl_options=ssl_ctx,
+            idle_connection_timeout = options['timeout'],
+            body_timeout = options['timeout'],
+            )
     else:
-        server = tornado.httpserver.HTTPServer(app)
-        server.listen(port, address = bind)
+        server = tornado.httpserver.HTTPServer(
+            app,
+            idle_connection_timeout = options['timeout'],
+            body_timeout = options['timeout'],
+            )
+
+    server.add_sockets(foosock)
 
 
 def main():
@@ -141,6 +152,8 @@ def main():
         threads = []
         if len(options['port']) == 0:
             options['port'].append('8080/http')
+
+        servers = []
 
         for port in options['port']:
             p = 0
@@ -161,12 +174,21 @@ def main():
 
                 p = int(_port)
                 if p < 0 or p > 65535: raise Exception()
+                if not bind:
+                    bind = '0.0.0.0'
 
-            except:
+                foosock = tornado.netutil.bind_sockets(p, address = bind)
+                servers.append((bind, p, scheme.lower() == 'https', foosock, options))
+
+            except Exception as e:
                 logger.err('Specified port ({}) is not a valid number in range of 1-65535!'.format(port))
+                raise
                 return False
 
-            serve_proxy(bind, p, scheme.lower() == 'https')
+        tornado.process.fork_processes(0)
+
+        for srv in servers:
+            serve_proxy(srv[0], srv[1], srv[2], srv[3])
 
         tornado.ioloop.IOLoop.instance().start()
 

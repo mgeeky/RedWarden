@@ -474,7 +474,14 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         pass
 
                 new_req_headers = self.request.headers.copy()
-                del new_req_headers['Host']
+                #del new_req_headers['Host']
+
+                if plugins.IProxyPlugin.proxy2_metadata_headers['domain_front_host_header'] in new_req_headers.keys():
+                    if 'Host' in new_req_headers.keys():
+                        del new_req_headers['Host']
+
+                    logger.dbg('Adjusting Host header for Domain-Fronting needs as requested by Plugin')
+                    new_req_headers['Host'] = self.request.headers[plugins.IProxyPlugin.proxy2_metadata_headers['domain_front_host_header']]
 
                 fetchurl = req_path_full.replace(netloc, outbound_origin)
                 logger.dbg('DEBUG REQUESTS: request("{}", "{}", "{}", ...'.format(
@@ -572,7 +579,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             reshdrs = [x.lower() for x in res.headers.keys()]
             if 'content-length' in reshdrs: del res.headers['Content-Length']
 
-            res.headers['Content-Length'] = str(len(res_body))
+            try:
+                res.headers['Content-Length'] = str(len(res_body))
+            except Exception as e:
+                logger.dbg("Could not set proper Content-Length as running len on res_body failed")
 
         if 'Transfer-Encoding' in res.headers.keys() and \
             res.headers['Transfer-Encoding'] == 'chunked':

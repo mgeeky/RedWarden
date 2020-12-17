@@ -1015,7 +1015,6 @@ class ProxyPlugin(IProxyPlugin):
                 ), color = 'cyan')
                 return self.redirect(req, url, malleable_meta)
 
-            self.logger.err(f"DROPPING IN REQUEST_HANDLER: drop_request ({drop_request}), host_action == 1")
             return self.drop_action(req, req_body, None, None)
 
         elif drop_request and host_action == 2:

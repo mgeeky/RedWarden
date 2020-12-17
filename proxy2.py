@@ -32,7 +32,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.6'
+VERSION = '0.6.1'
 
 import sys, os
 
@@ -59,7 +59,7 @@ options = {
     'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
-    'timeout': 45,
+    'timeout': 90,
     'no_ssl': False,
     'drop_invalid_http_requests': True,
     'no_proxy': False,

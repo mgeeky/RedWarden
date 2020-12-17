@@ -327,6 +327,11 @@ class IPLookupHelper:
             if r.status_code != 200:
                 out = r.json()
                 if not out: out = ''
+
+                if type(out) == dict and 'error' in out.keys() and 'reason' in out.keys():
+                    if out['error'] and out['reason'].lower() == 'ratelimited':
+                        return {}
+
                 if type(out) != str: out = str(out)
 
                 raise Exception(f'ipapi.co returned unexpected status code: {r.status_code}.\nOutput text:\n{out}')
@@ -497,16 +502,19 @@ class IPGeolocationDeterminant:
 
         return values
 
-    def validateIpGeoMetadata(self, ipLookupDetails):
+    def validateIpGeoMetadata(self, ipLookupDetails, bannedAgents):
         if len(ipLookupDetails) == 0: return (True, '')
 
         words = set(list(filter(None, IPGeolocationDeterminant.getValuesDict(ipLookupDetails))))
         if len(words) == 0: return (True, '')
 
+        if not bannedAgents:
+            self.logger.fatal("No bannedAgents provided, cannot validateIpGeoMetadata!")
+
         self.logger.dbg(f"Extracted keywords from Peer's IP Geolocation metadata: ({words})")
 
         for w in words:
-            for x in BANNED_AGENTS:
+            for x in bannedAgents:
                 if ((' ' in x) and (x.lower() in w.lower())):
                     self.logger.dbg(f"Peer's IP Geolocation metadata contained banned phrase: ({w})")
                     return (False, w)

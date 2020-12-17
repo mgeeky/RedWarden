@@ -143,13 +143,13 @@ action_url:
 # pass some requests targeting for instance attacker-hosted files onto another host, but
 # through the one protected with malleable_redirector.
 #
-# Protocol used for ProxyPass will match the one from originating request. Therefore
-# there is no point in prepending host part with http/https schema, as it's going to be
-# ignored anyway.
+# Protocol used for ProxyPass will match the one from originating request unless specified explicitely.
+# If host part contains http:// or https:// schema - that schema will be used.
 # 
 # Syntax:
 #   proxy_pass:
-#     - /url_to_be_passed example.com [option1,option2=value2]
+#     - /url_to_be_passed example.com
+#     - /url_to_be_passed_onto_http http://example.com
 #
 # The first parameter 'url' is a regex (case-insensitive). Must start with '/'.
 # The regex begin/end operators are implied and will constitute following regex to be 
@@ -163,7 +163,8 @@ action_url:
 # Default: No proxy pass rules.
 #
 proxy_pass:
-  - /foobar\d* bing.com
+  - /foobar\d*  bing.com
+  - /myip       http://ip-api.com/json/
   - /alwayspass google.com nodrop
 
 

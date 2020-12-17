@@ -20,7 +20,9 @@
 #   0.4     improved reverse-proxy's capabilities, added logic to avoid inifinite loops
 #   0.5     fixed plenty of bugs, improved a bit server's resilience against slow/misbehaving peers
 #           by disconnecting them/timeouting connections, improved logging facility and output format,
-#           added options to protecte HTTP headers, apply fine-grained DROP policy, and plenty more.
+#           added options to protected HTTP headers, apply fine-grained DROP policy, and plenty more.
+#   0.6     rewritten proxy2 from BaseHTTPServer (SimpleHTTPServer) to Tornado, improved
+#           support for proxy_pass allowing to fetch responses cross-scheme
 #
 # Author:
 #   Mariusz B. / mgeeky, '16-'20
@@ -30,7 +32,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.5'
+VERSION = '0.6'
 
 import sys, os
 

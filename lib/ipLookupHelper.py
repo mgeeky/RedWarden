@@ -514,7 +514,9 @@ class IPGeolocationDeterminant:
         self.logger.dbg(f"Extracted keywords from Peer's IP Geolocation metadata: ({words})")
 
         for w in words:
+            if not w: continue
             for x in bannedAgents:
+                if not x: continue
                 if ((' ' in x) and (x.lower() in w.lower())):
                     self.logger.dbg(f"Peer's IP Geolocation metadata contained banned phrase: ({w})")
                     return (False, w)

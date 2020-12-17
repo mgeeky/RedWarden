@@ -1292,6 +1292,7 @@ The document has moved
             try:
                 resolved = socket.gethostbyaddr(req.client_address[0])[0]
                 for part in resolved.split('.')[:-1]:
+                    if not part: continue
                     foo = any(re.search(r'\b'+re.escape(part)+r' \b', b, re.I) for b in BANNED_AGENTS)
                     if foo or part.lower() in BANNED_AGENTS:
                         msg = '[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part)
@@ -1362,6 +1363,7 @@ The document has moved
                     if 'organization' in ipLookupDetails.keys():
                         for orgWord in ipLookupDetails['organization']:
                             for word in orgWord.split(' '):
+                                if not word: continue
                                 foo = any(re.search(r'\b'+re.escape(word)+r' \b', b, re.I) for b in BANNED_AGENTS)
                                 if foo or word.lower() in BANNED_AGENTS:
                                     msg = '[DROP, {}, reason:4c, {}] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(

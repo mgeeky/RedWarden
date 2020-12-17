@@ -1225,6 +1225,7 @@ The document has moved
         returnJson = (parsedJson != None and res != None)
 
         ipLookupDetails = None
+        userAgentValue = req.headers.get('User-Agent')
         respJson['drop_type'] = self.proxyOptions['drop_action']
         respJson['action_url'] = self.proxyOptions['action_url']
 
@@ -1236,7 +1237,7 @@ The document has moved
                         ts, peerIP, cidr
                     )
 
-                    if respJson:
+                    if returnJson:
                         respJson['action'] = 'allow'
                         respJson['reason'] = '1'
                         respJson['message'] = msg
@@ -1254,7 +1255,7 @@ The document has moved
                         ts, peerIP
                     )
 
-                    if respJson:
+                    if returnJson:
                         respJson['action'] = 'allow'
                         respJson['reason'] = '2'
                         respJson['message'] = msg
@@ -1275,7 +1276,7 @@ The document has moved
                             ts, peerIP, cidr, comment
                         )
 
-                    if respJson:
+                    if returnJson:
                         respJson['action'] = 'drop'
                         respJson['reason'] = '4a'
                         respJson['message'] = msg
@@ -1295,7 +1296,7 @@ The document has moved
                     if foo or part.lower() in BANNED_AGENTS:
                         msg = '[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part)
                         
-                        if respJson:
+                        if returnJson:
                             respJson['action'] = 'drop'
                             respJson['reason'] = '4b'
                             respJson['message'] = msg
@@ -1322,7 +1323,7 @@ The document has moved
                             msg = '[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}" ({}: {})'.format(
                                     ts, peerIP, kv1, kv, vv)
 
-                            if respJson:
+                            if returnJson:
                                 respJson['action'] = 'drop'
                                 respJson['reason'] = '2'
                                 respJson['message'] = msg
@@ -1342,7 +1343,7 @@ The document has moved
                             msg = '[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}" ({}: {})'.format(
                                     ts, peerIP, vv1, kv, vv)
 
-                            if respJson:
+                            if returnJson:
                                 respJson['action'] = 'drop'
                                 respJson['reason'] = '3'
                                 respJson['message'] = msg
@@ -1366,7 +1367,7 @@ The document has moved
                                     msg = '[DROP, {}, reason:4c, {}] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(
                                         ts, peerIP, orgWord, word)
 
-                                    if respJson:
+                                    if returnJson:
                                         respJson['action'] = 'drop'
                                         respJson['reason'] = '4c'
                                         respJson['message'] = msg
@@ -1385,7 +1386,7 @@ The document has moved
                         ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone']
                     )
                     
-                    if respJson:
+                    if returnJson:
                         respJson['action'] = 'drop'
                         respJson['reason'] = '4d'
                         respJson['message'] = msg
@@ -1410,7 +1411,7 @@ The document has moved
                             metaAnalysis[1]
                         )
 
-                        if respJson:
+                        if returnJson:
                             respJson['action'] = 'drop'
                             respJson['reason'] = '4e'
                             respJson['message'] = msg
@@ -1423,7 +1424,7 @@ The document has moved
                 except Exception as e:
                     self.logger.dbg(f"Exception was thrown during drop_ipgeo_metadata_containing_banned_keywords verifcation:\n\t({e})")
 
-        if respJson:
+        if returnJson:
 
             msg = '[ALLOW, {}, reason:99, {}] Peer IP and HTTP headers did not contain anything suspicious.'.format(
                             ts, peerIP)

@@ -20,11 +20,11 @@ trace: False
 
 # Redirect proxy2's output to file. Default: stdout.
 # Creates a file in the same directory that this config file is situated.
-#output: proxy.log
+output: redirector.log
 
 # If 'output' is specified, tee program's output to file and stdout at the same time.
 # Default: False
-#tee: True
+tee: True
 
 
 #

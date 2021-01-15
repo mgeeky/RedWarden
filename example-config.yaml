@@ -156,6 +156,21 @@ action_url:
 # matched against inbound request's URL:
 #     '^/' + url_to_be_passed + '$'
 #
+# Here are the URL rewriting rules:
+#   Example, inbound request:
+#       https://attacker.com/dl/file-to-be-served.txt
+#
+#   Rules:
+#     a) Entire URL to be substituted for proxy pass:
+#       proxy_pass:
+#           - /dl/.+   https://localhost:8888/   
+#                ====> will redirect to https://localhost:8888/
+#
+#     b) Only host to be substituted for proxy pass:
+#       proxy_pass:
+#           - /dl/.+   localhost:8888   
+#                ====> will redirect to https://localhost:8888/dl/file-to-be-served.txt
+#
 # Following options are supported:
 #   - nodrop  - Process this rule at first, before evaluating any DROP-logic. 
 #               Ensures requests with matching URL to be proxy-passed no matter what.

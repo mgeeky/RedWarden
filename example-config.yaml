@@ -173,11 +173,12 @@ action_url:
 #
 # Following options are supported:
 #   - nodrop  - Process this rule at first, before evaluating any DROP-logic. 
-#               Ensures requests with matching URL to be proxy-passed no matter what.
+#               Does not let processed request to be dropped.
 #
 # Default: No proxy pass rules.
 #
 proxy_pass:
+  # These are example proxy_pass definitions:
   - /foobar\d*  bing.com
   - /myip       http://ip-api.com/json/
   - /alwayspass google.com nodrop
@@ -193,6 +194,9 @@ proxy_pass:
 # We can strip all of these superfluous, not expected by Teamserver HTTP headers delivering a vanilla plain
 # request. This is recommended setting in most scenarios.
 #
+# Do note however, that Teamserver by itself ignores superfluous headers it receives in requests, as long as they 
+# don't compromise integrity of the malleable transaction.
+#
 # Default: True
 #
 remove_superfluous_headers: True
@@ -204,7 +208,7 @@ remove_superfluous_headers: True
 # previously, that request is considered as Replay-Attack attempt and thus should be banned.
 #
 # CobaltStrike's Teamserver has built measures aginst replay-attacks, however malleable_redirector may
-# assist in that activity.
+# assist in that activity as well.
 #
 # Default: False
 #

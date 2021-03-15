@@ -1524,6 +1524,9 @@ The document has moved
                 found = False
                 variant = 'default'
 
+                if section not in self.malleable.config.keys():
+                    continue
+
                 block = self.malleable.config[section]
 
                 for uri in MalleableParser.UriParameters:

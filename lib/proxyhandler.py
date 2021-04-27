@@ -289,11 +289,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         http_referer = ''
         http_useragent = ''
 
-        if len(self.request.headers.get('Referer')) > 0:
-            http_referer = self.request.headers.get('Referer')
+        if len(self.request.headers.get('Referer', '')) > 0:
+            http_referer = self.request.headers.get('Referer', '')
 
-        if len(self.request.headers.get('User-Agent')) > 0:
-            http_useragent = self.request.headers.get('User-Agent')
+        if len(self.request.headers.get('User-Agent', '')) > 0:
+            http_useragent = self.request.headers.get('User-Agent', '')
 
         line = f'{remote_host} {user_identity} {http_basic_auth} {request_timestamp} "{request_line}" {self.response_status} {self.response_length} "{http_referer}" "{http_useragent}"'
 

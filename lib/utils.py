@@ -7,6 +7,8 @@ import plugins.IProxyPlugin
 
 logger = None
 
+drop_this_header = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+
 def hexdump(data):
     s = ''
     n = 0
@@ -47,7 +49,7 @@ def hexdump(data):
 def putheader_decorator(method):
     def new_putheader(self, header, *values):
         for v in values:
-            if v == 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY':
+            if v == drop_this_header:
                 return
 
         xhdrs = [x.lower() for x in plugins.IProxyPlugin.proxy2_metadata_headers.values()]
@@ -80,16 +82,23 @@ def send_request_decorator(method):
             for h in strip_these_headers:
                 for h2 in hdrnames:
                     if len(h2) > 0 and h.lower() == h2.lower():
-                        headers[h2] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+                        headers[h2] = drop_this_header
 
                 if len(h) > 0 and h.lower() not in headers2.keys():
-                    headers[h] = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+                    headers[h] = drop_this_header
+
+        headers3 = {}
+
+        for k, v in headers.items():
+            if k.lower().startswith('x-proxy2-'): continue
+            if v == drop_this_header: continue
+            headers3[k] = v
         
         reqhdrs = ''
         host = ''
-        for k, v in headers.items():
+        for k, v in headers3.items():
             if k.lower() == 'host': host = v
-            if v == 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY': continue
+            if v == drop_this_header: continue
             reqhdrs += '\t{}: {}\r\n'.format(k, v)
         
         b = body
@@ -101,8 +110,8 @@ def send_request_decorator(method):
         )
         
         logger.dbg('SENDING REVERSE-PROXY REQUEST to [{}]:\n\n{}'.format(host, request))
-
-        return method(self, _method, url, body, headers, encode_chunked)
+        return method(self, _method, url, body, headers3, encode_chunked)
+        
     return new_send_request
 
 def monkeypatching(log):

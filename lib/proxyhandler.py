@@ -277,6 +277,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         # second = 2*digit
         # zone = (`+' | `-') 4*digit
         timestamp = datetime.utcnow()
+
+        if hasattr(self, 'request') and hasattr(self.request, 'uri') and type(self.request.uri) == str:
+            if self.request.uri.startswith('//'):
+                self.request.uri = self.request.uri[1:]
+
         self._internal_my_handle_request(*args, **kwargs)
 
         remote_host = self.request.client_address

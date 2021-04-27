@@ -105,8 +105,7 @@ class ProxyLogger:
     def info(self, txt, forced = False, **kwargs):
         if self.options['tee']:
             kwargs['tee'] = True
-        if forced or (self.options['verbose'] or \
-            self.options['debug'] or self.options['trace']):
+        if forced or (self.options['verbose'] or self.options['debug']):
             ProxyLogger.out(txt, self.options['log'], 'info', **kwargs)
 
     # Trace by default does not uses [TRACE] prefix. Shall be used

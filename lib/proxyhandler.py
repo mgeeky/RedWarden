@@ -702,6 +702,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.response_length = len(res_body)
             res.headers['Content-Encoding'] = encToUse
 
+        if 'DropConnectionException' in str(res_body) or 'DontFetchResponseException' in str(res_body):
+            res_body = ''
+
         logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
 
         if type(res_body) == str: res_body = str.encode(res_body)

@@ -55,7 +55,7 @@ options = {
     'bind': 'http://0.0.0.0',
     'port': [8080, ],
     'debug': False,                  # Print's out debuging informations
-    'verbose': True,
+    'verbose': False,
     'tee': False,
     'trace': False,                  # Displays packets contents
     'log': None,

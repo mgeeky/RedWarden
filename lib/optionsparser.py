@@ -217,7 +217,6 @@ def parseParametersFromConfigFile(_params):
 
     return outparams
 
-
 def feed_with_plugin_options(opts, parser):
     logger = ProxyLogger()
     plugins = []

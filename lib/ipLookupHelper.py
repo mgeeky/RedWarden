@@ -528,10 +528,8 @@ class IPGeolocationDeterminant:
         self.logger.dbg(f"Peer's IP Geolocation metadata didn't raise any suspicion.")
         return (True, '')
 
-def main(argv):
-    if len(argv) < 2:
-        print ('''
-
+def usage():
+    print ('''
 Usage: ./ipLookupHelper.py <ipaddress> [malleable-redirector-config]
 
 Use this small utility to collect IP Lookup details on your target IPv4 address and verify whether
@@ -539,9 +537,18 @@ your 'ip_geolocation_requirements' section of proxy2 malleable-redirector-config
 IP address. If second param is not given - no IP Geolocation evaluation will be performed.
 
 ''')
+
+def main(argv):
+    if len(argv) < 2:
+        usage()
         return False
 
     ipaddr = sys.argv[1]
+
+    if not re.match(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}', ipaddr, re.I):
+        usage()
+        return False
+
     conf = ''
     if len(argv) == 3: conf = sys.argv[2]
 

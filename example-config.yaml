@@ -278,6 +278,15 @@ ip_addresses_blacklist_file: plugins/malleable_banned_ips.txt
 banned_agents_words_file: plugins/malleable_banned_words.txt
 
 #
+# Specifies external list of phrases that should override banned phrases in case of ambiguity.
+# If the request was to be banned because of a ambigue phrase, the override agents file can
+# make the request pass blocking logic if it contained "allowed" phrase.
+#
+# Default: plugins/malleable_words_override.txt
+#
+override_banned_agents_file: plugins/malleable_words_override.txt
+
+#
 # Ban peers based on their IPv4 address' resolved ISP/Organization value or other details. 
 # Whenever a peer connects to our proxy, we'll take its IPv4 address and use one of the specified
 # APIs to collect all the available details about the address. Whenever a banned word 

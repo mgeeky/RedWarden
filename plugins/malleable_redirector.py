@@ -379,7 +379,7 @@ class ProxyPlugin(IProxyPlugin):
         'ban_blacklisted_ip_addresses': True,
         'ip_addresses_blacklist_file': 'plugins/malleable_banned_ips.txt',
         'banned_agents_words_file': 'plugins/malleable_banned_words.txt',
-        'override_banned_agents_file': 'plugins/malleable_words_whitelist.txt',
+        'override_banned_agents_file': 'plugins/malleable_words_override.txt',
         'mitigate_replay_attack': False,
         'whitelisted_ip_addresses' : [],
         'protect_these_headers_from_tampering' : [],
@@ -1309,12 +1309,21 @@ The document has moved
 
         # Reverse-IP lookup check
         if self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:
+            whitelisted = False
             try:
                 resolved = socket.gethostbyaddr(req.client_address[0])[0]
                 for part in resolved.split('.')[:-1]:
+                    if whitelisted: break
                     if not part: continue
                     foo = any(re.search(r'\b'+re.escape(part)+r' \b', b, re.I) for b in BANNED_AGENTS)
                     if foo or part.lower() in BANNED_AGENTS and part.lower() not in OVERRIDE_BANNED_AGENTS:
+                        a = part.lower() in OVERRIDE_BANNED_AGENTS
+                        b = (x in part.lower() for x in OVERRIDE_BANNED_AGENTS)
+                        if a or b:
+                            self.logger.dbg('Peer\'s reverse-IP lookup would be banned because of word "{}" but was whitelisted.'.format(part))
+                            whitelisted = True
+                            break
+
                         msg = '[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part)
                         
                         if returnJson:
@@ -1333,11 +1342,14 @@ The document has moved
 
         # Banned words check
         if self.proxyOptions['policy']['drop_http_banned_header_names'] or self.proxyOptions['policy']['drop_http_banned_header_value']:
+            whitelisted = False
             for k, v in req.headers.items():
+                if whitelisted: break
                 kv = k.split('-')
                 vv = v.split(' ') + v.split('-')
                 if self.proxyOptions['policy']['drop_http_banned_header_names']:
                     for kv1 in kv:
+                        if whitelisted: break
                         if not kv1: continue
                         foo = any(re.search(r'\b'+re.escape(kv1)+r' \b', b, re.I) for b in BANNED_AGENTS)
                         if foo or kv1.lower() in BANNED_AGENTS:
@@ -1346,7 +1358,8 @@ The document has moved
                             c = any(x in k.lower() for x in OVERRIDE_BANNED_AGENTS)
                             if a or b or c: 
                                 self.logger.dbg('HTTP header name would be banned because of word "{}" but was overridden by whitelist file entries.'.format(kv1))
-                                continue
+                                whitelisted = True
+                                break
 
                             msg = '[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}" ({}: {})'.format(
                                     ts, peerIP, kv1, kv, vv)
@@ -1364,7 +1377,9 @@ The document has moved
 
 
                 if self.proxyOptions['policy']['drop_http_banned_header_value']:
+                    whitelisted = False
                     for vv1 in vv:
+                        if whitelisted: break
                         if not vv1: continue
                         foo = any(re.search(r'\b'+re.escape(vv1)+r' \b', b, re.I) for b in BANNED_AGENTS)
                         if foo or vv1.lower() in BANNED_AGENTS:
@@ -1373,7 +1388,8 @@ The document has moved
                             c = any(x in v.lower() for x in OVERRIDE_BANNED_AGENTS)
                             if a or b or c: 
                                 self.logger.dbg('HTTP header value would be banned because of word "{}" but was overridden by whitelist file entries.'.format(vv1))
-                                continue
+                                whitelisted = True
+                                break
 
                             msg = '[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}" ({}: {})'.format(
                                     ts, peerIP, vv1, kv, vv)
@@ -1392,11 +1408,14 @@ The document has moved
         if self.proxyOptions['verify_peer_ip_details']:
             try:
                 ipLookupDetails = self.ipLookupHelper.lookup(peerIP)
+                whitelisted = False
 
                 if ipLookupDetails and len(ipLookupDetails) > 0:
                     if 'organization' in ipLookupDetails.keys():
                         for orgWord in ipLookupDetails['organization']:
+                            if whitelisted: break
                             for word in orgWord.split(' '):
+                                if whitelisted: break
                                 if not word: continue
                                 foo = any(re.search(r'\b'+re.escape(word)+r' \b', b, re.I) for b in BANNED_AGENTS)
                                 if foo or word.lower() in BANNED_AGENTS:
@@ -1404,7 +1423,8 @@ The document has moved
                                     b = any(x in orgWord.lower() for x in OVERRIDE_BANNED_AGENTS)
                                     if a or b: 
                                         self.logger.dbg('IP lookup organization field "{}" would be banned because of word "{}" but was overridden by whitelist file entries.'.format(orgWord, word))
-                                        continue
+                                        whitelisted = True
+                                        break
 
                                     msg = '[DROP, {}, reason:4c, {}] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(
                                         ts, peerIP, orgWord, word)

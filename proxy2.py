@@ -36,6 +36,7 @@ VERSION = '0.6.1'
 
 import sys, os
 
+import logging
 import tornado.web
 import tornado.ioloop
 import tornado.httpserver
@@ -105,6 +106,8 @@ def serve_proxy(bind, port, _ssl, foosock):
 
     server_address = (bind, port)
     app = None
+
+    logging.getLogger('tornado.access').disabled = True
 
     try:
         params = dict(server_bind=bind, server_port=port)

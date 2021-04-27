@@ -227,7 +227,7 @@ def feed_with_plugin_options(opts, parser):
 
     options = opts.copy()
     options['plugins'] = plugins
-    options['verbose'] = True
+    options['verbose'] = False
     options['debug'] = False
 
     plugin_own_options = {}

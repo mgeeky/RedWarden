@@ -283,11 +283,23 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         user_identity = '-'
         http_basic_auth = '-'
-        timezone = '-0000'
-        request_timestamp = f'[{timestamp.day:02}/{timestamp.month:02}/{timestamp.year:04}:{timestamp.hour:02}:{timestamp.minute:02}:{timestamp.second:02} {timezone}]'
+
+        if len(self.request.headers.get('Authorization', '')) > 0:
+            auth = self.request.headers.get('Authorization', '').strip()
+            if auth.lower().startswith('basic '):
+                try:
+                    auth_decoded = base64.b64decode(auth[len('Basic '):])
+                    if ':' in auth_decoded:
+                        http_basic_auth = auth_decoded.split(':')[0]
+                except:
+                    pass
+
+        timezone = '+0000'
+        month = timestamp.strftime('%b')
+        request_timestamp = f'[{timestamp.day:02}/{month}/{timestamp.year:04}:{timestamp.hour:02}:{timestamp.minute:02}:{timestamp.second:02} {timezone}]'
         request_line = f'{self.request.method} {self.request.uri} {self.request_version}'
-        http_referer = ''
-        http_useragent = ''
+        http_referer = '-'
+        http_useragent = '-'
 
         if len(self.request.headers.get('Referer', '')) > 0:
             http_referer = self.request.headers.get('Referer', '')

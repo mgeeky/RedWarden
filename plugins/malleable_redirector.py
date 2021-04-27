@@ -1673,9 +1673,23 @@ The document has moved
                         break
 
             if not found and self.proxyOptions['policy']['drop_malleable_unknown_uris']:
-                self.drop_reason('[DROP, {}, reason:11b, {}] Requested URI does not align any of Malleable defined variants: "{}"'.format(ts, peerIP, req.uri))
-                return True
+                if uri.startswith('//'):
+                    uri = uri[1:]
 
+                    for _uri in uris:
+                        if exactmatch == True and uri == _uri: 
+                            found = True
+                            if malleable_meta != None:
+                                malleable_meta['uri'] = uri
+                            break
+                        elif exactmatch == False:
+                            if uri.startswith(_uri): 
+                                found = True
+                                malleable_meta['uri'] = uri
+                                break
+                if not found:
+                    self.drop_reason('[DROP, {}, reason:11b, {}] Requested URI does not align any of Malleable defined variants: "{}"'.format(ts, peerIP, req.uri))
+                    return True
 
             if section.lower() == 'http-stager' and \
                 (('uri_x64' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x64']) or
@@ -1694,7 +1708,7 @@ The document has moved
 
                 if k.lower() not in rehdrskeys \
                     and self.proxyOptions['policy']['drop_malleable_without_expected_header']:
-                    
+
                     if 'protect_these_headers_from_tampering' in self.proxyOptions.keys() and \
                         len(self.proxyOptions['protect_these_headers_from_tampering']) > 0 and \
                         k.lower() in [x.lower() for x in self.proxyOptions['protect_these_headers_from_tampering']]:

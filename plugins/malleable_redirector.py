@@ -86,7 +86,7 @@ BANNED_AGENTS = (
     'curl', 'wget', 'python-urllib', 'lynx', 'slackbot-linkexpanding'
 
     # Generic bad words
-    'security', 'scanning', 'scanner', 'defender', 'cloudfront', 'appengine-google'
+    'security', 'scanning', 'scanner', 'defender', 'appengine-google'
 
     # Bots
     'googlebot', 'adsbot-google', 'msnbot', 'altavista', 'slurp', 'mj12bot',
@@ -1531,6 +1531,7 @@ The document has moved
 
                 for uri in MalleableParser.UriParameters:
                     for var in self.malleable.variants:
+                        if var not in block.keys(): continue
                         if type(block[var]) != dict: continue
 
                         if uri in block[var].keys():

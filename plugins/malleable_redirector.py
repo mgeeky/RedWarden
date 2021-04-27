@@ -1789,12 +1789,16 @@ The document has moved
                                 if p not in metadatacontainer \
                                 and self.proxyOptions['policy']['drop_malleable_without_prepend_pattern']:
                                     self.drop_reason('[DROP, {}, reason:9, {}] Did not found prepend pattern: "{}"'.format(ts, peerIP, p))
+                                    if len(metadata['prepend']) > 1:
+                                        self.logger.err('Caution: Your malleable profile defines multiple prepend patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one prepend value.')
                                     return True
 
                         elif type(metadata['prepend']) == str:
                             if metadata['prepend'] not in metadatacontainer \
                                 and self.proxyOptions['policy']['drop_malleable_without_prepend_pattern']:
                                 self.drop_reason('[DROP, {}, reason:9, {}] Did not found prepend pattern: "{}"'.format(ts, peerIP, metadata['prepend']))
+                                if len(metadata['prepend']) > 1:
+                                        self.logger.err('Caution: Your malleable profile defines multiple prepend patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one prepend value.')
                                 return True
 
                     if 'append' in metadata.keys():
@@ -1803,19 +1807,23 @@ The document has moved
                                 if p not in metadatacontainer \
                                 and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                     self.drop_reason('[DROP, {}, reason:10, {}] Did not found append pattern: "{}"'.format(ts, peerIP, p))
+                                    if len(metadata['append']) > 1:
+                                        self.logger.err('Caution: Your malleable profile defines multiple append patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one append value.')
                                     return True
 
                         elif type(metadata['append']) == str:
                             if metadata['append'] not in metadatacontainer \
                                 and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                 self.drop_reason('[DROP, {}, reason:10, {}] Did not found append pattern: "{}"'.format(ts, peerIP, metadata['append']))
+                                if len(metadata['append']) > 1:
+                                    self.logger.err('Caution: Your malleable profile defines multiple append patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one append value.')
                                 return True
 
         else:
             self.logger.err('_client_request_inspect: No section ({}) or variant ({}) specified or ones provided are invalid!'.format(section, variant))
             return True
 
-        #self.logger.info('[{}: ALLOW] Peer\'s request is accepted'.format(peerIP), color='green')
+        self.logger.dbg('[{}: ALLOW] Peer\'s request is accepted'.format(peerIP), color='green')
         return False
 
     def checkIfHiddenAPICall(self, req, req_body):

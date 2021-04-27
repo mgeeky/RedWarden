@@ -68,7 +68,6 @@ class ProxyLogger:
         else:
             col = ProxyLogger.colors_dict.setdefault(mode, ProxyLogger.colors_map['grey'])
 
-        #tm = str(time.strftime("%H:%M:%S", time.gmtime()))
         tm = str(time.strftime("%Y-%m-%d/%H:%M:%S", time.gmtime()))
 
         prefix = ''
@@ -89,15 +88,9 @@ class ProxyLogger:
             line = prefix2 + txt + nl
             ProxyLogger.writeToLogfile(fd, line)
 
-            #with open(fd, 'a+') as f:
-            #    f.write(line)
-            #    f.flush()
-
             if 'tee' in args.keys() and args['tee']:
                 with globalLock:
                     sys.stdout.write(prefix + ProxyLogger.with_color(col, txt) + nl)
-                    #sys.stdout.flush()
-
         else:
             with globalLock:
                 fd.write(prefix + ProxyLogger.with_color(col, txt) + nl)

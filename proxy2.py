@@ -60,6 +60,7 @@ options = {
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 90,
+    'access_log' : '',
     'no_ssl': False,
     'drop_invalid_http_requests': True,
     'no_proxy': False,

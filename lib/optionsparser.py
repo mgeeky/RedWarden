@@ -37,6 +37,8 @@ def parse_options(opts, version):
         help="While logging to output file, print to stdout also.", action="store_true")
     parser.add_argument("-w", "--output", dest='log', 
         help="Specifies output log file.", metavar="PATH", type=str)
+    parser.add_argument("-A", "--access-log", dest='access_log', 
+        help="Specifies where to write access attempts in Apache2 format.", metavar="PATH", type=str)
     parser.add_argument("-B", "--bind", dest='bind', metavar='NAME',
         help="Specifies proxy's binding address along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening port number (123/https). Default: "+ opts['bind'] +".", 
         type=str, default=opts['bind'])
@@ -137,6 +139,7 @@ def parseParametersFromConfigFile(_params):
     parametersRequiringDirectPath = (
         'log',
         'output',
+        'access_log',
         'certdir',
         'certkey',
         'cakey',

@@ -22,6 +22,9 @@ trace: False
 # Creates a file in the same directory that this config file is situated.
 output: redirector.log
 
+# Write web server access attempts in Apache2 access.log format into this file.
+access_log: access.log
+
 # If 'output' is specified, tee program's output to file and stdout at the same time.
 # Default: False
 tee: True

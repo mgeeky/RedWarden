@@ -480,7 +480,8 @@ class ProxyPlugin(IProxyPlugin):
     def help(self, parser):
         parametersRequiringDirectPath = (
             'ip_addresses_blacklist_file',
-            'profile'
+            'profile',
+            'output'
         )
 
         if parser != None:
@@ -494,6 +495,7 @@ class ProxyPlugin(IProxyPlugin):
                 self.logger.fatal('Malleable-redirector config file not specified (--redir-config)!')
 
             redirectorConfig = {}
+            proxy2BasePath = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
             configBasePath = ''
             try:
                 if not self.proxyOptions['config'] and self.proxyOptions['redir_config'] != '':
@@ -507,9 +509,17 @@ class ProxyPlugin(IProxyPlugin):
                         if k not in self.proxyOptions.keys():
                             self.proxyOptions[k] = v
 
-                    configBasePath = os.path.dirname(os.path.abspath(self.proxyOptions['redir_config']))
+                    p = os.path.join(proxy2BasePath, self.proxyOptions['redir_config'])
+                    if os.path.isfile(p) or os.path.isdir(p):
+                        configBasePath = p
+                    else:
+                        configBasePath = os.path.dirname(os.path.abspath(self.proxyOptions['redir_config']))
                 else:
-                    configBasePath = os.path.dirname(os.path.abspath(self.proxyOptions['config']))
+                    p = os.path.join(proxy2BasePath, self.proxyOptions['config'])
+                    if os.path.isfile(p) or os.path.isdir(p):
+                        configBasePath = p
+                    else:
+                        configBasePath = os.path.dirname(os.path.abspath(self.proxyOptions['config']))
 
                 self.ipLookupHelper = IPLookupHelper(self.logger, self.proxyOptions['ip_details_api_keys'])
                 self.ipGeolocationDeterminer = IPGeolocationDeterminant(self.logger, self.proxyOptions['ip_geolocation_requirements'])
@@ -517,7 +527,9 @@ class ProxyPlugin(IProxyPlugin):
                 for paramName in parametersRequiringDirectPath:
                     if paramName in self.proxyOptions.keys() and \
                         self.proxyOptions[paramName] != '' and self.proxyOptions[paramName] != None:
-                        self.proxyOptions[paramName] = os.path.join(configBasePath, self.proxyOptions[paramName])
+                        p = os.path.join(configBasePath, self.proxyOptions[paramName])
+                        if not (os.path.isfile(self.proxyOptions[paramName]) or os.path.isdir(self.proxyOptions[paramName])) and (os.path.isfile(p) or os.path.isdir(p)):
+                            self.proxyOptions[paramName] = p
 
             except FileNotFoundError as e:
                 self.logger.fatal(f'Malleable-redirector config file not found: ({self.proxyOptions["config"]})!')
@@ -1682,8 +1694,19 @@ The document has moved
 
                 if k.lower() not in rehdrskeys \
                     and self.proxyOptions['policy']['drop_malleable_without_expected_header']:
-                    self.drop_reason('[DROP, {}, reason:5, {}] HTTP request did not contain expected header: "{}"'.format(ts, peerIP, k))
-                    return True
+                    
+                    if 'protect_these_headers_from_tampering' in self.proxyOptions.keys() and \
+                        len(self.proxyOptions['protect_these_headers_from_tampering']) > 0 and \
+                        k.lower() in [x.lower() for x in self.proxyOptions['protect_these_headers_from_tampering']]:
+
+                        self.logger.dbg('Inbound request did not contain expected by Malleable profile HTTP header named: {} . Restoring it to expected value as instructed by redirector config.'.format(
+                            k
+                        ))
+
+                        req.headers[k] = hdrs2[k.lower()]
+                    else:
+                        self.drop_reason('[DROP, {}, reason:5, {}] HTTP request did not contain expected header: "{}"'.format(ts, peerIP, k))
+                        return True
 
                 if v not in req.headers.values() \
                     and self.proxyOptions['policy']['drop_malleable_without_expected_header_value']:

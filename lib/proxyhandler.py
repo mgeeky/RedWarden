@@ -16,6 +16,7 @@ import urllib3
 import socket, ssl, select
 import threading
 
+from datetime import datetime
 from urllib.parse import urlparse, parse_qsl
 from subprocess import Popen, PIPE
 from io import StringIO, BytesIO
@@ -202,9 +203,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         certpath = ProxyRequestHandler.generate_ssl_certificate(hostname)
         if not certpath:
-            self.set_status(500, 'Internal Server Error')
+            self._set_status(500, 'Internal Server Error')
 
-        self.set_status(200, 'Connection Established')
+        self._set_status(200, 'Connection Established')
 
         try:
             self.request.connection.stream = tornado.iostream.IOStream(ssl.wrap_socket(
@@ -215,7 +216,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             ))
         except:
             logger.err('Connection reset by peer: "{}"'.format(self.request.uri))
-            self.send_error(502)
+            self._send_error(502)
             return
 
         conntype = self.request.headers.get('Proxy-Connection', '')
@@ -235,10 +236,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             s = socket.create_connection(address, timeout=self.options['timeout'])
         except Exception as e:
             logger.err("Could not relay connection: ({})".format(str(e)))
-            self.send_error(502)
+            self._send_error(502)
             return
 
-        self.set_status(200, 'Connection Established')
+        self._set_status(200, 'Connection Established')
 
         conns = [self.request.connection.stream, s]
         self.request.connection.no_keep_alive = False
@@ -260,11 +261,49 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.client_address[0], command, fetchurl
         ))
 
-        self.send_error(500)
+        self._send_error(500)
         return
 
-
     def my_handle_request(self, *args, **kwargs):
+        # http://httpd.apache.org/docs/current/logs.html#combined
+        # [day/month/year:hour:minute:second zone]
+        # day = 2*digit
+        # month = 3*letter
+        # year = 4*digit
+        # hour = 2*digit
+        # minute = 2*digit
+        # second = 2*digit
+        # zone = (`+' | `-') 4*digit
+        timestamp = datetime.utcnow()
+        self._internal_my_handle_request(*args, **kwargs)
+
+        remote_host = self.request.client_address
+        if (type(self.request.client_address) == list or type(self.request.client_address) == tuple) and len(self.request.client_address) > 0:
+            remote_host = self.request.client_address[0]
+
+        user_identity = '-'
+        http_basic_auth = '-'
+        timezone = '-0000'
+        request_timestamp = f'[{timestamp.day:02}/{timestamp.month:02}/{timestamp.year:04}:{timestamp.hour:02}:{timestamp.minute:02}:{timestamp.second:02} {timezone}]'
+        request_line = f'{self.request.method} {self.request.uri} {self.request_version}'
+        http_referer = ''
+        http_useragent = ''
+
+        if len(self.request.headers.get('Referer')) > 0:
+            http_referer = self.request.headers.get('Referer')
+
+        if len(self.request.headers.get('User-Agent')) > 0:
+            http_useragent = self.request.headers.get('User-Agent')
+
+        line = f'{remote_host} {user_identity} {http_basic_auth} {request_timestamp} "{request_line}" {self.response_status} {self.response_length} "{http_referer}" "{http_useragent}"'
+
+        if 'access_log' in self.options.keys() and len(self.options['access_log']) > 0:
+            with open(self.options['access_log'], 'a') as f:
+                f.write(line + '\n')
+
+        print(line)
+
+    def _internal_my_handle_request(self, *args, **kwargs):
         handler = self._my_handle_request
         if self.request.method.lower() == 'connect':
             handler = self.connectMethod
@@ -277,6 +316,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request_version = 'HTTP/1.1'
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
+
+        self.response_status = 0
+        self.response_reason = ''
+        self.response_headers = {}
+        self.response_length = 0
 
         if self.request.uri.startswith('http://') or self.request.uri.startswith('https://'):
             newpath = ''
@@ -294,6 +338,32 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         self.request.method = self.request.method
         self.request.host = self.request.headers['Host']
+
+    def _send_error(self, code, msg = ''):
+        self.response_status = code
+        self.response_reason = ''
+        if len(msg) > 0:
+            self.response_reason = msg
+        else:
+            try:
+                self.response_reason = requests.status_codes._codes[code][0]
+            except: 
+                pass
+
+        self.send_error(code)
+
+    def _set_status(self, code, msg = ''):
+        self.response_status = code
+        self.response_reason = ''
+        if len(msg) > 0:
+            self.response_reason = msg
+        else:
+            try:
+                self.response_reason = requests.status_codes._codes[code][0]
+            except: 
+                pass
+        
+        self.set_status(code, self.response_reason)
 
     def on_finish(self):
         if self.request.connection.no_keep_alive:
@@ -513,6 +583,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         self.msg = self.headers
 
                 res = MyResponse(myreq, self)
+                self.response_headers = res.headers
+
                 res_body = ""
                 if ignore_response_decompression_errors:
                     res_body = myreq.raw.read()
@@ -523,6 +595,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                 if 'Content-Length' not in res.headers.keys() and len(res_body) != 0:
                     res.headers['Content-Length'] = str(len(res_body))
+                    self.response_length = len(res_body)
 
                 myreq.close()
 
@@ -534,7 +607,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 ))
    
                 self.request.connection.no_keep_alive = True
-                self.send_error(502)
+
+                self.response_headers = res.headers
+                self._send_error(502)
                 #if options['debug']: raise
                 return
 
@@ -544,11 +619,13 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     return
                     
                 self.request.connection.no_keep_alive = True
-                self.send_error(502)
+                self.response_headers = res.headers
+                self._send_error(502)
                 if options['debug']: raise
                 return
 
             setattr(res, 'headers', res.msg)
+            self.response_headers = res.msg
 
             content_encoding = res.headers.get('Content-Encoding', 'identity')
             if ignore_response_decompression_errors: 
@@ -581,6 +658,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
             try:
                 res.headers['Content-Length'] = str(len(res_body))
+                self.response_length = len(res_body)
             except Exception as e:
                 logger.dbg("Could not set proper Content-Length as running len on res_body failed")
 
@@ -621,6 +699,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             if 'content-length' in reskeys: del res.headers['Content-Length']
             if 'content-encoding' in reskeys: del res.headers['Content-Encoding']
             res.headers['Content-Length'] = str(len(res_body))
+            self.response_length = len(res_body)
             res.headers['Content-Encoding'] = encToUse
 
         logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
@@ -629,7 +708,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         #ProxyRequestHandler.filter_headers(res.headers)
         res_headers = res.headers
-        self.set_status(res.status, res.reason)
+        self.response_status = res.status
+        self.response_reason = res.reason
+        self.response_headers = res.headers
+
+        self._set_status(res.status, res.reason)
 
         for k, v in res_headers.items():
             if k in plugins.IProxyPlugin.proxy2_metadata_headers.values(): continue
@@ -637,6 +720,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.set_header(k, v)
 
         try:
+            self.response_length = len(res_body)
             self.write(res_body)
 
             if options['trace'] and options['debug']:
@@ -726,11 +810,12 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         with open(self.options['cacert'], 'rb') as f:
             data = f.read()
 
-        self.set_status(200)
+        self._set_status(200)
         self.set_header('Content-Type', 'application/x-x509-ca-cert')
         self.set_header('Content-Length', len(data))
         self.set_header('Connection', 'close')
 
+        self.response_length = len(data)
         self.write(data)
 
     def print_info(self, req, req_body, res, res_body):
@@ -955,6 +1040,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.my_handle_request()
 
     async def propfind(self, *args, **kwargs):
+        self.my_handle_request()
+
+    async def connect(self, *args, **kwargs):
         self.my_handle_request()
 
 

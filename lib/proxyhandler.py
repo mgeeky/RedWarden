@@ -67,8 +67,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
     def __init__(self, *args, **kwargs):
         global pluginsloaded
+        global logger
 
         self.options = options
+        logger.options.update(options)
+
         self.plugins = pluginsloaded.get_plugins()
         self.server_address, self.all_server_addresses = ProxyRequestHandler.get_ip()
 
@@ -84,7 +87,6 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         if 'Server' in self._headers.keys():
             self.set_header('Server', 'nginx')
-
 
     @staticmethod
     def get_ip():

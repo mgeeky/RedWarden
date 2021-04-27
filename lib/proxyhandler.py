@@ -111,8 +111,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
     def log_message(self, format, *args):
         if (self.options['verbose'] or \
-            self.options['debug'] or self.options['trace']) or \
-            (type(self.options['log']) == str and self.options['log'] != 'none'):
+            self.options['debug']) or (type(self.options['log']) == str and self.options['log'] != 'none'):
 
             txt = "%s - - [%s] %s\n" % \
                  (self.address_string(),
@@ -126,7 +125,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         if isinstance(args[0], socket.timeout) and not self.options['debug']:
             return
 
-        if not options['trace'] or not options['debug']:
+        if not options['debug']:
             return
 
         self.log_message(format, *args)
@@ -745,7 +744,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.response_length = len(res_body)
             self.write(res_body)
 
-            if options['trace'] and options['debug']:
+            if options['debug']:
                 if originChanged:
                     del self.request.headers['Host']
                     if plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header'] in self.request.headers.keys():
@@ -844,7 +843,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         def _parse_qsl(s):
             return '\n'.join("%-20s %s" % (k, v) for k, v in parse_qsl(s, keep_blank_values=True))
 
-        if not options['trace'] or not options['debug']:
+        if not options['debug']:
             return
 
         req_header_text = "%s %s %s\n%s" % (req.method, req.uri, self.request_version, req.headers)

@@ -12,7 +12,6 @@ class ProxyLogger:
     options = {
         'debug': False,
         'verbose': False,
-        'trace': False,
         'tee': False,
         'log': sys.stdout,
     }
@@ -116,7 +115,7 @@ class ProxyLogger:
         if self.options['tee']:
             kwargs['tee'] = True
 
-        if self.options['trace']:
+        if self.options['debug']:
             kwargs['noprefix'] = True
             ProxyLogger.out(txt, self.options['log'], 'trace', **kwargs)
 

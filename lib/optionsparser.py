@@ -23,8 +23,6 @@ def parse_options(opts, version):
     # General options
     parser.add_argument("-v", "--verbose", dest='verbose',
         help="Displays verbose output.", action="store_true")
-    parser.add_argument("-V", "--trace", dest='trace',
-        help="Displays HTTP requests and responses.", action="store_true")
     parser.add_argument("-d", "--debug", dest='debug',
         help="Displays debugging informations (implies verbose output).", action="store_true")
     parser.add_argument("-s", "--silent", dest='silent',
@@ -109,9 +107,6 @@ def parse_options(opts, version):
                     opt = opt2
             
             opts['plugins'].add(opt)
-
-    #if opts['debug']:
-    #   opts['trace'] = True
 
     if opts['silent'] and opts['log']:
         parser.error("Options -s and -w are mutually exclusive.")

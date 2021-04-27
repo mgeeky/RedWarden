@@ -12,11 +12,8 @@
 # Print verbose output. Implied if debug=True. Default: False
 verbose: True
 
-# Print debugging output. Default: False
+# Print debugging output that includes HTTP request/response trace. Default: False
 debug: False
-
-# Dump HTTP requests and responses. Default: False
-trace: False
 
 # Redirect proxy2's output to file. Default: stdout.
 # Creates a file in the same directory that this config file is situated.
@@ -273,6 +270,14 @@ ban_blacklisted_ip_addresses: True
 ip_addresses_blacklist_file: plugins/malleable_banned_ips.txt
 
 #
+# Specifies external list of keywords to ban during reverse-IP lookup, User-Agents or 
+# HTTP headers analysis stage. The file can contain lines beginning with '#' to mark comments.
+#
+# Default: plugins/malleable_banned_words.txt
+#
+banned_agents_words_file: plugins/malleable_banned_words.txt
+
+#
 # Ban peers based on their IPv4 address' resolved ISP/Organization value or other details. 
 # Whenever a peer connects to our proxy, we'll take its IPv4 address and use one of the specified
 # APIs to collect all the available details about the address. Whenever a banned word 
@@ -492,4 +497,4 @@ policy:
 #
 # Default: Turned off / not available
 #
-malleable_redirector_hidden_api_endpoint: /12345678-9abc-def0-1234-567890abcdef
+#malleable_redirector_hidden_api_endpoint: /12345678-9abc-def0-1234-567890abcdef

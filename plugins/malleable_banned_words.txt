@@ -1,0 +1,164 @@
+#
+# Words from this file will be matched against inbound request
+# by several checks to determine whether request originates from
+# Security-vendor, Blue Team or other defensive clients.
+#
+# These words will be checked against:
+#	- reverse-ip lookup hostname
+#	- IP geolocation data, such as organization name
+#	- HTTP header names and values
+# 	- User-agent string
+#
+
+# Dodgy User-Agents words
+curl
+wget
+python-urllib
+lynx
+slackbot-linkexpanding
+
+# Generic bad words
+security
+scanning
+scanner
+defender
+appengine-google
+
+# Bots
+googlebot
+adsbot-google
+msnbot
+altavista
+slurp
+mj12bot,
+bingbot
+duckduckbot
+baiduspider
+yandexbot
+simplepie
+sogou,
+exabot
+facebookexternalhit
+ia_archiver
+virustotalcloud
+virustotal
+
+# EDRs
+bitdefender
+carbonblack
+carbon
+code42
+countertack
+countercept
+
+crowdstrike
+cylance
+druva
+forcepoint
+ivanti
+sentinelone
+
+trend micro
+gravityzone
+trusteer
+cybereason
+encase
+ensilo
+
+huntress
+bluvector
+cynet360
+endgame
+falcon
+fortil
+gdata
+
+lightcyber
+secureworks
+apexone
+emsisoft
+netwitness
+fidelis
+
+
+# AVs
+acronis
+adaware
+aegislab
+ahnlab
+antiy
+secureage
+
+arcabit
+avast
+avg
+avira
+bitdefender
+clamav
+
+comodo
+crowdstrike
+cybereason
+cylance
+cyren
+
+drweb
+emsisoft
+endgame
+escan
+eset
+f-secure
+
+fireeye
+fortinet
+gdata
+ikarussecurity
+k7antivirus
+
+k7computing
+kaspersky
+malwarebytes
+mcafee
+nanoav
+paloalto
+paloaltonetworks
+panda
+360totalsecurity
+sentinelone
+
+sophos
+symantec
+tencent
+trapmine
+trendmicro
+virusblokada
+
+anti-virus
+antivirus
+yandex
+zillya
+zonealarm
+
+checkpoint
+baidu
+kingsoft
+superantispyware
+tachyon
+
+totaldefense
+webroot
+egambit
+trustlook
+proofpoint
+
+# Other proxies
+sandboxes etc
+zscaler
+barracuda
+sonicwall
+f5 network
+palo alto network
+juniper
+check point
+microsoft corporation
+fortigate

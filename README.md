@@ -35,7 +35,6 @@ optional arguments:
   -c CONFIG, --config CONFIG
                         External configuration file. Defines values for below options, however specifying them on command line will supersed ones from file.
   -v, --verbose         Displays verbose output.
-  -V, --trace           Displays HTTP requests and responses.
   -d, --debug           Displays debugging informations (implies verbose output).
   -s, --silent          Surpresses all of the output logging.
   -N, --no-proxy        Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.
@@ -100,7 +99,6 @@ Every option that can be specified from command-line, may also be moved to the s
 
 plugin: dummy
 
-trace: True
 debug: True
 
 port:

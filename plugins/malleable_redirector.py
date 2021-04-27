@@ -81,45 +81,9 @@ from lib.ipLookupHelper import IPLookupHelper, IPGeolocationDeterminant
 from datetime import datetime
 
 
-BANNED_AGENTS = (
-    # Dodgy User-Agents words
-    'curl', 'wget', 'python-urllib', 'lynx', 'slackbot-linkexpanding'
-
-    # Generic bad words
-    'security', 'scanning', 'scanner', 'defender', 'appengine-google'
-
-    # Bots
-    'googlebot', 'adsbot-google', 'msnbot', 'altavista', 'slurp', 'mj12bot',
-    'bingbot', 'duckduckbot', 'baiduspider', 'yandexbot', 'simplepie', 'sogou',
-    'exabot', 'facebookexternalhit', 'ia_archiver', 'virustotalcloud', 'virustotal'
-
-    # EDRs
-    'bitdefender', 'carbonblack', 'carbon', 'code42', 'countertack', 'countercept', 
-    'crowdstrike', 'cylance', 'druva', 'forcepoint', 'ivanti', 'sentinelone', 
-    'trend micro', 'gravityzone', 'trusteer', 'cybereason', 'encase', 'ensilo', 
-    'huntress', 'bluvector', 'cynet360', 'endgame', 'falcon', 'fortil', 'gdata', 
-    'lightcyber', 'secureworks', 'apexone', 'emsisoft', 'netwitness', 'fidelis', 
-
-    # AVs
-    'acronis', 'adaware', 'aegislab', 'ahnlab', 'antiy', 'secureage', 
-    'arcabit', 'avast', 'avg', 'avira', 'bitdefender', 'clamav', 
-    'comodo', 'crowdstrike', 'cybereason', 'cylance', 'cyren', 
-    'drweb', 'emsisoft', 'endgame', 'escan', 'eset', 'f-secure', 
-    'fireeye', 'fortinet', 'gdata', 'ikarussecurity', 'k7antivirus', 
-    'k7computing', 'kaspersky', 'malwarebytes', 'mcafee', 'nanoav', 'paloalto',
-    'paloaltonetworks', 'panda', '360totalsecurity', 'sentinelone', 
-    'sophos', 'symantec', 'tencent', 'trapmine', 'trendmicro', 'virusblokada', 
-    'anti-virus', 'antivirus', 'yandex', 'zillya', 'zonealarm', 
-    'checkpoint', 'baidu', 'kingsoft', 'superantispyware', 'tachyon', 
-    'totaldefense', 'webroot', 'egambit', 'trustlook', 'proofpoint',
-
-    # Other proxies, sandboxes etc
-    'zscaler', 'barracuda', 'sonicwall', 'f5 network', 'palo alto network', 'juniper', 'check point',
-    'microsoft corporation', 'fortigate',
-)
-
+BANNED_AGENTS = []
+OVERRIDE_BANNED_AGENTS = []
 alreadyPrintedPeers = set()
-
 
 class MalleableParser:
     ProtocolTransactions = ('http-stager', 'http-get', 'http-post')
@@ -414,6 +378,8 @@ class ProxyPlugin(IProxyPlugin):
         'report_only': False,
         'ban_blacklisted_ip_addresses': True,
         'ip_addresses_blacklist_file': 'plugins/malleable_banned_ips.txt',
+        'banned_agents_words_file': 'plugins/malleable_banned_words.txt',
+        'override_banned_agents_file': 'plugins/malleable_words_whitelist.txt',
         'mitigate_replay_attack': False,
         'whitelisted_ip_addresses' : [],
         'protect_these_headers_from_tampering' : [],
@@ -478,11 +444,18 @@ class ProxyPlugin(IProxyPlugin):
                 self.addToResHeaders['X-Drop-Reason'] = text
 
     def help(self, parser):
+        global BANNED_AGENTS
+        global OVERRIDE_BANNED_AGENTS
+
         parametersRequiringDirectPath = (
             'ip_addresses_blacklist_file',
+            'banned_agents_words_file',
+            'override_banned_agents_file',
             'profile',
             'output'
         )
+
+        proxy2BasePath = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
         if parser != None:
             parser.add_argument('--redir-config', 
@@ -495,7 +468,6 @@ class ProxyPlugin(IProxyPlugin):
                 self.logger.fatal('Malleable-redirector config file not specified (--redir-config)!')
 
             redirectorConfig = {}
-            proxy2BasePath = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
             configBasePath = ''
             try:
                 if not self.proxyOptions['config'] and self.proxyOptions['redir_config'] != '':
@@ -717,8 +689,45 @@ class ProxyPlugin(IProxyPlugin):
                 else:
                     self.logger.info('Will redirect/proxy requests to these hosts: {}'.format(', '.join(self.proxyOptions['action_url'])), color=self.logger.colors_map['cyan'])
 
+            p = os.path.join(proxy2BasePath, self.proxyOptions['banned_agents_words_file'])
+            if not os.path.isfile(p):
+                p = self.proxyOptions['banned_agents_words_file']
+
+            if not os.path.isfile(p):
+                self.logger.fatal('Could not locate banned_agents_words_file file!\nTried following path:\n\t' + p)
+
+            with open(p, 'r') as f:
+                for line in f.readlines():
+                    if len(line.strip()) == 0: continue
+                    if line.strip().startswith('#'): continue
+                    BANNED_AGENTS.append(line.strip().lower())
+
+                self.logger.dbg(f'Loaded {len(BANNED_AGENTS)} banned words.')
+
+            p = os.path.join(proxy2BasePath, self.proxyOptions['override_banned_agents_file'])
+            if not os.path.isfile(p):
+                p = self.proxyOptions['override_banned_agents_file']
+
+            if not os.path.isfile(p):
+                self.logger.fatal('Could not locate override_banned_agents_file file!\nTried following path:\n\t' + p)
+
+            with open(p, 'r') as f:
+                for line in f.readlines():
+                    if len(line.strip()) == 0: continue
+                    if line.strip().startswith('#'): continue
+                    OVERRIDE_BANNED_AGENTS.append(line.strip().lower())
+
+                self.logger.dbg(f'Loaded {len(OVERRIDE_BANNED_AGENTS)} whitelisted words.')
+
             if self.proxyOptions['ban_blacklisted_ip_addresses']:
-                with open(self.proxyOptions['ip_addresses_blacklist_file'], 'r') as f:
+                p = os.path.join(proxy2BasePath, self.proxyOptions['ip_addresses_blacklist_file'])
+                if not os.path.isfile(p):
+                    p = self.proxyOptions['ip_addresses_blacklist_file']
+
+                if not os.path.isfile(p):
+                    self.logger.fatal('Could not locate ip_addresses_blacklist_file file!\nTried following path:\n\t' + p)
+
+                with open(p, 'r') as f:
                     for line in f.readlines():
                         l = line.strip()
                         if l.startswith('#') or len(l) < 7: continue
@@ -1305,7 +1314,7 @@ The document has moved
                 for part in resolved.split('.')[:-1]:
                     if not part: continue
                     foo = any(re.search(r'\b'+re.escape(part)+r' \b', b, re.I) for b in BANNED_AGENTS)
-                    if foo or part.lower() in BANNED_AGENTS:
+                    if foo or part.lower() in BANNED_AGENTS and part.lower() not in OVERRIDE_BANNED_AGENTS:
                         msg = '[DROP, {}, reason:4b, {}] peer\'s reverse-IP lookup contained banned word: "{}"'.format(ts, peerIP, part)
                         
                         if returnJson:
@@ -1332,6 +1341,13 @@ The document has moved
                         if not kv1: continue
                         foo = any(re.search(r'\b'+re.escape(kv1)+r' \b', b, re.I) for b in BANNED_AGENTS)
                         if foo or kv1.lower() in BANNED_AGENTS:
+                            a = kv1.lower() in OVERRIDE_BANNED_AGENTS
+                            b = any(x in kv1.lower() for x in OVERRIDE_BANNED_AGENTS)
+                            c = any(x in k.lower() for x in OVERRIDE_BANNED_AGENTS)
+                            if a or b or c: 
+                                self.logger.dbg('HTTP header name would be banned because of word "{}" but was overridden by whitelist file entries.'.format(kv1))
+                                continue
+
                             msg = '[DROP, {}, reason:2, {}] HTTP header name contained banned word: "{}" ({}: {})'.format(
                                     ts, peerIP, kv1, kv, vv)
 
@@ -1352,6 +1368,13 @@ The document has moved
                         if not vv1: continue
                         foo = any(re.search(r'\b'+re.escape(vv1)+r' \b', b, re.I) for b in BANNED_AGENTS)
                         if foo or vv1.lower() in BANNED_AGENTS:
+                            a = vv1.lower() in OVERRIDE_BANNED_AGENTS
+                            b = any(x in vv1.lower() for x in OVERRIDE_BANNED_AGENTS)
+                            c = any(x in v.lower() for x in OVERRIDE_BANNED_AGENTS)
+                            if a or b or c: 
+                                self.logger.dbg('HTTP header value would be banned because of word "{}" but was overridden by whitelist file entries.'.format(vv1))
+                                continue
+
                             msg = '[DROP, {}, reason:3, {}] HTTP header value contained banned word: "{}" ({}: {})'.format(
                                     ts, peerIP, vv1, kv, vv)
 
@@ -1377,6 +1400,12 @@ The document has moved
                                 if not word: continue
                                 foo = any(re.search(r'\b'+re.escape(word)+r' \b', b, re.I) for b in BANNED_AGENTS)
                                 if foo or word.lower() in BANNED_AGENTS:
+                                    a = word.lower() in OVERRIDE_BANNED_AGENTS
+                                    b = any(x in orgWord.lower() for x in OVERRIDE_BANNED_AGENTS)
+                                    if a or b: 
+                                        self.logger.dbg('IP lookup organization field "{}" would be banned because of word "{}" but was overridden by whitelist file entries.'.format(orgWord, word))
+                                        continue
+
                                     msg = '[DROP, {}, reason:4c, {}] peer\'s IP lookup organization field ({}) contained banned word: "{}"'.format(
                                         ts, peerIP, orgWord, word)
 
@@ -1418,21 +1447,27 @@ The document has moved
                     metaAnalysis = self.ipGeolocationDeterminer.validateIpGeoMetadata(ipLookupDetails, BANNED_AGENTS)
 
                     if metaAnalysis[0] == False:
-                        msg = '[DROP, {}, reason:4e, {}] Peer\'s IP geolocation metadata ("{}", "{}", "{}", "{}", "{}") contained banned keyword: ({})! Peer banned in generic fashion.'.format(
-                            ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], 
-                            ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone'], 
-                            metaAnalysis[1]
-                        )
+                        a = (metaAnalysis[1].lower() in OVERRIDE_BANNED_AGENTS)
+                        b = any(x in metaAnalysis[1] for x in OVERRIDE_BANNED_AGENTS)
+                        if a or b:
+                            self.logger.dbg('Peer\'s IP geolocation metadata would be banned because it contained word "{}" but was overridden by whitelist file.'.format(metaAnalysis[1]))
 
-                        if returnJson:
-                            respJson['action'] = 'drop'
-                            respJson['reason'] = '4e'
-                            respJson['message'] = msg
-                            respJson['ipgeo'] = ipLookupDetails
-                            return (True, respJson)
                         else:
-                            self.drop_reason(msg)
-                            return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                            msg = '[DROP, {}, reason:4e, {}] Peer\'s IP geolocation metadata ("{}", "{}", "{}", "{}", "{}") contained banned keyword: ({})! Peer banned in generic fashion.'.format(
+                                ts, peerIP, ipLookupDetails['continent'], ipLookupDetails['continent_code'], 
+                                ipLookupDetails['country'], ipLookupDetails['country_code'], ipLookupDetails['city'], ipLookupDetails['timezone'], 
+                                metaAnalysis[1]
+                            )
+
+                            if returnJson:
+                                respJson['action'] = 'drop'
+                                respJson['reason'] = '4e'
+                                respJson['message'] = msg
+                                respJson['ipgeo'] = ipLookupDetails
+                                return (True, respJson)
+                            else:
+                                self.drop_reason(msg)
+                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
 
                 except Exception as e:
                     self.logger.dbg(f"Exception was thrown during drop_ipgeo_metadata_containing_banned_keywords verifcation:\n\t({e})")

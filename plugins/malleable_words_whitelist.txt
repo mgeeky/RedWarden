@@ -1,0 +1,14 @@
+#
+# Words from this file OVERRIDE words from malleable_banned_words.txt wordlist.
+#
+# Consider situation where the request originates from Azure Functions serverless 
+# redirector. Such request will egress from IP with geolocation's organization
+# field containing phrase:
+#    "Microsoft Azure Cloud (westeurope)"
+#
+# Should there be "Microsoft" keyword specified in malleable_banned_words.txt wordlist, 
+# the request would be banned. If we don't want that, this wordlist can override 
+# blocking behaviour for specific phrases.
+#
+
+Microsoft Azure Cloud

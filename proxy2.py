@@ -57,7 +57,6 @@ options = {
     'debug': False,                  # Print's out debuging informations
     'verbose': False,
     'tee': False,
-    'trace': False,                  # Displays packets contents
     'log': None,
     'proxy_self_url': 'http://proxy2.test/',
     'timeout': 90,

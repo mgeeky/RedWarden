@@ -17,6 +17,7 @@
 VERSION = '0.4'
 
 import sys
+import socket
 import pprint
 import json, re
 import requests
@@ -216,6 +217,14 @@ class IPLookupHelper:
         if 'time_zone' in result.keys():
             update(output, result['time_zone'], 'timezone', 'name')
         update(output, result, 'city', 'city')
+
+        reverseIp = ''
+        try:
+            reverseIp = socket.gethostbyaddr(output['ip'])[0]
+        except:
+            pass
+
+        output['reverse_ip'] = reverseIp
 
         update(output, result, 'country', 'country_name')
         if ('country' not in output.keys() or output['country'] == '') and \

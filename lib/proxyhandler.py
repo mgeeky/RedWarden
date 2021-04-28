@@ -6,6 +6,7 @@ import time
 import html
 import sys, os
 import brotli
+import base64
 import string
 import http.client
 import gzip, zlib

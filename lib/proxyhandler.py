@@ -428,8 +428,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             if modified != None and type(modified) == bool:
                 modified |= (origuri != newuri)
 
-            if 'IProxyPlugin.DropConnectionException' in str(type(req_body_modified)) or \
-                'IProxyPlugin.DontFetchResponseException' in str(type(req_body_modified)):
+            if 'DropConnectionException' in str(type(req_body_modified)) or \
+                'DontFetchResponseException' in str(type(req_body_modified)):
                 raise req_body_modified
 
             elif modified and req_body_modified is not None:
@@ -591,7 +591,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     )
 
                 except Exception as e:
-                    raise
+                    logger.err(f'COULD NOT FETCH RESPONSE FROM REMOTE AGENT: {e}')
+                    
+                    if self.options['debug']:
+                        raise
 
                 class MyResponse(http.client.HTTPResponse):
                     def __init__(self, req, origreq):
@@ -856,6 +859,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 reshdrs = ''
                 for k, v in res.headers.items():
                     if k in plugins.IProxyPlugin.proxy2_metadata_headers.values(): continue
+                    if k.lower().startswith('x-proxy2-'): continue
                     reshdrs += '{}: {}\n'.format(k, v)
 
             res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, reshdrs)

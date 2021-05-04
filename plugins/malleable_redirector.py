@@ -370,7 +370,7 @@ class ProxyPlugin(IProxyPlugin):
 
     DefaultRedirectorConfig = {
         'profile' : '',
-        #'teamserver_url' : [],
+        'teamserver_url' : [],
         'drop_action': 'redirect',
         'action_url': ['https://google.com', ],
         'proxy_pass': {},
@@ -651,8 +651,8 @@ class ProxyPlugin(IProxyPlugin):
                         len(passes), '\n'.join(lines)
                     ))
 
-            if not self.proxyOptions['teamserver_url']:
-                self.logger.fatal('Teamserver URL must be specified!')
+            #if not self.proxyOptions['teamserver_url']:
+            #    self.logger.fatal('Teamserver URL must be specified!')
 
             if type(self.proxyOptions['teamserver_url']) == str:
                 self.proxyOptions['teamserver_url'] = [self.proxyOptions['teamserver_url'], ]
@@ -856,7 +856,11 @@ class ProxyPlugin(IProxyPlugin):
 
         return inport, scheme, host, port
 
-    def pickTeamserver(self, req):
+    def pickTeamserver(self, req, req_body = None, res = None, res_body = None):
+        if len(self.proxyOptions['teamserver_url']) == 0:
+            self.logger.err('No Teamserver origins specified: dropping request.')
+            raise Exception(self.drop_action(req, req_body, res, res_body, False))
+
         self.logger.dbg('Peer reached the server at port: ' + str(req.server_port))
         for s in self.proxyOptions['teamserver_url']:
             u = urlparse(req.uri)
@@ -1077,8 +1081,15 @@ class ProxyPlugin(IProxyPlugin):
                             val.append(peerIP.strip())
                             mydict['whitelisted_ips'] = val
 
-        return self.redirect(req, self.pickTeamserver(req), malleable_meta)
+        ts = ''
+        try:
+            ts = self.pickTeamserver(req, req_body, self.res, self.res_body)
+        except Exception as e:
+            s = self.proxyOptions['drop_action']
+            self.logger.err(f'No Teamserver provided. Falling back to drop request strategy.: {s}')
+            raise Exception(str(e))
 
+        return self.redirect(req, ts, malleable_meta)
 
     def _response_handler(self, req, req_body, res, res_body):
         self.is_request = False
@@ -1110,7 +1121,7 @@ class ProxyPlugin(IProxyPlugin):
             req.connection.no_keep_alive = True
             if host_action == 1:
                 self.logger.dbg('Not returning body from response handler')
-                return self.drop_action(req, req_body, res, res_body, True)
+                return selnf.drop_action(req, req_body, res, res_body, True)
 
             elif host_action == 2:
                 self.logger.dbg('Altering host header in response_handler to: "{}"'.format(newhost))

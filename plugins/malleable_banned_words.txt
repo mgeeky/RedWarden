@@ -30,13 +30,13 @@ adsbot-google
 msnbot
 altavista
 slurp
-mj12bot,
+mj12bot
 bingbot
 duckduckbot
 baiduspider
 yandexbot
 simplepie
-sogou,
+sogou
 exabot
 facebookexternalhit
 ia_archiver

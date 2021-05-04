@@ -1464,7 +1464,7 @@ The document has moved
             if self.proxyOptions['policy']['drop_ipgeo_metadata_containing_banned_keywords']:
                 self.logger.dbg("Analysing IP Geo metadata keywords...")
                 try:
-                    metaAnalysis = self.ipGeolocationDeterminer.validateIpGeoMetadata(ipLookupDetails, BANNED_AGENTS)
+                    metaAnalysis = self.ipGeolocationDeterminer.validateIpGeoMetadata(ipLookupDetails, BANNED_AGENTS, OVERRIDE_BANNED_AGENTS)
 
                     if metaAnalysis[0] == False:
                         a = (metaAnalysis[1].lower() in OVERRIDE_BANNED_AGENTS)

@@ -457,7 +457,14 @@ class IPGeolocationDeterminant:
                 checked += 1
                 matched = False
 
-                for georesult in ipLookupResult[determinant]:
+                results = []
+
+                if type(ipLookupResult[determinant]) == str:
+                    results.append(ipLookupResult[determinant])
+                else:
+                    results.extend(ipLookupResult[determinant])
+
+                for georesult in results:
                     georesult = georesult.lower()
 
                     for exp in expected:
@@ -511,7 +518,7 @@ class IPGeolocationDeterminant:
 
         return values
 
-    def validateIpGeoMetadata(self, ipLookupDetails, bannedAgents):
+    def validateIpGeoMetadata(self, ipLookupDetails, bannedAgents, overrideBannedAgents = []):
         if len(ipLookupDetails) == 0: return (True, '')
 
         words = set(list(filter(None, IPGeolocationDeterminant.getValuesDict(ipLookupDetails))))
@@ -527,12 +534,32 @@ class IPGeolocationDeterminant:
             for x in bannedAgents:
                 if not x: continue
                 if ((' ' in x) and (x.lower() in w.lower())):
-                    self.logger.dbg(f"Peer's IP Geolocation metadata contained banned phrase: ({w})")
-                    return (False, w)
+                    overridden = False
+                    if len(overrideBannedAgents) > 0:
+                        for a in overrideBannedAgents:
+                            for w2 in words:
+                                if a.lower() in w2.lower():
+                                    overridden = True
+                                    break
+                            if overridden: break
+
+                    if not overridden:
+                        self.logger.dbg(f"Peer's IP Geolocation metadata contained banned phrase: ({w})")
+                        return (False, w)
 
                 elif (w.lower() == x.lower()):
-                    self.logger.dbg(f"Peer's IP Geolocation metadata contained banned keyword: ({w})")
-                    return (False, w)
+                    overridden = False
+                    if len(overrideBannedAgents) > 0:
+                        for a in overrideBannedAgents:
+                            for w2 in words:
+                                if a.lower() in w2.lower():
+                                    overridden = True
+                                    break
+                            if overridden: break
+
+                    if not overridden:
+                        self.logger.dbg(f"Peer's IP Geolocation metadata contained banned keyword: ({w})")
+                        return (False, w)
 
         self.logger.dbg(f"Peer's IP Geolocation metadata didn't raise any suspicion.")
         return (True, '')
@@ -570,13 +597,13 @@ def main(argv):
 
     if conf != '':
         config = {}
-        with open('malleable-redirector-config.yml') as f:
+        with open(conf) as f:
             try:
                 config = yaml.load(f, Loader=yaml.FullLoader)
             except:
                 config = yaml.load(f)
 
-        deter = IPGeolocationDeterminant(config['ip_geolocation_requirements'])
+        deter = IPGeolocationDeterminant(logger, config['ip_geolocation_requirements'])
         out = deter.determine(result)
         print('[.] IP Geolocation determination as instructed by malleable config returned: ' + str(out))
 

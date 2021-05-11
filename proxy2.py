@@ -25,14 +25,14 @@
 #           support for proxy_pass allowing to fetch responses cross-scheme
 #
 # Author:
-#   Mariusz B. / mgeeky, '16-'20
+#   Mariusz B. / mgeeky, '16-'21
 #   <mb@binary-offensive.com>
 #
 #   (originally based on: @inaz2 implementation: https://github.com/futuresimple/proxy2)
 #   (now obsoleted)
 #
 
-VERSION = '0.6.1'
+VERSION = '0.7'
 
 import sys, os
 

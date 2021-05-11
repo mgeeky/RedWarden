@@ -1301,7 +1301,7 @@ The document has moved
                 if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):
                     reverseIp = ''
                     try:
-                        reverseIp = socket.gethostbyaddr(output['ip'])[0]
+                        reverseIp = socket.gethostbyaddr(peerIP)[0]
                     except:
                         pass
 

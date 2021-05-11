@@ -37,31 +37,31 @@ API_KEYS = {
 
 class Logger:
     @staticmethod
-    def _out(x): 
+    def _out(x, color = ''): 
         sys.stdout.write(x + '\n')
 
     @staticmethod
-    def dbg(x):
+    def dbg(x, color = ''):
         sys.stdout.write('[dbg] ' + x + '\n')
 
     @staticmethod
-    def out(x): 
+    def out(x, color = ''): 
         Logger._out('[.] ' + x)
     
     @staticmethod
-    def info(x):
+    def info(x, color = ''):
         Logger._out('[?] ' + x)
     
     @staticmethod
-    def err(x): 
+    def err(x, color = ''): 
         sys.stdout.write('[!] ' + x + '\n')
     
     @staticmethod
-    def fail(x):
+    def fail(x, color = ''):
         Logger._out('[-] ' + x)
     
     @staticmethod
-    def ok(x):  
+    def ok(x, color = ''):  
         Logger._out('[+] ' + x)
 
 

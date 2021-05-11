@@ -1,5 +1,6 @@
 #
-# Words from this file OVERRIDE words from malleable_banned_words.txt wordlist.
+# Words from this file OVERRIDE words from malleable_banned_words.txt and from 
+# malleable_banned_ips.txt (based on reverse IP lookup result) wordlists.
 #
 # Consider situation where the request originates from Azure Functions serverless 
 # redirector. Such request will egress from IP with geolocation's organization
@@ -10,5 +11,10 @@
 # the request would be banned. If we don't want that, this wordlist can override 
 # blocking behaviour for specific phrases.
 #
+# The same goes if your beacon operates over Amazon AWS Lambda service. Typically AWS CIDRs
+# are going to be blacklisted, but you can easily override that here.
+#
 
 Microsoft Azure Cloud
+amazonaws.com
+azurewebsites.com

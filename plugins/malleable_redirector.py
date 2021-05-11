@@ -1299,24 +1299,43 @@ The document has moved
         if self.proxyOptions['ban_blacklisted_ip_addresses']:
             for cidr, _comment in self.banned_ips.items():
                 if ipaddress.ip_address(peerIP) in ipaddress.ip_network(cidr, False):
-                    comment = ''
-                    if len(_comment) > 0:
-                        comment = ' - ' + _comment
+                    reverseIp = ''
+                    try:
+                        reverseIp = socket.gethostbyaddr(output['ip'])[0]
+                    except:
+                        pass
 
-                    msg = '[DROP, {}, reason:4a, {}] Peer\'s IP address is blacklisted: ({}{})'.format(
-                            ts, peerIP, cidr, comment
-                        )
+                    blockAnyway = True
+                    entry = ''
 
-                    if returnJson:
-                        respJson['action'] = 'drop'
-                        respJson['reason'] = '4a'
-                        respJson['message'] = msg
-                        respJson['ipgeo'] = self.printPeerInfos(peerIP, True)
-                        return (True, respJson)
+                    for w in OVERRIDE_BANNED_AGENTS:
+                        if w.lower() in reverseIp.lower():
+                            blockAnyway = False
+                            entry = w
+                            break
+
+                    if blockAnyway:
+                        comment = ''
+                        if len(_comment) > 0:
+                            comment = ' - ' + _comment
+
+                        msg = '[DROP, {}, reason:4a, {}] Peer\'s IP address is blacklisted: ({}{} - rev_ip: "{}")'.format(
+                                ts, peerIP, cidr, comment, reverseIp
+                            )
+
+                        if returnJson:
+                            respJson['action'] = 'drop'
+                            respJson['reason'] = '4a'
+                            respJson['message'] = msg
+                            respJson['ipgeo'] = self.printPeerInfos(peerIP, True)
+                            return (True, respJson)
+                        else:
+                            self.drop_reason(msg)
+                            self.printPeerInfos(peerIP)
+                            return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+
                     else:
-                        self.drop_reason(msg)
-                        self.printPeerInfos(peerIP)
-                        return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                        self.logger.dbg(f'The peer with IP: {peerIP} (rev_ip: {reverseIp}) would be banned if there was no blacklist override entry ({entry}).')
 
         # Reverse-IP lookup check
         if self.proxyOptions['policy']['drop_dangerous_ip_reverse_lookup']:

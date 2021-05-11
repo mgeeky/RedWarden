@@ -316,7 +316,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         line = f'{remote_host} {user_identity} {http_basic_auth} {request_timestamp} "{request_line}" {self.response_status} {self.response_length} "{http_referer}" "{http_useragent}"'
 
-        if 'access_log' in self.options.keys() and len(self.options['access_log']) > 0:
+        if 'access_log' in self.options.keys() and self.options['access_log'] != None and len(self.options['access_log']) > 0:
             with open(self.options['access_log'], 'a') as f:
                 f.write(line + '\n')
 

@@ -1121,7 +1121,7 @@ class ProxyPlugin(IProxyPlugin):
             req.connection.no_keep_alive = True
             if host_action == 1:
                 self.logger.dbg('Not returning body from response handler')
-                return selnf.drop_action(req, req_body, res, res_body, True)
+                return self.drop_action(req, req_body, res, res_body, True)
 
             elif host_action == 2:
                 self.logger.dbg('Altering host header in response_handler to: "{}"'.format(newhost))

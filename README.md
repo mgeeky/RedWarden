@@ -357,6 +357,9 @@ Should the request fail any of the checks RedWarden carries on each request, the
 [ERROR] 2021-04-24/16:48:29: [REDIRECTING invalid request from 128.14.211.186 (zl-dal-us-gp3-wk107.internet-census.org)] GET /
 ```
 
+
+### Drop Policies Fine-Tuning
+
 There are plenty of reasons dictating whether request can be dropped. Each of these checks can be independently turned on and off according to requirements or in a process of fine-tuning or erroneus decision fixing:
 
 Excerpt from `example-config.yaml`:

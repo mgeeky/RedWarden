@@ -1021,8 +1021,7 @@ class ProxyPlugin(IProxyPlugin):
             drop_request = True
             newhost = str(e)
 
-        if drop_request:
-            req.connection.no_keep_alive = True
+        req.connection.no_keep_alive = drop_request
 
         if drop_request and host_action == 1:
             if self.proxyOptions['drop_action'] == 'proxy' and self.proxyOptions['action_url']:
@@ -1089,8 +1088,6 @@ class ProxyPlugin(IProxyPlugin):
             self.logger.err(f'No Teamserver provided. Falling back to drop request strategy.: {s}')
             raise Exception(str(e))
 
-
-
         return self.redirect(req, ts, malleable_meta)
 
     def _response_handler(self, req, req_body, res, res_body):
@@ -1137,7 +1134,7 @@ class ProxyPlugin(IProxyPlugin):
         res.headers[proxy2_metadata_headers['override_response_content_encoding']] = 'identity'
 
         req.connection.no_keep_alive = False
-        
+
         return res_body
 
     def drop_action(self, req, req_body, res, res_body, quiet = False):

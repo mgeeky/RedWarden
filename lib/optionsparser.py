@@ -10,7 +10,7 @@ ProxyOptionsDefaultValues = {
 }
 
 ImpliedParams = {
-    'plugin' : 'malleable_redirector',
+    'plugin' : ['malleable_redirector',],
 }
 
 def parse_options(opts, version):

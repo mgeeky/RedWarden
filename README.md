@@ -13,6 +13,8 @@ Combining Malleable C2 profiles understanding, knowledge of bad IP addresses poo
 
 ![RedWarden](images/1.png)
 
+Should any invalid inbound packet reach RedWarden - you can `redirect`, `reset` or just `proxy` it away!
+
 
 ### Abstract
 
@@ -20,7 +22,7 @@ This program acts as a HTTP/HTTPS reverse-proxy with several restrictions impose
 
 `RedWarden` was created to resolve the problem of effective IR/AV/EDRs/Sandboxes evasion on the C2 redirector's layer. It's intended to supersede classical Apache2 + mod_rewrite or alike setups used for redirectors.
 
-** Features:**
+**Features:**
 
 - Malleable C2 Profile parser able to validate inbound HTTP/S requests strictly according to malleable's contract and drop outlaying packets in case of violation (Malleable Profiles 4.0+ with variants covered)
 - Ability to unfilter/repair unexpected and unwanted HTTP headers added by interim systems such as proxies and caches (think CloudFlare) in order to conform to a valid Malleable contract. 
@@ -43,6 +45,30 @@ The program benefits from the marvelous known bad IP ranges coming from:
   [https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10](https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10)
 
 Using an IP addresses blacklisting along with known bad keywords lookup through Reverse-IP DNS queries and HTTP headers inspection, brings the reliability to considerably increase redirector's resiliency to the unauthorized peers wanting to examine attacker infrastructures.
+
+Invalid packets may be misrouted according to three strategies:
+
+- **redirect**: Simply redirect peer to another websites, such as Rick Roll.
+- **reset**: Kill TCP connection straightaway.
+- **proxy**: Fetch a response from another website, to mimic cloned/hijacked website as closely as possible.
+
+This configuration is mandated in configuration file:
+
+```
+#
+# What to do with the request originating not conforming to Beacon, whitelisting or 
+# ProxyPass inclusive statements: 
+#   - 'redirect' it to another host with (HTTP 301), 
+#   - 'reset' a TCP connection with connecting client
+#   - 'proxy' the request, acting as a reverse-proxy against specified action_url 
+#       (may be dangerous if client fetches something it shouldn't supposed to see!)
+#
+# Valid values: 'reset', 'redirect', 'proxy'. 
+#
+# Default: redirect
+#
+drop_action: redirect
+```
 
 Use wisely, stay safe.
 

@@ -188,7 +188,7 @@ def main():
                 raise
                 return False
 
-        tornado.process.fork_processes(0)
+        tornado.process.fork_processes(32)
 
         for srv in servers:
             serve_proxy(srv[0], srv[1], srv[2], srv[3])

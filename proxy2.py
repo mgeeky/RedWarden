@@ -114,7 +114,7 @@ def serve_proxy(bind, port, _ssl, foosock):
             (r'/.*', ProxyRequestHandler, params),
             (scheme + r'://.*', ProxyRequestHandler, params),
         ],
-        transforms=[RemoveXRedWardenHeadersTransform, ])
+        transforms=[RemoveXProxy2HeadersTransform, ])
 
     except OSError as e:
         if 'Address already in use' in str(e):

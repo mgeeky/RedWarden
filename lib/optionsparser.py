@@ -7,11 +7,20 @@ from lib.proxylogger import ProxyLogger
 from argparse import ArgumentParser
 
 ProxyOptionsDefaultValues = {
-    'plugin' : ['malleable_redirector',],
+}
+
+ImpliedOptions = {
+    'plugins' : set(['malleable_redirector',]),
+}
+
+ImpliedParams = {
+    'plugin' : 'malleable_redirector',
 }
 
 
 def parse_options(opts, version):
+    opts.update(ImpliedOptions)
+
     global ProxyOptionsDefaultValues
     ProxyOptionsDefaultValues.update(opts)
 
@@ -77,6 +86,9 @@ def parse_options(opts, version):
     feed_with_plugin_options(opts, parser)
 
     params = parser.parse_args()
+
+    for k, v in ImpliedParams.items():
+        setattr(params, k, v)
 
     if hasattr(params, 'config') and params.config != '':
         try:

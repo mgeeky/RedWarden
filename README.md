@@ -408,7 +408,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 
 
 
-### TODO:
+### TODO
 
 - Implement support for JA3 signatures in both detection & blocking and impersonation to fake nginx/Apache2/custom setups.
 - Add some unique beacons tracking logic to offer flexilibity of refusing staging and communication processes at the proxy's own discretion

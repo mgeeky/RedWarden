@@ -7,6 +7,7 @@ from lib.proxylogger import ProxyLogger
 from argparse import ArgumentParser
 
 ProxyOptionsDefaultValues = {
+    'plugin' : ['malleable_redirector',],
 }
 
 

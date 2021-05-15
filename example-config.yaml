@@ -52,20 +52,6 @@ ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
 drop_invalid_http_requests: True
 
 
-
-#
-# ====================================================
-# malleable_redirector plugin related settings
-# ====================================================
-#
-
-#
-# Plugin that should be enabled. May be repeated to load more plugins.
-# Multi-plugin support not yet thoroughly tested.
-#
-plugin: malleable_redirector
-
-
 #
 # Path to the Malleable C2 profile file. 
 # If not given, most of the request-validation logic won't be used.

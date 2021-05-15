@@ -144,7 +144,6 @@ def serve_proxy(bind, port, _ssl, foosock):
 
     server.add_sockets(foosock)
 
-
 def main():
     global options
     global logger
@@ -188,12 +187,14 @@ def main():
                 raise
                 return False
 
-        tornado.process.fork_processes(32)
+        # https://www.tornadoweb.org/en/stable/tcpserver.html
+        # advanced multi-process:
+        tornado.process.fork_processes(0)
 
         for srv in servers:
             serve_proxy(srv[0], srv[1], srv[2], srv[3])
 
-        tornado.ioloop.IOLoop.instance().start()
+        tornado.ioloop.IOLoop.current().start()
 
     except KeyboardInterrupt:
         logger.info('\nProxy serving interrupted by user.', noprefix=True)

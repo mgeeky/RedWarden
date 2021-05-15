@@ -166,8 +166,11 @@ def parseParametersFromConfigFile(_params):
     config = {}
     configBasePath = ''
 
-    if not 'config' in outparams.keys() or not os.path.isfile(outparams['config']):
-        raise Exception(f'proxy2 config file not found: ({outparams["config"]}) or --config not specified!') 
+    if outparams['config'] != None and len(outparams['config']) > 0:
+        if not 'config' in outparams.keys() or not os.path.isfile(outparams['config']):
+            raise Exception(f'proxy2 config file not found: ({outparams["config"]}) or --config not specified!') 
+    else:
+        return outparams
 
     try:
         with open(outparams['config']) as f:

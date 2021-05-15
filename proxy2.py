@@ -123,6 +123,24 @@ def serve_proxy(bind, port, _ssl, foosock):
         else:
             raise
 
+    print(r'''
+
+       ____           ___       __               __         
+   / __ \___  ____/ / |     / /___ __________/ /__  ____ 
+  / /_/ / _ \/ __  /| | /| / / __ `/ ___/ __  / _ \/ __ \
+ / _, _/  __/ /_/ / | |/ |/ / /_/ / /  / /_/ /  __/ / / /
+/_/ |_|\___/\__,_/  |__/|__/\__,_/_/   \__,_/\___/_/ /_/ 
+    
+    :: RedWarden - Envelopes your malleable virus packets so they penetrate
+                   breached perimeters right under AVs, Proxies, EDRs noses!
+
+    by Mariusz B. / mgeeky, '19-'21
+    <mb [at] binary-offensive.com>
+
+    v{}
+
+'''.format(VERSION))
+
     logger.info("Serving proxy on: {}://{}:{} ...".format(scheme, bind, port), 
         color=ProxyLogger.colors_map['yellow'])
 

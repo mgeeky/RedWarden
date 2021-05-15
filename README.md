@@ -1,4 +1,4 @@
-# RedWarden 
+# RedWarden - Flexible CobaltStrike Malleable Redirector
 
 (previously [proxy2's](https://github.com/mgeeky/proxy2) _malleable_redirectory_ plugin)
 

@@ -11,6 +11,7 @@ proxy2_metadata_headers = {
     'ignore_response_decompression_errors' : 'X-Proxy2-Ignore-Response-Decompression-Errors',
     'override_host_header' : 'X-Proxy2-Override-Host-Header',
     'domain_front_host_header' : 'X-Proxy2-Domain-Front-Host-Header',
+    'keep_alive_this_connection' : 'X-Proxy2-Keep-Alive',
 }
 
 class DropConnectionException(Exception):

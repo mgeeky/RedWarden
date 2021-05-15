@@ -1089,6 +1089,8 @@ class ProxyPlugin(IProxyPlugin):
             self.logger.err(f'No Teamserver provided. Falling back to drop request strategy.: {s}')
             raise Exception(str(e))
 
+
+
         return self.redirect(req, ts, malleable_meta)
 
     def _response_handler(self, req, req_body, res, res_body):
@@ -1108,6 +1110,7 @@ class ProxyPlugin(IProxyPlugin):
         }
 
         drop_request = False
+        req.connection.no_keep_alive = True
 
         try:
             drop_request = self.drop_check(req, req_body, malleable_meta)
@@ -1118,7 +1121,6 @@ class ProxyPlugin(IProxyPlugin):
             newhost = str(e)
 
         if drop_request:
-            req.connection.no_keep_alive = True
             if host_action == 1:
                 self.logger.dbg('Not returning body from response handler')
                 return self.drop_action(req, req_body, res, res_body, True)
@@ -1133,6 +1135,9 @@ class ProxyPlugin(IProxyPlugin):
         # so that the proxy will not encode it to gzip (or anything specified) and just
         # return the response as-is, in an "Content-Encoding: identity" kind of fashion
         res.headers[proxy2_metadata_headers['override_response_content_encoding']] = 'identity'
+
+        req.connection.no_keep_alive = False
+        
         return res_body
 
     def drop_action(self, req, req_body, res, res_body, quiet = False):

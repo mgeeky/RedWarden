@@ -727,8 +727,6 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         if 'DropConnectionException' in str(res_body) or 'DontFetchResponseException' in str(res_body):
             res_body = ''
 
-        logger.info('[RESPONSE] HTTP {} {}, length: {}'.format(res.status, res.reason, len(res_body)), color=ProxyLogger.colors_map['yellow'])
-
         if type(res_body) == str: res_body = str.encode(res_body)
 
         #ProxyRequestHandler.filter_headers(res.headers)
@@ -736,6 +734,13 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.response_status = res.status
         self.response_reason = res.reason
         self.response_headers = res.headers
+
+        ka = 'no'
+        if plugins.IProxyPlugin.proxy2_metadata_headers['keep_alive_this_connection'] in res.headers.keys():
+            self.request.connection.no_keep_alive = False
+            ka = 'yes'
+
+        logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
 
         self._set_status(res.status, res.reason)
 

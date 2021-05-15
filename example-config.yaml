@@ -1,5 +1,5 @@
 #
-# This is a sample config file for Malleable-Redirector plugin of proxy2 utility.
+# This is a sample config file for RedWarden.
 #
 
 
@@ -15,7 +15,7 @@ verbose: True
 # Print debugging output that includes HTTP request/response trace. Default: False
 debug: False
 
-# Redirect proxy2's output to file. Default: stdout.
+# Redirect RedWarden's output to file. Default: stdout.
 # Creates a file in the same directory that this config file is situated.
 output: redirector.log
 
@@ -28,7 +28,7 @@ tee: True
 
 
 #
-# Ports on which proxy2 should bind & listen
+# Ports on which RedWarden should bind & listen
 #
 port:
   - 80/http
@@ -44,7 +44,7 @@ ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
 #
 # Drop invalid HTTP requests
 #
-# (proxy2 option) If a stream that doesn't resemble valid HTTP protocol reaches Proxy2 listener, 
+# If a stream that doesn't resemble valid HTTP protocol reaches RedWarden listener, 
 # should we drop it or process it? By default we drop it.
 #
 # Default: True
@@ -63,13 +63,13 @@ profile: malleable.profile
 # A.k.a. TeamServer's Listener bind address, in a form of:
 #       [inport:][http(s)://]host:port
 #
-# If proxy2 was configured to listen on more than one port, specifying "inport" will 
+# If RedWarden was configured to listen on more than one port, specifying "inport" will 
 # help the plugin decide to which teamserver's listener redirect inbound request. 
 #
 # If 'inport' values are not specified in the below option (teamserver_url) the script
 # will pick destination teamserver at random.
 #
-# Having proxy2 listening on only one port does not mandate to include the "inport" part.
+# Having RedWarden listening on only one port does not mandate to include the "inport" part.
 # This field can be either string or list of strings.
 #
 teamserver_url: 
@@ -218,7 +218,7 @@ whitelisted_ip_addresses:
 # peers gets processed, it will be accepted right away having observed that the peer was allowed to pass
 # N requests to the Teamserver on a previous occassions.
 #
-# This whitelist gets cleared along with proxy2 being terminated. It is only held up in script's memory.
+# This whitelist gets cleared along with RedWarden being terminated. It is only held up in script's memory.
 # 
 # Paramters:
 #   - number_of_valid_http_get_requests: defines number of successful http-get requests (polling Teamserver)
@@ -395,7 +395,7 @@ policy:
 
 
 #
-# If Proxy2 validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
+# If RedWarden validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
 #   "[IP: DROP, reason:6] HTTP request did not contain expected header value:"
 #
 # and senses some header is missing or was overwritten along the wire, the request will be dropped. We can relax this policy
@@ -430,7 +430,7 @@ policy:
 # payloads or any other javascript-based landing pages.
 #
 # The way to invoke it is as follows:
-#   1. Issue a POST request to the proxy2 server with the below specified URI in path.
+#   1. Issue a POST request to the RedWarden server with the below specified URI in path.
 #   2. Include following JSON in your POST request:
 #
 #   POST /malleable_redirector_hidden_api_endpoint
@@ -445,7 +445,7 @@ policy:
 #         },
 #     }
 # 
-# If "peerIP" is empty (or was not given), proxy2 will try to extract peer's IP from HTTP 
+# If "peerIP" is empty (or was not given), RedWarden will try to extract peer's IP from HTTP 
 # headers such as (X-Forwarded-For, CF-Connecting-IP, X-Real-IP, etc.). If no IP will be present
 # in headers, an error will be returned.:
 #
@@ -455,7 +455,7 @@ policy:
 #         "message" : "explanation"
 #     }
 #
-# Proxy2 will take any non-empty field from a given JSON and evaluate it as it would do
+# RedWarden will take any non-empty field from a given JSON and evaluate it as it would do
 # under currently provided configuration and all the knowledge it possesses. 
 # The response will contain following JSON:
 #

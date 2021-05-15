@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-# Proxy2
+# RedWarden
 #
 # TODO:
 #   - implement dynamic plugins directory scanning method in the PluginsLoader
@@ -21,7 +21,7 @@
 #   0.5     fixed plenty of bugs, improved a bit server's resilience against slow/misbehaving peers
 #           by disconnecting them/timeouting connections, improved logging facility and output format,
 #           added options to protected HTTP headers, apply fine-grained DROP policy, and plenty more.
-#   0.6     rewritten proxy2 from BaseHTTPServer (SimpleHTTPServer) to Tornado, improved
+#   0.6     rewritten RedWarden from BaseHTTPServer (SimpleHTTPServer) to Tornado, improved
 #           support for proxy_pass allowing to fetch responses cross-scheme
 #
 # Author:
@@ -58,7 +58,7 @@ options = {
     'verbose': False,
     'tee': False,
     'log': None,
-    'proxy_self_url': 'http://proxy2.test/',
+    'proxy_self_url': 'http://RedWarden.test/',
     'timeout': 90,
     'access_log' : '',
     'no_ssl': False,
@@ -68,7 +68,7 @@ options = {
     'cacert': normpath('ca-cert/ca.crt'),
     'certkey': normpath('ca-cert/cert.key'),
     'certdir': normpath('certs/'),
-    'cacn': 'proxy2 CA',
+    'cacn': 'RedWarden CA',
     'plugins': set(),
     'plugin_class_name': 'ProxyPlugin',
 }
@@ -114,7 +114,7 @@ def serve_proxy(bind, port, _ssl, foosock):
             (r'/.*', ProxyRequestHandler, params),
             (scheme + r'://.*', ProxyRequestHandler, params),
         ],
-        transforms=[RemoveXProxy2HeadersTransform, ])
+        transforms=[RemoveXRedWardenHeadersTransform, ])
 
     except OSError as e:
         if 'Address already in use' in str(e):
@@ -159,8 +159,8 @@ def main():
  / _, _/  __/ /_/ / | |/ |/ / /_/ / /  / /_/ /  __/ / / /
 /_/ |_|\___/\__,_/  |__/|__/\__,_/_/   \__,_/\___/_/ /_/ 
     
-    :: RedWarden - Envelopes your malleable virus packets so they penetrate
-                   breached perimeters right under AVs, Proxies, EDRs noses!
+    :: RedWarden - Keeps your malleable C2 packets slipping through AVs,
+                   EDRs, Blue Teams and club bouncers like nothing else!
 
     by Mariusz B. / mgeeky, '19-'21
     <mb [at] binary-offensive.com>

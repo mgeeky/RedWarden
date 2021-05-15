@@ -32,7 +32,7 @@ def parse_options(opts, version):
     parser.add_argument("-s", "--silent", dest='silent',
         help="Surpresses all of the output logging.", action="store_true")
     parser.add_argument("-z", "--allow-invalid", dest='allow_invalid',
-        help="Process invalid HTTP requests. By default if a stream not resembling HTTP protocol reaches proxy2 listener - it will be dropped.", action="store_true")
+        help="Process invalid HTTP requests. By default if a stream not resembling HTTP protocol reaches RedWarden listener - it will be dropped.", action="store_true")
     parser.add_argument("-N", "--no-proxy", dest='no_proxy',
         help="Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.", action="store_true")
     parser.add_argument("-W", "--tee", dest='tee',
@@ -69,7 +69,7 @@ def parse_options(opts, version):
     sslgroup.add_argument('--ssl-certkey', dest='certkey', metavar='NAME', 
         help='Specifies CA certificate\'s public key. Default: "'+ opts['certkey'] +'"', default=opts['certkey'])
     sslgroup.add_argument('--ssl-cacn', dest='cacn', metavar='CN', 
-        help='Sets the common name of the proxy\'s CA authority. If this option is not set, will use --hostname instead. It is required only when no --ssl-cakey/cert were specified and proxy2 will need to generate ones automatically. Default: "'+ opts['cacn'] +'"', default=opts['cacn'])
+        help='Sets the common name of the proxy\'s CA authority. If this option is not set, will use --hostname instead. It is required only when no --ssl-cakey/cert were specified and RedWarden will need to generate ones automatically. Default: "'+ opts['cacn'] +'"', default=opts['cacn'])
 
     # Plugins handling
     plugins = parser.add_argument_group("Plugins handling")
@@ -175,7 +175,7 @@ def parseParametersFromConfigFile(_params):
 
     if outparams['config'] != None and len(outparams['config']) > 0:
         if not 'config' in outparams.keys() or not os.path.isfile(outparams['config']):
-            raise Exception(f'proxy2 config file not found: ({outparams["config"]}) or --config not specified!') 
+            raise Exception(f'RedWarden config file not found: ({outparams["config"]}) or --config not specified!') 
     else:
         return outparams
 
@@ -215,10 +215,10 @@ def parseParametersFromConfigFile(_params):
         return outparams
 
     except FileNotFoundError as e:
-        raise Exception(f'proxy2 config file not found: ({outparams["config"]})!')
+        raise Exception(f'RedWarden config file not found: ({outparams["config"]})!')
 
     except Exception as e:
-        raise Exception(f'Unhandled exception occured while parsing proxy2 config file: {e}')
+        raise Exception(f'Unhandled exception occured while parsing RedWarden config file: {e}')
 
     return outparams
 

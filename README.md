@@ -1,4 +1,4 @@
-# proxy2
+# RedWarden
 
 Easily extensible HTTP/HTTPS proxy.
 
@@ -48,7 +48,7 @@ optional arguments:
   -t SECS, --timeout SECS
                         Specifies timeout for proxy's response in seconds. Default: 5.
   -u URL, --proxy-url URL
-                        Specifies proxy's self url. Default: http://proxy2.test/.
+                        Specifies proxy's self url. Default: http://RedWarden.test/.
 
 SSL Interception setup:
   -S, --no-ssl-mitm     Turns off SSL interception/MITM and falls back on straight forwarding.
@@ -57,7 +57,7 @@ SSL Interception setup:
   --ssl-cakey NAME      Sets the name of a CA key file's name. Default: "ca-cert/ca.key"
   --ssl-cacert NAME     Sets the name of a CA certificate file's name. Default: "ca-cert/ca.crt"
   --ssl-certkey NAME    Sets the name of a CA certificate key's file name. Default: "ca-cert/cert.key"
-  --ssl-cacn CN         Sets the common name of the proxy's CA authority. Default: "proxy2 CA"
+  --ssl-cacn CN         Sets the common name of the proxy's CA authority. Default: "RedWarden CA"
 
 Plugins handling:
   -L, --list-plugins    List available plugins.
@@ -75,7 +75,7 @@ Plugin 'malleable_redirector' options:
 The simplest usage is following:
 
 ```
-$ python3 proxy2.py
+$ python3 RedWarden.py
 ```
 
 Which will setup SSL interception just-in-time (meaning will use `openssl` which must be located in the system) by generating CA certificate, keys, and create relevant directory for gathered certificates from visited webservers. Below output presents sample session:
@@ -113,7 +113,7 @@ The parameters specified in command-line when an external config file was also u
 Sample usage with configuration file:
 
 ```
-$ python3 proxy2.py --config example-config.yaml
+$ python3 RedWarden.py --config example-config.yaml
 ```
 
 
@@ -122,12 +122,12 @@ $ python3 proxy2.py --config example-config.yaml
 HTTPS interception is being setup automatically, just in time during program's initialization phase. It consists of generation of private keys and a private CA certificate. However, if `openssl` cannot be located on a machine, one can turn off interception by specyfing:
 
 ```
-$ python3 proxy2.py -S
+$ python3 RedWarden.py -S
 ```
 
-or in other means configure proxy2.py to point it with proper SSL-related files. For more information please refer to the program's help. 
+or in other means configure RedWarden.py to point it with proper SSL-related files. For more information please refer to the program's help. 
 
-Through the proxy, you can access http://proxy2.test/ and install the CA certificate in the browsers.
+Through the proxy, you can access http://RedWarden.test/ and install the CA certificate in the browsers.
 
 
 ## Customization

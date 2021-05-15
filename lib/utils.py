@@ -7,7 +7,7 @@ import plugins.IProxyPlugin
 
 logger = None
 
-drop_this_header = 'IN-THE-NAME-OF-PROXY2-REMOVE-THIS-HEADER-COMPLETELY'
+drop_this_header = 'IN-THE-NAME-OF-REDWARDEN-REMOVE-THIS-HEADER-COMPLETELY'
 
 def hexdump(data):
     s = ''

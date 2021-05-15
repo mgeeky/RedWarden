@@ -6,7 +6,7 @@
 # Usage: ./ipLookupHelper.py <ipaddress> [malleable-redirector-config]
 # 
 # Use this small utility to collect IP Lookup details on your target IPv4 address and verify whether
-# your 'ip_geolocation_requirements' section of proxy2 malleable-redirector-config.yaml would match that
+# your 'ip_geolocation_requirements' section of RedWarden malleable-redirector-config.yaml would match that
 # IP address. If second param is not given - no IP Geolocation evaluation will be performed.
 #
 # Author:
@@ -569,7 +569,7 @@ def usage():
 Usage: ./ipLookupHelper.py <ipaddress> [malleable-redirector-config]
 
 Use this small utility to collect IP Lookup details on your target IPv4 address and verify whether
-your 'ip_geolocation_requirements' section of proxy2 malleable-redirector-config.yaml would match that
+your 'ip_geolocation_requirements' section of RedWarden malleable-redirector-config.yaml would match that
 IP address. If second param is not given - no IP Geolocation evaluation will be performed.
 
 ''')

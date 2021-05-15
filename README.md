@@ -11,7 +11,7 @@ This work combines many of those great ideas into a one, lightweight utility, mi
 Combining Malleable C2 profiles understanding, knowledge of bad IP addresses pool and a flexibility of easily adding new inspection and misrouting logic - resulted in having a crafty repellent for IR inspections. 
 
 
-![RedWarden](https://github.com/mgeeky/RedWarden/raw/master/images/1.png)
+![RedWarden](images/1.png)
 
 
 ### Abstract
@@ -177,7 +177,7 @@ We use three entries in `country` property to allow requests having one of speci
 
 Having that set in your configuration, you can verify whether another IP address would get passed through RedWarden's IP Geolocation discriminator or not with `ipLookupHelper` utility accepting second parameter:
 
-![ipLookupHelper IP Geo discriminator](https://github.com/mgeeky/RedWarden/raw/master/images/2.png)
+![ipLookupHelper IP Geo discriminator](images/2.png)
 
 The very last line tells you whether packet would be blocked or accepted.
 

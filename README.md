@@ -1,150 +1,620 @@
-# RedWarden
+# RedWarden 
 
-Easily extensible HTTP/HTTPS proxy.
+(previously [proxy2's](https://github.com/mgeeky/proxy2) _malleable_redirectory_ plugin)
+
+**Let's raise the bar in C2 redirectors IR resiliency, shall we?**
+
+Red Teaming business has seen [several](https://bluescreenofjeff.com/2016-04-12-combatting-incident-responders-with-apache-mod_rewrite/) [different](https://posts.specterops.io/automating-apache-mod-rewrite-and-cobalt-strike-malleable-c2-profiles-d45266ca642) [great](https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10) ideas on how to combat incident responders and misdirect them while offering resistant C2 redirectors network at the same time.  
+
+This piece of code tries to combine many of these great ideas into a one, lightweight utility, mimicking Apache2 in it's roots of being a simple HTTP(S) reverse-proxy. Combining Malleable C2 profiles understanding, knowledge of bad IP addresses pool and a flexibility of easily adding new inspection and misrouting logc - resulted in having a crafty repellent for IR evasion. 
 
 
-## Features
+### Abstract
 
-* easy to customize
-* require no external modules
-* support both of IPv4 and IPv6
-* support HTTP/1.1 Persistent Connection
-* support dynamic certificate generation for HTTPS intercept
-* support for custom packets handling plugins (by means of request/response/save handlers)
+This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon which requests and from whom it should process, similarly to the .htaccess file in Apache2's mod_rewrite.
 
-This script works on Python 3+
-You need to install OpenSSL at your machine to intercept HTTPS connections.
-Program will be trying to utilize `openssl` command from your system.
+`RedWarden` was created to resolve the problem of effective IR/AV/EDRs/Sandboxes evasion on the C2 redirector's backyard.
 
-Before running it, install required packages:
+** Features:**
 
+- Grepable output log entries useful to track peer connectivity events/issues
+- Malleable C2 Profile parser able to validate inbound HTTP/S requests strictly according to malleable's contract and drop in case of violation (Malleable Profiles 4.0+ with variants covered)
+- Ability to unfilter unexpected and unwanted HTTP headers added by interim systems such as proxies and caches (think CloudFlare) in order to conform to a valid Malleable contract. 
+- Integrated curated massive blacklist of IPv4 pools and ranges known to be associated with IT Security vendors
+- Ability to query connecting peer's IPv4 address against IP Geolocation/whois information and confront that with predefined regular expressions to rule out peers connecting outside of trusted organizations/countries/cities etc.
+- Built-in Replay attacks mitigation enforced by logging accepted requests' MD5 hashsums into locally stored SQLite database and preventing requests previously accepted.
+- Functionality to ProxyPass requests matching specific URL onto other Hosts
+- Support for multiple Teamservers
+- Support for many reverse-proxying Hosts/redirection sites giving in a randomized order - which lets load-balance traffic or build more versatile infrastructures
+- Sleepless nights spent on troubleshooting "why my Beacon doesn't work over CloudFlare/CDN/Domain Fronting" are over now thanks to this script and its ability to strip unwanted garbage from our beloved Beacon requests.
+
+The RedWarden can act as a CobaltStrike Teamserver C2 redirector, given Malleable C2 profile used during the campaign and teamserver's hostname:port. The plugin will parse supplied malleable profile in order to understand which inbound requests may possibly come from the compatible Beacon or are not compliant with the profile and therefore should be misdirected. Sections such as http-stager, http-get, http-post and their corresponding uris, headers, prepend/append patterns, User-Agent are all used to distinguish between legitimate beacon's request and some Internet noise or IR/AV/EDRs out of bound inquiries. 
+
+The plugin was also equipped with marvelous known bad IP ranges coming from:
+  curi0usJack and the others:
+  [https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10](https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10)
+
+Using an IP addresses blacklisting along with known bad keywords lookup through Reverse-IP DNS queries and HTTP headers, the reliability of this tool results considerably increased redirector's resiliency to the unauthorized peers wanting to examine protected infrastructure.
+
+Use wisely, stay safe.
+
+### Example usage
+
+All settings were moved to the external file:
 ```
-$ pip3 install -r requirements.txt
-```
+$ python3 proxy2.py --config example-config.yaml
 
-
-## Usage
-
-You can invoke the program with following options:
-
-```
-usage: Usage: %prog [options]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -c CONFIG, --config CONFIG
-                        External configuration file. Defines values for below options, however specifying them on command line will supersed ones from file.
-  -v, --verbose         Displays verbose output.
-  -d, --debug           Displays debugging informations (implies verbose output).
-  -s, --silent          Surpresses all of the output logging.
-  -N, --no-proxy        Disable standard HTTP/HTTPS proxy capability (will not serve CONNECT requests). Useful when we only need plugin to run.
-  -w PATH, --output PATH
-                        Specifies output log file.
-  -H NAME, --hostname NAME
-                        Specifies proxy's binding hostname along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening
-                        port number (123/https). Default: http://0.0.0.0.
-  -P NUM, --port NUM    Specifies proxy's binding port number(s). A value can be followed with either '/http' or '/https' to specify which type of server to bound on this port. Supports
-                        multiple binding ports by repeating this option: '--port 80 --port 443/https'. Default: 8080.
-  -t SECS, --timeout SECS
-                        Specifies timeout for proxy's response in seconds. Default: 5.
-  -u URL, --proxy-url URL
-                        Specifies proxy's self url. Default: http://RedWarden.test/.
-
-SSL Interception setup:
-  -S, --no-ssl-mitm     Turns off SSL interception/MITM and falls back on straight forwarding.
-  --ssl-certdir DIR     Sets the destination for all of the SSL-related files, including keys, certificates (self and of the visited websites). If not specified, a default value will be
-                        used to create a directory and remove it upon script termination. Default: "certs"
-  --ssl-cakey NAME      Sets the name of a CA key file's name. Default: "ca-cert/ca.key"
-  --ssl-cacert NAME     Sets the name of a CA certificate file's name. Default: "ca-cert/ca.crt"
-  --ssl-certkey NAME    Sets the name of a CA certificate key's file name. Default: "ca-cert/cert.key"
-  --ssl-cacn CN         Sets the common name of the proxy's CA authority. Default: "RedWarden CA"
-
-Plugins handling:
-  -L, --list-plugins    List available plugins.
-  -p PATH, --plugin PATH
-                        Specifies plugin's path to be loaded.
-
-Plugin 'dummy' options:
-  --hello TEXT          Prints hello message
-
-Plugin 'malleable_redirector' options:
-  --redir-config PATH   Path to the malleable-redirector's YAML config file. Not required if global proxy's config file was specified (--config) and includes options required by this
-                        plugin.
-```
-
-The simplest usage is following:
-
-```
-$ python3 RedWarden.py
+  [INFO] 19:21:42: Loading 1 plugin...
+  [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
+  [INFO] 19:21:42: Preparing SSL certificates and keys for https traffic interception...
+  [INFO] 19:21:42: Using provided CA key file: ca-cert/ca.key
+  [INFO] 19:21:42: Using provided CA certificate file: ca-cert/ca.crt
+  [INFO] 19:21:42: Using provided Certificate key: ca-cert/cert.key
+  [INFO] 19:21:42: Serving http proxy on: 0.0.0.0, port: 80...
+  [INFO] 19:21:42: Serving https proxy on: 0.0.0.0, port: 443...
+  [INFO] 19:21:42: [REQUEST] GET /jquery-3.3.1.min.js
+  [INFO] 19:21:42: == Valid malleable http-get request inbound.
+  [INFO] 19:21:42: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
+  [INFO] 19:21:42: [RESPONSE] HTTP 200 OK, length: 5543
+  [INFO] 19:21:45: [REQUEST] GET /jquery-3.3.1.min.js
+  [INFO] 19:21:45: == Valid malleable http-get request inbound.
+  [INFO] 19:21:45: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
+  [INFO] 19:21:45: [RESPONSE] HTTP 200 OK, length: 5543
+  [INFO] 19:21:46: [REQUEST] GET /
+  [...]
+  [ERROR] 19:24:46: [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  [...]
+  [INFO] 19:24:46: [RESPONSE] HTTP 301 Moved Permanently, length: 212
+  [INFO] 19:24:48: [REQUEST] GET /jquery-3.3.1.min.js
+  [INFO] 19:24:48: == Valid malleable http-get request inbound.
+  [INFO] 19:24:48: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
+  [...]
 ```
 
-Which will setup SSL interception just-in-time (meaning will use `openssl` which must be located in the system) by generating CA certificate, keys, and create relevant directory for gathered certificates from visited webservers. Below output presents sample session:
+Where **example-config.yaml** contains:
 
 ```
-[INFO] 14:41:29: Preparing SSL certificates and keys for https traffic interception...
-[INFO] 14:41:29: Serving HTTP Proxy on: 127.0.0.1, port: 8080...
-[INFO] 14:43:13: Request: "https://google.com/"
-[INFO] 14:43:13: Request: "https://www.google.pl/?gfe_rd=cr&ei=garVVtnOCqeO6ASe84jwCg"
+plugin: malleable_redirector
+verbose: True
+
+port:
+  - 80/http
+  - 443/https
+
+profile: jquery-c2.3.14.profile
+
+# Let's Encrypt certificates
+ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
+ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
+
+teamserver_url:
+  - 1.2.3.4:8080
 ```
 
-Every option that can be specified from command-line, may also be moved to the separate YAML config file. For instance:
-
-**example-config.yaml**:
+The above output contains a line pointing out that there has been an unauthorized, not compliant with our C2 profile inbound request, which got dropped due to incompatible User-Agent string presented:
 ```
+  [...]
+  [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  [...]
+```
+
+
+### Plugin options
+
+Following options/settings are supported:
+
+```
+#
+# This is a sample config file for RedWarden.
+#
+
+
 #
 # ====================================================
 # General proxy related settings
 # ====================================================
 #
 
-plugin: dummy
+# Print verbose output. Implied if debug=True. Default: False
+verbose: True
 
-debug: True
+# Print debugging output that includes HTTP request/response trace. Default: False
+debug: False
 
+# Redirect RedWarden's output to file. Default: stdout.
+# Creates a file in the same directory that this config file is situated.
+output: redirector.log
+
+# Write web server access attempts in Apache2 access.log format into this file.
+access_log: access.log
+
+# If 'output' is specified, tee program's output to file and stdout at the same time.
+# Default: False
+tee: True
+
+
+#
+# Ports on which RedWarden should bind & listen
+#
 port:
-  - 8080/http
+  - 80/http
+  - 443/https
 
-hello: 'some text'
+#
+# SSL certificate CAcert (pem, crt, cert) and private key CAkey
+#
+ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
+ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
+
+
+#
+# Drop invalid HTTP requests
+#
+# If a stream that doesn't resemble valid HTTP protocol reaches RedWarden listener, 
+# should we drop it or process it? By default we drop it.
+#
+# Default: True
+#
+drop_invalid_http_requests: True
+
+
+#
+# Path to the Malleable C2 profile file. 
+# If not given, most of the request-validation logic won't be used.
+#
+profile: malleable.profile
+
+#
+# (Required) Address where to redirect legitimate inbound beacon requests.
+# A.k.a. TeamServer's Listener bind address, in a form of:
+#       [inport:][http(s)://]host:port
+#
+# If RedWarden was configured to listen on more than one port, specifying "inport" will 
+# help the plugin decide to which teamserver's listener redirect inbound request. 
+#
+# If 'inport' values are not specified in the below option (teamserver_url) the script
+# will pick destination teamserver at random.
+#
+# Having RedWarden listening on only one port does not mandate to include the "inport" part.
+# This field can be either string or list of strings.
+#
+teamserver_url: 
+  - 1.2.3.4:5555
+
+
+#
+# Report only instead of actually dropping/blocking/proxying bad/invalid requests.
+# If this is true, will notify that the request would be block if that option wouldn't be
+# set. 
+#
+# Default: False
+#
+report_only: False
+
+#
+# Log full bodies of dropped requests.
+#
+# Default: False
+#
+log_dropped: False
+
+#
+# What to do with the request originating not conforming to Beacon, whitelisting or 
+# ProxyPass inclusive statements: 
+#   - 'redirect' it to another host with (HTTP 301), 
+#   - 'reset' a TCP connection with connecting client
+#   - 'proxy' the request, acting as a reverse-proxy against specified action_url 
+#       (may be dangerous if client fetches something it shouldn't supposed to see!)
+#
+# Valid values: 'reset', 'redirect', 'proxy'. 
+#
+# Default: redirect
+#
+drop_action: redirect
+
+#
+# If someone who is not a beacon hits the proxy, or the inbound proxy does not meet 
+# malleable profile's requirements - where we should proxy/redirect his requests. 
+# The protocol HTTP/HTTPS used for proxying will be the same as originating
+# requests' protocol. Redirection in turn respects protocol given in action_url.
+#
+# This value may be a comma-separated list of hosts, or a YAML array to specify that
+# target action_url should be picked at random:
+#   action_url: https://google.com, https://gmail.com, https://calendar.google.com
+#
+# Default: https://google.com
+#
+action_url: 
+  - https://google.com
+
+#
+# ProxyPass alike functionality known from mod_proxy.
+#
+# If inbound request matches given conditions, proxy that request to specified host,
+# fetch response from target host and return to the client. Useful when you want to 
+# pass some requests targeting for instance attacker-hosted files onto another host, but
+# through the one protected with malleable_redirector.
+#
+# Protocol used for ProxyPass will match the one from originating request unless specified explicitely.
+# If host part contains http:// or https:// schema - that schema will be used.
+# 
+# Syntax:
+#   proxy_pass:
+#     - /url_to_be_passed example.com
+#     - /url_to_be_passed_onto_http http://example.com
+#
+# The first parameter 'url' is a regex (case-insensitive). Must start with '/'.
+# The regex begin/end operators are implied and will constitute following regex to be 
+# matched against inbound request's URL:
+#     '^/' + url_to_be_passed + '$'
+#
+# Here are the URL rewriting rules:
+#   Example, inbound request:
+#       https://attacker.com/dl/file-to-be-served.txt
+#
+#   Rules:
+#     a) Entire URL to be substituted for proxy pass:
+#       proxy_pass:
+#           - /dl/.+   https://localhost:8888/   
+#                ====> will redirect to https://localhost:8888/
+#
+#     b) Only host to be substituted for proxy pass:
+#       proxy_pass:
+#           - /dl/.+   localhost:8888   
+#                ====> will redirect to https://localhost:8888/dl/file-to-be-served.txt
+#
+# Following options are supported:
+#   - nodrop  - Process this rule at first, before evaluating any DROP-logic. 
+#               Does not let processed request to be dropped.
+#
+# Default: No proxy pass rules.
+#
+proxy_pass:
+  # These are example proxy_pass definitions:
+  - /foobar\d*  bing.com
+  - /myip       http://ip-api.com/json/
+  - /alwayspass google.com nodrop
+
+
+#
+# If set, removes all HTTP headers sent by Client that are not expected by Teamserver according
+# to the supplied Malleable profile and its client { header ... } section statements. Some CDNs/WebProxy
+# providers such as CloudFlare may add tons of their own metadata headers (like: CF-IPCountry, CF-RAY, 
+# CF-Visitor, CF-Request-ID, etc.) that can make Teamserver unhappy about inbound HTTP Request which could
+# cause its refusal. 
+#
+# We can strip all of these superfluous, not expected by Teamserver HTTP headers delivering a vanilla plain
+# request. This is recommended setting in most scenarios.
+#
+# Do note however, that Teamserver by itself ignores superfluous headers it receives in requests, as long as they 
+# don't compromise integrity of the malleable transaction.
+#
+# Default: True
+#
+remove_superfluous_headers: True
+
+#
+# Every time malleable_redirector decides to pass request to the Teamserver, as it conformed
+# malleable profile's contract, a MD5 sum may be computed against that request and saved in sqlite
+# file. Should there be any subsequent request evaluating to a hash value that was seen & stored
+# previously, that request is considered as Replay-Attack attempt and thus should be banned.
+#
+# CobaltStrike's Teamserver has built measures aginst replay-attacks, however malleable_redirector may
+# assist in that activity as well.
+#
+# Default: False
+#
+mitigate_replay_attack: False
+
+
+#
+# List of whitelisted IP addresses/CIDR ranges.
+# Inbound packets from these IP address/ranges will always be passed towards specified TeamServer without
+# any sort of verification or validation.
+#
+whitelisted_ip_addresses:
+  - 127.0.0.0/24
+
+
+#
+# Maintain a volatile, dynamic list of whitelisted Peers (IPv4 addresses) based on a number of requests
+# they originate that were allowed and passed to Teamserver.
+#
+# This option cuts down request processing time since whenever a request coming from a previously whitelisted
+# peers gets processed, it will be accepted right away having observed that the peer was allowed to pass
+# N requests to the Teamserver on a previous occassions.
+#
+# This whitelist gets cleared along with RedWarden being terminated. It is only held up in script's memory.
+# 
+# Paramters:
+#   - number_of_valid_http_get_requests: defines number of successful http-get requests (polling Teamserver)
+#                                        that determine whether Peer can be trusted.
+#   - number_of_valid_http_post_requests: defines number of successful http-post requests (sending command
+#                                         results to the TS) that determine whether Peer can be trusted.
+#
+# Value of 0 denotes disabled counting of a corresponding type of requests. 
+# Function disabled if configuration option is missing.
+#
+# Default: (dynamic whitelist enabled)
+#       number_of_valid_http_get_requests: 15
+#       number_of_valid_http_post_requests: 5
+#
+add_peers_to_whitelist_if_they_sent_valid_requests:
+  number_of_valid_http_get_requests: 15
+  number_of_valid_http_post_requests: 5
+
+
+#
+# Ban peers based on their IPv4 address. The blacklist with IP address to check against is specified
+# in 'ip_addresses_blacklist_file' option.
+#
+# Default: True
+#
+ban_blacklisted_ip_addresses: True
+
+#
+# Specifies external list of CIDRs with IPv4 addresses to ban. Each entry in that file
+# can contain a single IPv4, a CIDR or a line with commentary in following format:
+#     1.2.3.4/24 # Super Security System
+#
+# Default: plugins/malleable_banned_ips.txt
+#
+ip_addresses_blacklist_file: plugins/malleable_banned_ips.txt
+
+#
+# Specifies external list of keywords to ban during reverse-IP lookup, User-Agents or 
+# HTTP headers analysis stage. The file can contain lines beginning with '#' to mark comments.
+#
+# Default: plugins/malleable_banned_words.txt
+#
+banned_agents_words_file: plugins/malleable_banned_words.txt
+
+#
+# Specifies external list of phrases that should override banned phrases in case of ambiguity.
+# If the request was to be banned because of a ambigue phrase, the override agents file can
+# make the request pass blocking logic if it contained "allowed" phrase.
+#
+# Default: plugins/malleable_words_override.txt
+#
+override_banned_agents_file: plugins/malleable_words_override.txt
+
+#
+# Ban peers based on their IPv4 address' resolved ISP/Organization value or other details. 
+# Whenever a peer connects to our proxy, we'll take its IPv4 address and use one of the specified
+# APIs to collect all the available details about the address. Whenever a banned word 
+# (of a security product) is found in those details - peer will be banned.
+# List of API keys for supported platforms are specified in ''. If there are no keys specified, 
+# only providers that don't require API keys will be used (e.g. ip-api.com, ipapi.co)
+#
+# This setting affects execution of policy:
+#   - drop_ipgeo_metadata_containing_banned_keywords
+#
+# Default: True
+#
+verify_peer_ip_details: True
+
+#
+# Specifies a list of API keys for supported API details collection platforms. 
+# If 'verify_peer_ip_details' is set to True and there is at least one API key given in this option, the
+# proxy will collect details of inbound peer's IPv4 address and verify them for occurences of banned words
+# known from various security vendors. Do take a note that various API details platforms have their own
+# thresholds for amount of lookups per month. By giving more than one API keys, the script will
+# utilize them in a random order.
+#
+# To minimize number of IP lookups against each platform, the script will cache performed lookups in an
+# external file named 'ip-lookups-cache.json'
+#
+# Supported IP Lookup providers:
+#   - ip-api.com: No API key needed, free plan: 45 requests / minute
+#   - ipapi.co: No API key needed, free plan: up to 30000 IP lookups/month and up to 1000/day.
+#   - ipgeolocation.io: requires an API key, up to 30000 IP lookups/month and up to 1000/day.
+#
+# Default: empty dictionary
+#
+ip_details_api_keys: 
+  #ipgeolocation_io: 0123456789abcdef0123456789abcdef
+  ipgeolocation_io:
+
+
+#
+# Restrict incoming peers based on their IP Geolocation information. 
+# Available only if 'verify_peer_ip_details' was set to True. 
+# IP Geolocation determination may happen based on the following supported characteristics:
+#   - organization, 
+#   - continent, 
+#   - continent_code, 
+#   - country, 
+#   - country_code, 
+#   - city, 
+#   - timezone
+#
+# The Peer will be served if at least one geolocation condition holds true for him 
+# (inclusive/alternative arithmetics).
+#
+# If no determinants are specified, IP Geolocation will not be taken into consideration while accepting peers.
+# If determinants are specified, only those peers whose IP address matched geolocation determinants will be accepted.
+#
+# Each of the requirement values may be regular expression. Matching is case-insensitive.
+#
+# Following (continents_code, continent) pairs are supported:
+#    ('AF', 'Africa'),
+#    ('AN', 'Antarctica'),
+#    ('AS', 'Asia'),
+#    ('EU', 'Europe'),
+#    ('NA', 'North america'),
+#    ('OC', 'Oceania'),
+#    ('SA', 'South america)' 
+#
+# Proper IP Lookup details values can be established by issuing one of the following API calls:
+#   $ curl -s 'https://ipapi.co/TARGET-IP-ADDRESS/json/' 
+#   $ curl -s 'http://ip-api.com/json/TARGET-IP-ADDRESS'
+#
+# The organization/isp/as/asn/org fields will be merged into a common organization list of values.
+#
+ip_geolocation_requirements:
+  organization:
+    #- My\s+Target\+Company(?: Inc.)?
+  continent:
+  continent_code:
+  country:
+  country_code:
+  city:
+  timezone:
+
+#
+# Fine-grained requests dropping policy - lets you decide which checks
+# you want to have enforced and which to skip by setting them to False
+#
+# Default: all checks enabled
+#
+policy:
+  # [IP: ALLOW, reason:0] Request conforms ProxyPass entry (url="..." host="..."). Passing request to specified host
+  allow_proxy_pass: True
+  # [IP: ALLOW, reason:2] Peer's IP was added dynamically to a whitelist based on a number of allowed requests
+  allow_dynamic_peer_whitelisting: True
+  # [IP: DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  drop_invalid_useragent: True
+  # [IP: DROP, reason:2] HTTP header name contained banned word
+  drop_http_banned_header_names: True
+  # [IP: DROP, reason:3] HTTP header value contained banned word:
+  drop_http_banned_header_value: True
+  # [IP: DROP, reason:4b] peer's reverse-IP lookup contained banned word
+  drop_dangerous_ip_reverse_lookup: True
+  # [IP: DROP, reason:4e] Peer's IP geolocation metadata contained banned keyword! Peer banned in generic fashion.
+  drop_ipgeo_metadata_containing_banned_keywords: True
+  # [IP: DROP, reason:5] HTTP request did not contain expected header
+  drop_malleable_without_expected_header: True
+  # [IP: DROP, reason:6] HTTP request did not contain expected header value:
+  drop_malleable_without_expected_header_value: True
+  # [IP: DROP, reason:7] HTTP request did not contain expected (metadata|id|output) section header:
+  drop_malleable_without_expected_request_section: True
+  # [IP: DROP, reason:8] HTTP request was expected to contain (metadata|id|output) section with parameter in URI:
+  drop_malleable_without_request_section_in_uri: True
+  # [IP: DROP, reason:9] Did not found append pattern:
+  drop_malleable_without_prepend_pattern: True
+  # [IP: DROP, reason:10] Did not found append pattern:
+  drop_malleable_without_apppend_pattern: True
+  # [IP: DROP, reason:11] Requested URI does not aligns any of Malleable defined variants:
+  drop_malleable_unknown_uris: True
+  # [IP: DROP, reason:12] HTTP request was expected to contain <> section with URI-append containing prepend/append fragments
+  drop_malleable_with_invalid_uri_append: True
+
+
+#
+# If RedWarden validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
+#   "[IP: DROP, reason:6] HTTP request did not contain expected header value:"
+#
+# and senses some header is missing or was overwritten along the wire, the request will be dropped. We can relax this policy
+# a bit however, since there are situations in which Cache systems (such as Cloudflare) could tamper with our requests thus
+# breaking Malleable contracts. What we can do is to specify list of headers, that should be overwritten back to their values
+# defined in provided Malleable profile.
+#
+# So for example, if our profile expects:
+#   header "Accept-Encoding" "gzip, deflate";
+#
+# but we receive a request having following header set instead:
+#   Accept-Encoding: gzip
+#
+# Because it was tampered along the wire by some of the interim systems (such as web-proxies or caches), we can
+# detect that and set that header's value back to what was expected in Malleable profile.
+#
+# In order to protect Accept-Encoding header, as an example, the following configuration could be used:
+#   protect_these_headers_from_tampering:
+#     - Accept-Encoding
+#
+#
+# Default: <empty-list>
+#
+#protect_these_headers_from_tampering:
+#  - Accept-Encoding
+
+
+#
+# Malleable Redirector plugin can act as a basic oracle API responding to calls
+# containing full request contents with classification whether that request would be
+# blocked or passed along. The API may be used by custom payload droppers, HTML Smuggling
+# payloads or any other javascript-based landing pages.
+#
+# The way to invoke it is as follows:
+#   1. Issue a POST request to the RedWarden server with the below specified URI in path.
+#   2. Include following JSON in your POST request:
+#
+#   POST /malleable_redirector_hidden_api_endpoint
+#   Content-Type: application/json
+#
+#     {
+#         "peerIP" : "IP-of-connecting-Peer",
+#         "headers" : {
+#              "headerName1" : "headerValue1",
+#              ...
+#              "headerNameN" : "headerValueN",
+#         },
+#     }
+# 
+# If "peerIP" is empty (or was not given), RedWarden will try to extract peer's IP from HTTP 
+# headers such as (X-Forwarded-For, CF-Connecting-IP, X-Real-IP, etc.). If no IP will be present
+# in headers, an error will be returned.:
+#
+#     HTTP 404 Not Found
+#     {
+#         "error" : "number",
+#         "message" : "explanation"
+#     }
+#
+# RedWarden will take any non-empty field from a given JSON and evaluate it as it would do
+# under currently provided configuration and all the knowledge it possesses. 
+# The response will contain following JSON:
+#
+#    { 
+#        "action": "allow|drop",
+#        "peerIP" : "returned-peerIP",
+#        "ipgeo" : {ip-geo-metadata-extracted}
+#        "message": "explanation",
+#        "reason": "reason",
+#        "drop_type": "proxy|reset|redirect",
+#        "action_url": ["proxy-URL-1|redirect-URL-1", ..., "proxy-URL-N|redirect-URL-N"]
+#    }
+#
+# Availbale Allow/Drop reasons for this endpoint:
+#    ALLOW:
+#       - Reason: 99 - Peer IP and HTTP headers did not contain anything suspicious
+#       - Reason: 1  - peer's IP address is whitelisted
+#       - Reason: 2  - Peer's IP was added dynamically to a whitelist based on a number of allowed requests
+#    DROP:
+#       - Reason: 2 - HTTP header name contained banned word
+#       - Reason: 3 - HTTP header value contained banned word
+#       - Reason: 4a - Peer's IP address is blacklisted
+#       - Reason: 4b - Peer's reverse-IP lookup contained banned word
+#       - Reason: 4c - Peer's IP lookup organization field contained banned word
+#       - Reason: 4d - Peer's IP geolocation DID NOT met expected conditions
+#       - Reason: 4e - Peer's IP geolocation metadata contained banned keyword! Peer banned in generic fashion
+#
+# Sample curl to debug:
+#   $ curl -sD- --request POST --data "{\"headers\":{\"Accept\": \"*/*\", \"Sec-Fetch-Site\": \"same-origin\", \
+#        \"Sec-Fetch-Mode\": \"no-cors\", \"Sec-Fetch-Dest\": \"script\", \"Accept-Language\": \"en-US,en;q=0.9\", \
+#        \"Cookie\": \"__cfduid2=cHux014r17SG3v4gPUrZ0BZjDabMTY2eWDj1tuYdREBg\", \"User-Agent\": \
+#        \"Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko\"}}" \
+#        https://attacker.com/12345678-9abc-def0-1234-567890abcdef
+#
+# Default: Turned off / not available
+#
+#malleable_redirector_hidden_api_endpoint: /12345678-9abc-def0-1234-567890abcdef
 
 ```
 
-The parameters specified in command-line when an external config file was also used, will override settings from that file. 
 
-Sample usage with configuration file:
+### TODO:
 
-```
-$ python3 RedWarden.py --config example-config.yaml
-```
+- Implement support for JA3 signatures in both detection & blocking and impersonation to fake nginx/Apache2/custom setups.
+- Add some unique beacons tracking logic to offer flexilibity of refusing staging and communication processes at the proxy's own discretion
+- Introduce day of time constraint when offering redirection capabilities
+- Add Proxy authentication and authorization logic on CONNECT/relay.
+- Add Mobile users targeted redirection
+- Add configuration options to define custom HTTP headers to be injected, or ones to be removed
+- Add configuration options to require specifiec HTTP headers to be present in requests passing ProxyPass criteria.
 
+### Author
 
-## HTTPS interception
+Mariusz B. / mgeeky, '19-'21
+<mb@binary-offensive.com>
 
-HTTPS interception is being setup automatically, just in time during program's initialization phase. It consists of generation of private keys and a private CA certificate. However, if `openssl` cannot be located on a machine, one can turn off interception by specyfing:
-
-```
-$ python3 RedWarden.py -S
-```
-
-or in other means configure RedWarden.py to point it with proper SSL-related files. For more information please refer to the program's help. 
-
-Through the proxy, you can access http://RedWarden.test/ and install the CA certificate in the browsers.
-
-
-## Customization
-
-You can easily customize the proxy and modify the requests/responses or save something to the files.
-The `ProxyRequestHandler` class has 3 methods to override:
-
-* `request_handler`: called before accessing the upstream server
-* `response_handler`: called before responding to the client
-* `save_handler`: called after responding to the client with the exclusive lock, so you can safely write out to the terminal or the file system
-
-By default, only save_handler is implemented which outputs HTTP(S) headers and some useful data to the standard output.
-
-You can implement your own packets handling plugin by implementing `ProxyHandler` class with methods listed above. Then, you'll have to point the program at your plugin with `-p` option.
-
-
-
-## Known bugs
-
-- Generating SSL certificates on the fly as implemented in `ProxyRequestHandler.generate_ssl_certificate()` fails on Windows most likely due to openssl's error "__unable to write 'random state'__". This requires further investigation.

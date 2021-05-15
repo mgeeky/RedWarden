@@ -735,7 +735,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.response_reason = res.reason
         self.response_headers = res.headers
 
-        ka = 'no'
+        ka = 'no' if self.request.connection.no_keep_alive else 'yes'
+        
         if plugins.IProxyPlugin.proxy2_metadata_headers['keep_alive_this_connection'] in res.headers.keys():
             self.request.connection.no_keep_alive = False
             ka = 'yes'

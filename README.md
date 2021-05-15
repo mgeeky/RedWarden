@@ -420,6 +420,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 
 ### Author
 
+```
 Mariusz B. / mgeeky, '19-'21
 <mb@binary-offensive.com>
-
+```

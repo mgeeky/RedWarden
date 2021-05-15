@@ -9,17 +9,11 @@ from argparse import ArgumentParser
 ProxyOptionsDefaultValues = {
 }
 
-ImpliedOptions = {
-    'plugins' : set(['malleable_redirector',]),
-}
-
 ImpliedParams = {
     'plugin' : 'malleable_redirector',
 }
 
-
 def parse_options(opts, version):
-    opts.update(ImpliedOptions)
 
     global ProxyOptionsDefaultValues
     ProxyOptionsDefaultValues.update(opts)

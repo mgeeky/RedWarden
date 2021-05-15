@@ -11,6 +11,9 @@ This work combines many of those great ideas into a one, lightweight utility, mi
 Combining Malleable C2 profiles understanding, knowledge of bad IP addresses pool and a flexibility of easily adding new inspection and misrouting logic - resulted in having a crafty repellent for IR inspections. 
 
 
+![RedWarden](https://raw.githubusercontent.com/mgeeky/RedWarden/master/images/1.png)
+
+
 ### Abstract
 
 This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon inbound C2 HTTP requests selecting which packets to direct to the Teamserver and which to drop, similarly to the .htaccess file in Apache2's `mod_rewrite`.

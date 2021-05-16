@@ -74,6 +74,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         global logger
 
         self.options = options
+        self.origverbose = options['verbose']
         logger.options.update(options)
 
         self.plugins = pluginsloaded.get_plugins()
@@ -340,6 +341,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
+        self.options['verbose'] = origverbose
 
         self.response_status = 0
         self.response_reason = ''
@@ -433,6 +435,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         if peerIP in prev.keys():
                             if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:
                                 self.suppress_log_entry = True
+                                self.options['verbose'] = False
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])

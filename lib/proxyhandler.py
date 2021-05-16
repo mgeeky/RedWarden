@@ -345,7 +345,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
         self.options['verbose'] = self.origverbose
-        logger.options.update(self.options)
+        logger.options['verbose'] = self.options['verbose']
 
         self.response_status = 0
         self.response_reason = ''
@@ -469,7 +469,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
                     ), color = 'yellow')
 
-        logger.options.update(self.options)
+        logger.options['verbose'] = self.options['verbose']
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])

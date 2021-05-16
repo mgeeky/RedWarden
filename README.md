@@ -56,7 +56,7 @@ Invalid packets may be misrouted according to three strategies:
 
 This configuration is mandated in configuration file:
 
-```
+```yaml
 #
 # What to do with the request originating not conforming to Beacon, whitelisting or 
 # ProxyPass inclusive statements: 
@@ -98,7 +98,7 @@ bash $ sudo pip3 install -r requirements.txt
 
 The minimal RedWarden's **config.yaml** configuration file could contain:
 
-```
+```yaml
 port:
   - 80/http
   - 443/https
@@ -116,7 +116,7 @@ drop_action: reset
 
 Then, the program can be launched by giving it a path to the config file:
 
-```
+```bash
 bash$ sudo python3 RedWarden.py -c config.yaml
 
   [INFO] 19:21:42: Loading 1 plugin...
@@ -171,7 +171,7 @@ Your Pre-Phish/OSINT results indicate that:
 
 You can use RedWarden's utility `lib/ipLookupHelper.py` to collect IP Geo metadata about these two addresses:
 
-```
+```bash
 bash$ python3 ipLookupHelper.py
 
 Usage: ./ipLookupHelper.py <ipaddress> [malleable-redirector-config]
@@ -182,7 +182,8 @@ IP address. If second param is not given - no
 ```
 
 The former brings:
-```
+
+```bash
 bash$ python3 ipLookupHelper.py 89.64.64.150
 [dbg] Following IP Lookup providers will be used: ['ip_api_com', 'ipapi_co']
 [.] Lookup of: 89.64.64.150
@@ -224,7 +225,8 @@ bash$ python3 ipLookupHelper.py 89.64.64.150
 ```
 
 and the latter gives:
-```
+
+```bash
 bash$ python3 ipLookupHelper.py 59.99.140.76
 [dbg] Following IP Lookup providers will be used: ['ip_api_com', 'ipapi_co']
 [dbg] Read 1 cached entries from file.
@@ -267,7 +269,7 @@ bash$ python3 ipLookupHelper.py 59.99.140.76
 
 Now you see that the former one had `"country": "Poland"` whereas the latter `"country": "India"`. With that knowledge we are ready to devise our constraints in form of a hefty YAML dictionary:
 
-```
+```yaml
 ip_geolocation_requirements:
   organization:
   continent:
@@ -324,7 +326,7 @@ You see this `Accept-Encoding`? Every Beacon request has to come up with that He
 
 By setting this header in RedWarden configuration section dubbed `protect_these_headers_from_tampering` you can safe your connection.:
 
-```
+```yaml
 #
 # If RedWarden validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
 #   "[IP: DROP, reason:6] HTTP request did not contain expected header value:"
@@ -386,7 +388,8 @@ Should the request fail any of the checks RedWarden carries on each request, the
 There are plenty of reasons dictating whether request can be dropped. Each of these checks can be independently turned on and off according to requirements or in a process of fine-tuning or erroneus decision fixing:
 
 Excerpt from `example-config.yaml`:
-```
+
+```yaml
 #
 # Fine-grained requests dropping policy - lets you decide which checks
 # you want to have enforced and which to skip by setting them to False

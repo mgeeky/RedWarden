@@ -16,7 +16,7 @@ Combining Malleable C2 profiles understanding, knowledge of bad IP addresses poo
 Should any invalid inbound packet reach RedWarden - you can `redirect`, `reset` or just `proxy` it away!
 
 
-### Abstract
+## Abstract
 
 This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon inbound C2 HTTP requests selecting which packets to direct to the Teamserver and which to drop, similarly to the .htaccess file in Apache2's `mod_rewrite`.
 
@@ -72,6 +72,7 @@ drop_action: redirect
 
 Use wisely, stay safe.
 
+## Use Cases
 
 ### Impose IP Geolocation on your Beacon traffic originators
 
@@ -271,6 +272,7 @@ protect_these_headers_from_tampering:
   - Accept-Encoding
 ```
 
+## Usage
 
 ### Example usage
 
@@ -416,7 +418,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 - ProxyPass processing logic is far from perfect and is _really_ buggy (and oh boy its ugly!).
 - Weird forms of configuration files can derail RedWarden parser and make it complain. Easiest approach to overcome this would be to copy `example-config.yaml` on work on it instead.
 
-### TODO
+## TODO
 
 - Implement support for JA3 signatures in both detection & blocking and impersonation to fake nginx/Apache2/custom setups.
 - Add some unique beacons tracking logic to offer flexilibity of refusing staging and communication processes at the proxy's own discretion
@@ -426,7 +428,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 - Add configuration options to define custom HTTP headers to be injected, or ones to be removed
 - Add configuration options to require specific HTTP headers to be present in requests passing ProxyPass criteria.
 
-### Author
+## Author
 
 ```
 Mariusz B. / mgeeky, '19-'21

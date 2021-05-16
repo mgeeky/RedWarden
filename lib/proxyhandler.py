@@ -464,9 +464,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
                     ), color = 'yellow')
 
-        if not self.request.suppress_log_entry:
-            self.logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
-
+        self.logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
         self.save_handler(self.request, self.request.body, None, None)
 
         try:
@@ -807,8 +805,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.request.connection.no_keep_alive = False
             ka = 'yes'
 
-        if not self.request.suppress_log_entry:
-            self.logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
+        self.logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
 
         self._set_status(res.status, res.reason)
 

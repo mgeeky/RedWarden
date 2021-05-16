@@ -357,7 +357,7 @@ class ProxyPlugin(IProxyPlugin):
         'remove_superfluous_headers': True,
         'ip_details_api_keys': {},
         'ip_geolocation_requirements': {},
-        
+
         'throttle_down_peer_logging' : {
             'log_request_delay': 30,
             'requests_threshold': 5
@@ -764,26 +764,11 @@ class ProxyPlugin(IProxyPlugin):
                 #self.logger.info(' (Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='magenta')
             ret = False
 
-        if 'throttle_down_peer_logging' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer_logging']) > 0:
-            with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
-                if 'peers' not in mydict.keys():
-                    mydict['peers'] = {}
-
-                if peerIP in mydict['peers'].keys():
-                    last = mydict['peers'][peerIP]['last']
-                    cur = time.time()
-
-                    prev = mydict.get('peers', {})
-
-                    if prev[peerIP]['count'] > self.proxyOptions['throttle_down_peer_logging']['requests_threshold']:
-                        logit = False
-
-        if logit or self.proxyOptions['debug']:
-            self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
-                color=col, 
-                forced = True,
-                noprefix = True
-            )
+        self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
+            color=col, 
+            forced = True,
+            noprefix = True
+        )
         return ret
 
     @staticmethod

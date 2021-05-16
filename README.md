@@ -70,6 +70,11 @@ This configuration is mandated in configuration file:
 drop_action: redirect
 ```
 
+Below example shows outcome of `redirect` to `https://googole.com`:
+
+![redirect](images/3.png)
+
+
 Use wisely, stay safe.
 
 ### Requirements

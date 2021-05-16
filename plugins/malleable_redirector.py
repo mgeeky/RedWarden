@@ -806,7 +806,8 @@ class ProxyPlugin(IProxyPlugin):
 
         return req
 
-    def get_peer_ip(self, req):
+    @staticmethod
+    def get_peer_ip(req):
         regexes = {
             'first-ip' : r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})',
             'forwarded-ip' : r'for=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})',
@@ -1001,7 +1002,7 @@ class ProxyPlugin(IProxyPlugin):
         self.res = None
         self.res_body = None
 
-        peerIP = self.get_peer_ip(req)
+        peerIP = ProxyPlugin.get_peer_ip(req)
 
         drop_request = False
         newhost = ''
@@ -1607,7 +1608,7 @@ The document has moved
 
 
     def drop_check(self, req, req_body, malleable_meta):
-        peerIP = self.get_peer_ip(req)
+        peerIP = ProxyPlugin.get_peer_ip(req)
         ts = datetime.now().strftime('%Y-%m-%d/%H:%M:%S')
         userAgentValue = req.headers.get('User-Agent')
 
@@ -1953,7 +1954,7 @@ The document has moved
                 if not ('peerIP' in bodyJson.keys() and len(bodyJson['peerIP']) > 0):
                     if 'headers' in bodyJson.keys() and len(bodyJson['headers']) > 0:
                         ProxyPlugin.get_mock_req('0.0.0.0', req.method, req.uri, bodyJson['headers'])
-                        bodyJson['peerIP'] = self.get_peer_ip(req)
+                        bodyJson['peerIP'] = ProxyPlugin.get_peer_ip(req)
                         bodyValid = True
                 else:
                     bodyValid = True

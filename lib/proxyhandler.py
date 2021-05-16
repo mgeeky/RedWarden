@@ -426,6 +426,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         if 'throttle_down_peer' in self.options.keys() and len(self.options['throttle_down_peer']) > 0:
             with SqliteDict(plugins.malleable_redirector.ProxyPlugin.DynamicWhitelistFile) as mydict:
                 if 'peers' in mydict.keys():
+                    peerIP = plugins.malleable_redirector.ProxyPlugin.get_peer_ip(self)
+                    
                     if peerIP in mydict['peers'].keys():
                         prev = mydict.get('peers', {})
                         if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:

@@ -75,7 +75,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         self.options = options
         self.origverbose = options['verbose']
-        logger.options.update(options)
+        logger.options.update(self.options)
 
         self.plugins = pluginsloaded.get_plugins()
         self.server_address, self.all_server_addresses = ProxyRequestHandler.get_ip()
@@ -344,7 +344,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
-        self.options['verbose'] = logger.options['verbose'] = self.origverbose
+        self.options['verbose'] = self.origverbose
+        logger.options.update(self.options)
 
         self.response_status = 0
         self.response_reason = ''
@@ -454,13 +455,15 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     if int(elapsed) > int(self.options['throttle_down_peer']['log_request_delay']):
                         prev[peerIP]['count'] = 1
                         self.suppress_log_entry = False
-                        self.options['verbose'] = logger.options['verbose'] = self.origverbose
+                        self.options['verbose'] = self.origverbose
 
                     if prev[peerIP]['count'] <= self.options['throttle_down_peer']['requests_threshold']:
                         prev[peerIP]['last'] = time.time()
                     else:
                         self.suppress_log_entry = True
-                        self.options['verbose'] = logger.options['verbose'] = False
+                        self.options['verbose'] = False
+
+                    logger.options.update(self.options)
 
                 mydict['peers'] = prev
 

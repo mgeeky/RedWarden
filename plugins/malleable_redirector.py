@@ -1061,8 +1061,8 @@ class ProxyPlugin(IProxyPlugin):
                         'last': 0,
                         'count': 0,
                     }
-                    mydict.commit()
 
+            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 mydict['peers'][key]['last'] = datetime.now().timestamp()
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \

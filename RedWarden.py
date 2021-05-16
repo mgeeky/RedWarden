@@ -151,7 +151,7 @@ def main():
     try:
         (options, logger) = init(options, VERSION)
 
-        print(r'''
+        logger.info(r'''
 
     ____           ___       __               __         
    / __ \___  ____/ / |     / /___ __________/ /__  ____ 

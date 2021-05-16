@@ -1066,14 +1066,14 @@ class ProxyPlugin(IProxyPlugin):
                         'count': 0
                     }
 
-                last = prev['last']
-                prev['last'] = time.time()
+                last = prev[peerIP]['last']
+                prev[peerIP]['last'] = time.time()
                 mydict['peers'] = prev
 
                 elapsed = time.time() - last
 
                 self.logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
-                        peerIP, prev['past'], elapsed, prev['count']
+                        peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
                     ), color = 'yellow')
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \

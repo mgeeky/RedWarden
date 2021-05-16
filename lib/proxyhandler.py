@@ -71,11 +71,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
     def __init__(self, *args, **kwargs):
         global pluginsloaded
-        global logger
 
+        self.logger = logger
         self.options = options
         self.origverbose = options['verbose']
-        logger.options.update(self.options)
+        self.logger.options.update(self.options)
 
         self.plugins = pluginsloaded.get_plugins()
         self.server_address, self.all_server_addresses = ProxyRequestHandler.get_ip()
@@ -123,7 +123,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                   self.log_date_time_string(),
                   format%args)
 
-            logger.out(txt, self.options['log'], '')
+            self.logger.out(txt, self.options['log'], '')
 
     def log_error(self, format, *args):
         # Surpress "Request timed out: timeout('timed out',)" if not in debug mode.
@@ -137,7 +137,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
     def connectMethod(self):
         if options['no_proxy']: return
-        logger.dbg(str(sslintercept))
+        self.logger.dbg(str(sslintercept))
         if sslintercept.status:
             self.connect_intercept()
         else:
@@ -169,7 +169,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         stdout = stderr = ''
 
         if not os.path.isfile(certpath):
-            logger.dbg('Generating valid SSL certificate for ({})...'.format(hostname))
+            self.logger.dbg('Generating valid SSL certificate for ({})...'.format(hostname))
             epoch = "%d" % (time.time() * 1000)
 
             # Workaround for the Windows' RANDFILE bug
@@ -185,18 +185,18 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 (stdout, stderr) = p2.communicate()
 
             except FileNotFoundError as e:
-                logger.err("Can't serve HTTPS traffic because there is no 'openssl' tool installed on the system!")
+                self.logger.err("Can't serve HTTPS traffic because there is no 'openssl' tool installed on the system!")
                 return ''
 
         else:
-            #logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+            #self.logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
             pass
 
         if not certpath or not os.path.isfile(certpath):
             if stdout or stderr:
-                logger.err('Openssl x509 crt request failed:\n{}'.format((stdout + stderr).decode()))
+                self.logger.err('Openssl x509 crt request failed:\n{}'.format((stdout + stderr).decode()))
 
-            logger.fatal('Could not create interception Certificate: "{}"'.format(certpath))
+            self.logger.fatal('Could not create interception Certificate: "{}"'.format(certpath))
             return ''
 
         return certpath
@@ -205,7 +205,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         hostname = self.request.uri.split(':')[0]
         certpath = ''
 
-        logger.dbg('CONNECT intercepted: "%s"' % self.request.uri)
+        self.logger.dbg('CONNECT intercepted: "%s"' % self.request.uri)
 
         certpath = ProxyRequestHandler.generate_ssl_certificate(hostname)
         if not certpath:
@@ -221,7 +221,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 server_side=True
             ))
         except:
-            logger.err('Connection reset by peer: "{}"'.format(self.request.uri))
+            self.logger.err('Connection reset by peer: "{}"'.format(self.request.uri))
             self._send_error(502)
             return
 
@@ -236,12 +236,12 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         address = self.request.uri.split(':', 1)
         address[1] = int(address[1]) or 443
 
-        logger.dbg('CONNECT relaying: "%s"' % self.request.uri)
+        self.logger.dbg('CONNECT relaying: "%s"' % self.request.uri)
 
         try:
             s = socket.create_connection(address, timeout=self.options['timeout'])
         except Exception as e:
-            logger.err("Could not relay connection: ({})".format(str(e)))
+            self.logger.err("Could not relay connection: ({})".format(str(e)))
             self._send_error(502)
             return
 
@@ -263,7 +263,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 other.sendall(data)
 
     def reverse_proxy_loop_detected(self, command, fetchurl, req_body):
-        logger.err('[Reverse-proxy loop detected from peer {}] {} {}'.format(
+        self.logger.err('[Reverse-proxy loop detected from peer {}] {} {}'.format(
             self.client_address[0], command, fetchurl
         ))
 
@@ -329,8 +329,6 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             print(line)
 
     def _internal_my_handle_request(self, *args, **kwargs):
-        global logger
-
         handler = self._my_handle_request
         if self.request.method.lower() == 'connect':
             handler = self.connectMethod
@@ -345,7 +343,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
         self.options['verbose'] = self.origverbose
-        logger.options['verbose'] = self.options['verbose']
+        self.logger.options['verbose'] = self.options['verbose']
 
         self.response_status = 0
         self.response_reason = ''
@@ -400,10 +398,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.request.connection.stream.close()
 
     def _my_handle_request(self):
-        global logger
-
         if self.request.uri == self.options['proxy_self_url']:
-            logger.dbg('Sending CA certificate.')
+            self.logger.dbg('Sending CA certificate.')
             self.send_cacert()
             return
 
@@ -413,7 +409,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         content_length = int(self.request.headers.get('Content-Length', 0))
         if not self.options['allow_invalid']:
             if not ProxyRequestHandler.isValidRequest(self.request, self.request.body):
-                logger.dbg('[DROP] Invalid HTTP request from: {}'.format(self.client_address[0]))
+                self.logger.dbg('[DROP] Invalid HTTP request from: {}'.format(self.client_address[0]))
                 return
 
         req_body_modified = ""
@@ -465,14 +461,14 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                 mydict['peers'] = prev
 
-                logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
+                self.logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
                         peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
                     ), color = 'yellow')
 
-        logger.options['verbose'] = self.options['verbose']
+        self.logger.options['verbose'] = self.options['verbose']
 
         if not self.suppress_log_entry:
-            logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
+            self.logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=Proxyself.logger.colors_map['green'])
 
         self.save_handler(self.request, self.request.body, None, None)
 
@@ -496,14 +492,14 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
             parsed = urlparse(newuri)
             if parsed.netloc != inbound_origin and parsed.netloc != None and len(parsed.netloc) > 1:
-                logger.info('Plugin redirected request from [{}] to [{}]'.format(inbound_origin, parsed.netloc))
+                self.logger.info('Plugin redirected request from [{}] to [{}]'.format(inbound_origin, parsed.netloc))
                 outbound_origin = parsed.netloc
                 originChanged = True
                 #newuri = (parsed.path + '?' + parsed.query if parsed.query else parsed.path)
 
         except Exception as e:
             if 'DropConnectionException' in str(e):
-                logger.err("Plugin demanded to drop the request: ({})".format(str(e)))
+                self.logger.err("Plugin demanded to drop the request: ({})".format(str(e)))
                 self.request.connection.no_keep_alive = True
                 return
 
@@ -516,7 +512,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 res = Response()
 
             else:
-                logger.err('Exception catched in request_handler: {}'.format(str(e)))
+                self.logger.err('Exception catched in request_handler: {}'.format(str(e)))
                 if options['debug']: 
                     raise
 
@@ -529,7 +525,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 req_path_full = "http://%s%s" % (self.request.headers['Host'], newuri)
 
         elif newuri.startswith('http://') or newuri.startswith('https://'):
-            logger.dbg(f"Plugin redirected request to a full URL: ({newuri})")
+            self.logger.dbg(f"Plugin redirected request to a full URL: ({newuri})")
             req_path_full = newuri
             parsed = urlparse(req_path_full)
             newpath = ''
@@ -603,7 +599,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 #if (ip == self.server_address or ip in self.all_server_addresses) or \
                 if (outbound_origin != '' and outbound_origin == inbound_origin) and \
                     (ip == self.server_address or ip in self.all_server_addresses):
-                    logger.dbg(f'About to catch reverse-proxy loop detection: outbound_origin: {outbound_origin}, ip: {ip}, server_address: {self.server_address}')
+                    self.logger.dbg(f'About to catch reverse-proxy loop detection: outbound_origin: {outbound_origin}, ip: {ip}, server_address: {self.server_address}')
                     return self.reverse_proxy_loop_detected(self.request.method, fetchurl, self.request.body)
 
                 reqhdrskeys = [x.lower() for x in self.request.headers.keys()]
@@ -614,7 +610,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                     o = self.request.headers['Host']
                     n = self.request.headers[plugins.IProxyPlugin.proxy2_metadata_headers['override_host_header']]
-                    logger.dbg(f'Plugin overidden host header: [{o}] => [{n}]')
+                    self.logger.dbg(f'Plugin overidden host header: [{o}] => [{n}]')
                     fetchurl = fetchurl.replace(o, n)
 
                     while 'Host' in self.request.headers.keys():
@@ -644,11 +640,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     if 'Host' in new_req_headers.keys():
                         del new_req_headers['Host']
 
-                    logger.dbg('Adjusting Host header for Domain-Fronting needs as requested by Plugin')
+                    self.logger.dbg('Adjusting Host header for Domain-Fronting needs as requested by Plugin')
                     new_req_headers['Host'] = self.request.headers[plugins.IProxyPlugin.proxy2_metadata_headers['domain_front_host_header']]
 
                 fetchurl = req_path_full.replace(netloc, outbound_origin)
-                logger.dbg('DEBUG REQUESTS: request("{}", "{}", "{}", ...'.format(
+                self.logger.dbg('DEBUG REQUESTS: request("{}", "{}", "{}", ...'.format(
                     self.request.method, fetchurl, req_body.decode(errors='ignore')[:30].strip()
                 ))
 
@@ -666,7 +662,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     )
 
                 except Exception as e:
-                    logger.err(f'COULD NOT FETCH RESPONSE FROM REMOTE AGENT: {e}')
+                    self.logger.err(f'COULD NOT FETCH RESPONSE FROM REMOTE AGENT: {e}')
                     
                     if self.options['debug']:
                         raise
@@ -680,7 +676,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 else:
                     res_body = myreq.content
 
-                logger.dbg("Response from reverse-proxy fetch came at {} bytes.".format(len(res_body)))
+                self.logger.dbg("Response from reverse-proxy fetch came at {} bytes.".format(len(res_body)))
 
                 if 'Content-Length' not in res.headers.keys() and len(res_body) != 0:
                     res.headers['Content-Length'] = str(len(res_body))
@@ -691,7 +687,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 if type(res_body) == str: res_body = str.encode(res_body)
 
             except requests.exceptions.ConnectionError as e:
-                logger.err("Exception occured while reverse-proxy fetching resource : URL({}).\nException: ({})".format(
+                self.logger.err("Exception occured while reverse-proxy fetching resource : URL({}).\nException: ({})".format(
                     fetchurl, str(e)
                 ))
    
@@ -706,7 +702,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 return
 
             except Exception as e:
-                logger.err("Could not proxy request: ({})".format(str(e)))
+                self.logger.err("Could not proxy request: ({})".format(str(e)))
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
 
@@ -729,7 +725,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             res_body_plain = self.decode_content_body(res_body, content_encoding)
 
         else:
-            logger.dbg("Response deliberately not fetched as for plugin's request.")
+            self.logger.dbg("Response deliberately not fetched as for plugin's request.")
 
         self.request.uri = origuri
 
@@ -744,7 +740,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             modified |= (newuri != origuri)
 
         if modified: 
-            logger.dbg('Plugin has modified the response body. Using it instead')
+            self.logger.dbg('Plugin has modified the response body. Using it instead')
             res_body_plain = res_body_modified
             res_body = self.encode_content_body(res_body_plain, content_encoding)
 
@@ -755,7 +751,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 res.headers['Content-Length'] = str(len(res_body))
                 self.response_length = len(res_body)
             except Exception as e:
-                logger.dbg("Could not set proper Content-Length as running len on res_body failed")
+                self.logger.dbg("Could not set proper Content-Length as running len on res_body failed")
 
         if 'Transfer-Encoding' in res.headers.keys() and \
             res.headers['Transfer-Encoding'] == 'chunked':
@@ -767,8 +763,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             override_resp_enc = plugins.IProxyPlugin.proxy2_metadata_headers['override_response_content_encoding'] 
 
             if override_resp_enc in res.headers.keys():
-                logger.dbg('Plugin asked to override response content encoding without changing header\'s value.')
-                logger.dbg('Yielding content in {} whereas header pointing at: {}'.format(
+                self.logger.dbg('Plugin asked to override response content encoding without changing header\'s value.')
+                self.logger.dbg('Yielding content in {} whereas header pointing at: {}'.format(
                    res.headers[override_resp_enc], self.request.headers['Accept-Encoding']))
                 enc = res.headers[override_resp_enc]
                 del res.headers[override_resp_enc]
@@ -783,12 +779,12 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                             reencoded = True
                             break
                     if not reencoded:
-                        logger.err("Server returned response encoded in {} but client expected one of: {} - we couldn't handle any of these. The client will receive INCORRECTLY formatted response!".format(
+                        self.logger.err("Server returned response encoded in {} but client expected one of: {} - we couldn't handle any of these. The client will receive INCORRECTLY formatted response!".format(
                                 res.headers.get('Content-Encoding', 'identity'),
                                 ','.join(encs)
                             ))
 
-            logger.dbg('Encoding response body to: {}'.format(encToUse))
+            self.logger.dbg('Encoding response body to: {}'.format(encToUse))
             res_body = self.encode_content_body(res_body, encToUse)
             reskeys = [x.lower() for x in res.headers.keys()]
             if 'content-length' in reskeys: del res.headers['Content-Length']
@@ -815,7 +811,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             ka = 'yes'
 
         if not self.suppress_log_entry:
-            logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
+            self.logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=Proxyself.logger.colors_map['yellow'])
 
         self._set_status(res.status, res.reason)
 
@@ -838,7 +834,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 self.save_handler(self.request, self.request.body, res, res_body_plain)
 
         except BrokenPipeError as e:
-            logger.err("Broken pipe. Client must have disconnected/timed-out.")
+            self.logger.err("Broken pipe. Client must have disconnected/timed-out.")
 
     @staticmethod
     def filter_headers(headers):
@@ -859,7 +855,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         return headers
 
     def encode_content_body(self, text, encoding):
-        logger.dbg('Encoding content to {}'.format(encoding))
+        self.logger.dbg('Encoding content to {}'.format(encoding))
         data = text
         if encoding == 'identity':
             pass
@@ -876,14 +872,14 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 data = brotli.compress(text)
             except Exception as e:
                 #raise Exception('Could not compress Brotli stream: "{}"'.format(str(e)))
-                logger.err('Could not compress Brotli stream: "{}"'.format(str(e)))
+                self.logger.err('Could not compress Brotli stream: "{}"'.format(str(e)))
         else:
             #raise Exception("Unknown Content-Encoding: %s" % encoding)
-            logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
+            self.logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
         return data
 
     def decode_content_body(self, data, encoding):
-        logger.dbg('Decoding content from {}'.format(encoding))
+        self.logger.dbg('Decoding content from {}'.format(encoding))
         text = data
         if encoding == 'identity':
             pass
@@ -905,10 +901,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 text = brotli.decompress(data)
             except Exception as e:
                 #raise Exception('Could not decompress Brotli stream: "{}"'.format(str(e)))
-                logger.err('Could not decompress Brotli stream: "{}"'.format(str(e)))
+                self.logger.err('Could not decompress Brotli stream: "{}"'.format(str(e)))
         else:
             #raise Exception("Unknown Content-Encoding: %s" % encoding)
-            logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
+            self.logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
         return text
 
     def send_cacert(self):
@@ -944,22 +940,22 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
             res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, reshdrs)
 
-        logger.trace("==== REQUEST ====\n%s" % req_header_text, color=ProxyLogger.colors_map['yellow'])
+        self.logger.trace("==== REQUEST ====\n%s" % req_header_text, color=Proxyself.logger.colors_map['yellow'])
 
         u = urlparse(req.uri)
         if u.query:
             query_text = _parse_qsl(u.query)
-            logger.trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, color=ProxyLogger.colors_map['green'])
+            self.logger.trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, color=Proxyself.logger.colors_map['green'])
 
         cookie = req.headers.get('Cookie', '')
         if cookie:
             cookie = _parse_qsl(re.sub(r';\s*', '&', cookie))
-            logger.trace("==== COOKIES ====\n%s\n" % cookie, color=ProxyLogger.colors_map['green'])
+            self.logger.trace("==== COOKIES ====\n%s\n" % cookie, color=Proxyself.logger.colors_map['green'])
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
             token = auth.split()[1].decode('base64')
-            logger.trace("==== BASIC AUTH ====\n%s\n" % token, color=ProxyLogger.colors_map['red'])
+            self.logger.trace("==== BASIC AUTH ====\n%s\n" % token, color=Proxyself.logger.colors_map['red'])
 
         if req_body is not None:
             req_body_text = None
@@ -982,17 +978,17 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text.strip(), color=ProxyLogger.colors_map['white'])
+                self.logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text.strip(), color=Proxyself.logger.colors_map['white'])
 
         if res is not None:
-            logger.trace("\n==== RESPONSE ====\n%s" % res_header_text, color=ProxyLogger.colors_map['cyan'])
+            self.logger.trace("\n==== RESPONSE ====\n%s" % res_header_text, color=Proxyself.logger.colors_map['cyan'])
 
             cookies = res.headers.get('Set-Cookie')
             if cookies:
                 if type(cookies) == list or type(cookies) == tuple:
                     cookies = '\n'.join(cookies)
 
-                logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
+                self.logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=Proxyself.logger.colors_map['yellow'])
 
         if res_body is not None:
             res_body_text = res_body
@@ -1013,7 +1009,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 if type(res_body) == str: res_body = str.encode(res_body)
                 m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body.decode(errors='ignore'), re.I)
                 if m:
-                    logger.trace("==== HTML TITLE ====\n%s\n" % html.unescape(m.group(1)), color=ProxyLogger.colors_map['cyan'])
+                    self.logger.trace("==== HTML TITLE ====\n%s\n" % html.unescape(m.group(1)), color=Proxyself.logger.colors_map['cyan'])
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 res_body_text = res_body
 
@@ -1040,7 +1036,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     else:
                         res_body_text2 = hexdump(list(res_body_text))
 
-                logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text2, color=ProxyLogger.colors_map['green'])
+                self.logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text2, color=Proxyself.logger.colors_map['green'])
 
     def request_handler(self, req, req_body):
         altered = False
@@ -1050,7 +1046,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'request_handler')
-                #logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
+                #self.logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
                 origheaders = dict(req.headers).copy()
 
                 instance.logger = logger
@@ -1063,17 +1059,17 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         altered = True
 
                     elif origheaders[k] != req.headers[k]:
-                        #logger.dbg('Plugin modified request header: "{}", from: "{}" to: "{}"'.format(
+                        #self.logger.dbg('Plugin modified request header: "{}", from: "{}" to: "{}"'.format(
                         #    k, origheaders[k], req.headers[k]))
                         altered = True
 
             except AttributeError as e:
                 if 'object has no attribute' in str(e):
-                    logger.dbg('Plugin "{}" does not implement `request_handler\''.format(plugin_name))
+                    self.logger.dbg('Plugin "{}" does not implement `request_handler\''.format(plugin_name))
                     if options['debug']:
                         raise
                 else:
-                    logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
+                    self.logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
                     if options['debug']:
                         raise
 
@@ -1087,7 +1083,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             instance = self.plugins[plugin_name]
             try:
                 handler = getattr(instance, 'response_handler')
-                #logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
+                #self.logger.dbg("Calling `response_handler' from plugin %s" % plugin_name)
                 origheaders = {}
                 try:
                     origheaders = res.headers.copy()
@@ -1099,22 +1095,22 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 altered = (res_body_current != res_body)
                 for k, v in origheaders.items():
                     if origheaders[k] != res.headers[k]:
-                        #logger.dbg('Plugin modified response header: "{}", from: "{}" to: "{}"'.format(
+                        #self.logger.dbg('Plugin modified response header: "{}", from: "{}" to: "{}"'.format(
                         #    k, origheaders[k], res.headers[k]))
                         altered = True
 
                 if len(origheaders.keys()) != len(res.headers.keys()):
-                    #logger.dbg('Plugin modified response headers.')
+                    #self.logger.dbg('Plugin modified response headers.')
                     altered = True
 
                 if altered:
-                    logger.dbg('Plugin has altered the response.')
+                    self.logger.dbg('Plugin has altered the response.')
             except AttributeError as e:
                 raise
                 if 'object has no attribute' in str(e):
-                    logger.dbg('Plugin "{}" does not implement `response_handler\''.format(plugin_name))
+                    self.logger.dbg('Plugin "{}" does not implement `response_handler\''.format(plugin_name))
                 else:
-                    logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
+                    self.logger.err("Plugin {} has thrown an exception: '{}'".format(plugin_name, str(e)))
                     if options['debug']:
                         raise
 
@@ -1169,9 +1165,9 @@ def init(opts, VERSION):
 
     if options['log'] and options['log'] != None and options['log'] != sys.stdout:
         if options['tee']:
-            logger.info("Teeing stdout output to {} log file.".format(options['log']))
+            self.logger.info("Teeing stdout output to {} log file.".format(options['log']))
         else:
-            logger.info("Writing output to {} log file.".format(options['log']))
+            self.logger.info("Writing output to {} log file.".format(options['log']))
 
     monkeypatching(logger)
 

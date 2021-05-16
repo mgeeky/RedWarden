@@ -360,7 +360,7 @@ class ProxyPlugin(IProxyPlugin):
 
         'throttle_down_peer_logging' : {
             'log_request_delay': 60,
-            'requests_threshold': 5
+            'requests_threshold': 3
         },
 
         'add_peers_to_whitelist_if_they_sent_valid_requests' : {

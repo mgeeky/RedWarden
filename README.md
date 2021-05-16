@@ -4,6 +4,8 @@
 
 **Let's raise the bar in C2 redirectors IR resiliency, shall we?**
 
+![RedWarden](images/0.png)
+
 Red Teaming business has seen [several](https://bluescreenofjeff.com/2016-04-12-combatting-incident-responders-with-apache-mod_rewrite/) [different](https://posts.specterops.io/automating-apache-mod-rewrite-and-cobalt-strike-malleable-c2-profiles-d45266ca642) [great](https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10) ideas on how to combat incident responders and misdirect them while offering resistant C2 redirectors network at the same time.  
 
 This work combines many of those great ideas into a one, lightweight utility, mimicking Apache2 in it's roots of being a simple HTTP(S) reverse-proxy. 
@@ -433,7 +435,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 
 ## Known Issues
 
-- It _may_ add extra overhead to the interactive sleep speeds, effectively slowing down socks proxying
+- It _may_ add a slight overhead to the interactive sleep throughput
 - ProxyPass processing logic is far from perfect and is _really_ buggy (and oh boy its ugly!).
 - Weird forms of configuration files can derail RedWarden parser and make it complain. Easiest approach to overcome this would be to copy `example-config.yaml` on work on it instead.
 

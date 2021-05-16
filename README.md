@@ -18,9 +18,9 @@ Should any invalid inbound packet reach RedWarden - you can `redirect`, `reset` 
 
 ## Abstract
 
-This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon inbound C2 HTTP requests selecting which packets to direct to the Teamserver and which to drop, similarly to the .htaccess file in Apache2's `mod_rewrite`.
+This program acts as a HTTP/HTTPS reverse-proxy with several restrictions imposed upon inbound C2 HTTP requests selecting which packets to direct to the Teamserver and which to drop, similarly to the .htaccess file restrictions mandated in Apache2's `mod_rewrite`.
 
-`RedWarden` was created to resolve the problem of effective IR/AV/EDRs/Sandboxes evasion on the C2 redirector's layer. It's intended to supersede classical Apache2 + mod_rewrite or alike setups used for redirectors.
+`RedWarden` was created to solve the problem of IR/AV/EDRs/Sandboxes evasion on the C2 redirector layer. It's intended to supersede classical Apache2 + mod_rewrite setups used for that purpose.
 
 **Features:**
 
@@ -36,9 +36,9 @@ This program acts as a HTTP/HTTPS reverse-proxy with several restrictions impose
 - Can repair HTTP packets according to expected malleable contract in case some of the headers were corrupted in traffic
 - Sleepless nights spent on troubleshooting "why my Beacon doesn't work over CloudFlare/CDN/Domain Fronting" are over now thanks to detailed verbose HTTP(S) requests/responses logs
 
-The RedWarden acts as a CobaltStrike Teamserver C2 redirector, given Malleable C2 profile used during the campaign and teamserver's `hostname:port`. It will parse supplied malleable profile in order to understand which inbound requests may possibly come from the compatible Beacons and differentiate them from the ones that are not compliant and thus should be misdirected. 
+The RedWarden takes Malleable C2 profile and teamserver's `hostname:port` on its input. It then parses supplied malleable profile sections to understand the contract and pass through only those inbound requests that satisfied it while misdirecting others. 
 
-Sections such as `http-stager`, `http-get`, `http-post` and their corresponding uris, headers, prepend/append patterns, User-Agent are all used to distinguish between legitimate beacon's request and some Internet noise or IR/AV/EDRs out of bound inquiries. 
+Sections such as `http-stager`, `http-get`, `http-post` and their corresponding uris, headers, prepend/append patterns, User-Agent are all used to distinguish between legitimate beacon's request and unrelated Internet noise or IR/AV/EDRs out of bound packets. 
 
 The program benefits from the marvelous known bad IP ranges coming from:
   curi0usJack and the others:

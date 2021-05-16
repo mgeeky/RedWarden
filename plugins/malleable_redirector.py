@@ -765,6 +765,7 @@ class ProxyPlugin(IProxyPlugin):
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
+                    mydict.commit()
 
                 if peerIP in mydict['peers'].keys():
                     last = mydict['peers'][peerIP]['last']
@@ -774,6 +775,8 @@ class ProxyPlugin(IProxyPlugin):
                         mydict['peers'][peerIP]['count'] += 1
                     else:
                         mydict['peers'][peerIP]['count'] = 0
+
+                    mydict.commit()
 
                     if mydict['peers'][peerIP]['count'] > self.proxyOptions['throttle_down_peer']['requests_threshold']:
                         logit = False
@@ -1051,12 +1054,14 @@ class ProxyPlugin(IProxyPlugin):
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
+                    mydict.commit()
                     
                 if key not in mydict['peers'].keys():
                     mydict['peers'][key] = {
                         'last': 0,
                         'count': 0,
                     }
+                    mydict.commit()
 
                 mydict['peers'][key]['last'] = datetime.now().timestamp()
 

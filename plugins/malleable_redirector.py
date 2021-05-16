@@ -391,6 +391,7 @@ class ProxyPlugin(IProxyPlugin):
         self.proxyOptions = proxyOptions
         self.malleable = None
         self.ipLookupHelper = None
+        self.origverbose = proxyOptions['verbose']
         self.ipGeolocationDeterminer = None
 
         self.banned_ips = {}
@@ -994,6 +995,8 @@ class ProxyPlugin(IProxyPlugin):
         self.res = None
         self.res_body = None
 
+        self.logger.options['verbose'] = self.origverbose if not req.suppress_log_entry else False
+
         peerIP = ProxyPlugin.get_peer_ip(req)
 
         drop_request = False
@@ -1088,6 +1091,8 @@ class ProxyPlugin(IProxyPlugin):
         self.req_body = req_body
         self.res = res
         self.res_body = res_body
+
+        self.logger.options['verbose'] = self.origverbose if not req.suppress_log_entry else False
 
         host_action = -1
         newhost = ''

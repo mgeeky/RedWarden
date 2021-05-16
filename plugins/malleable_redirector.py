@@ -751,7 +751,9 @@ class ProxyPlugin(IProxyPlugin):
     def report(self, ret, ts = '', peerIP = '', path = '', userAgentValue = ''):
         prefix = 'ALLOW'
         col = 'green'
-        logit = True
+
+        if self.res != None:
+            return ret
 
         if ret: 
             prefix = 'DROP'

@@ -429,18 +429,42 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         if 'Host' not in self.request.headers.keys():
             self.request.headers['Host'] = self.request.host
 
-        if 'throttle_down_peer' in self.options.keys() and len(self.options['throttle_down_peer']) > 0:
-            with SqliteDict(plugins.malleable_redirector.ProxyPlugin.DynamicWhitelistFile) as mydict:
-                if 'peers' in mydict.keys():
-                    peerIP = plugins.malleable_redirector.ProxyPlugin.get_peer_ip(self.request)
+        if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
+            with SqliteDict(plugins.malleable_redirector.ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
+                if 'peers' not in mydict.keys():
+                    mydict['peers'] = {}
+                    
+                prev = mydict.get('peers', {})
+                peerIP = plugins.malleable_redirector.ProxyPlugin.get_peer_ip(self.request)
 
-                    if peerIP in mydict['peers'].keys():
-                        prev = mydict.get('peers', {})
+                if peerIP not in mydict.get('peers', {}):
+                    prev[peerIP] = {
+                        'last': time.time(),
+                        'count': 0
+                    }
 
-                        if peerIP in prev.keys():
-                            if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:
-                                self.suppress_log_entry = True
-                                self.options['verbose'] = logger.options['verbose'] = False
+                else:
+                    last = prev[peerIP]['last']
+                    elapsed = time.time() - last
+
+                    if elapsed < 0: elapsed = 0
+                    prev[peerIP]['count'] += 1
+                    
+                    if int(elapsed) > int(self.proxyOptions['throttle_down_peer']['log_request_delay']):
+                        prev[peerIP]['count'] = 0
+
+                    if prev[peerIP]['count'] < self.proxyOptions['throttle_down_peer']['requests_threshold']:
+                        pass
+                    else:
+                        self.suppress_log_entry = True
+                        self.options['verbose'] = logger.options['verbose'] = False
+                        prev[peerIP]['last'] = time.time()
+
+                mydict['peers'] = prev
+
+                logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
+                        peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
+                    ), color = 'yellow')
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])

@@ -1046,37 +1046,6 @@ class ProxyPlugin(IProxyPlugin):
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 mydict[self.computeRequestHash(req, req_body)] = 1
 
-        if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
-            with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
-                if 'peers' not in mydict.keys():
-                    mydict['peers'] = {}
-                    
-                prev = mydict.get('peers', {})
-
-                if peerIP not in mydict.get('peers', {}):
-                    prev[peerIP] = {
-                        'last': time.time(),
-                        'count': 0
-                    }
-
-                last = prev[peerIP]['last']
-                elapsed = time.time() - last
-
-                if elapsed < 0: elapsed = 0
-                prev[peerIP]['count'] += 1
-                
-                if int(elapsed) > int(self.proxyOptions['throttle_down_peer']['log_request_delay']):
-                    prev[peerIP]['count'] = 0
-
-                if prev[peerIP]['count'] < self.proxyOptions['throttle_down_peer']['requests_threshold']:
-                    prev[peerIP]['last'] = time.time()
-
-                mydict['peers'] = prev
-
-                self.logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
-                        peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
-                    ), color = 'yellow')
-
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
             len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0 and \
             len(malleable_meta['section']) > 0 and malleable_meta['section'] in MalleableParser.ProtocolTransactions:

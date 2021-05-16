@@ -334,7 +334,7 @@ class ProxyPlugin(IProxyPlugin):
         pass
 
     RequestsHashesDatabaseFile = '.anti-replay.sqlite'
-    DynamicWhitelistFile = '.dynamic-whitelist.sqlite'
+    DynamicWhitelistFile = '.peers.sqlite'
 
     DefaultRedirectorConfig = {
         'profile' : '',
@@ -356,6 +356,10 @@ class ProxyPlugin(IProxyPlugin):
         'remove_superfluous_headers': True,
         'ip_details_api_keys': {},
         'ip_geolocation_requirements': {},
+        'throttle_down_peer' : {
+            'log_request_delay': 30,
+            'requests_threshold': 5
+        },
         'add_peers_to_whitelist_if_they_sent_valid_requests' : {
             'number_of_valid_http_get_requests': 15,
             'number_of_valid_http_post_requests': 5
@@ -397,6 +401,7 @@ class ProxyPlugin(IProxyPlugin):
         open(ProxyPlugin.DynamicWhitelistFile, 'w').close()
         with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
             mydict['whitelisted_ips'] = []
+            mydict['peers'] = {}
 
 
     @staticmethod
@@ -744,6 +749,8 @@ class ProxyPlugin(IProxyPlugin):
     def report(self, ret, ts = '', peerIP = '', path = '', userAgentValue = ''):
         prefix = 'ALLOW'
         col = 'green'
+        logit = True
+
         if ret: 
             prefix = 'DROP'
             col = 'magenta'
@@ -755,11 +762,26 @@ class ProxyPlugin(IProxyPlugin):
                 #self.logger.info(' (Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='magenta')
             ret = False
 
-        self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
-            color=col, 
-            forced = True,
-            noprefix = True
-        )
+        if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
+            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+                if peerIP in mydict['peers'].keys():
+                    last = mydict['peers'][peerIP]['last']
+                    cur = datetime.now().timestamp()
+
+                    if (cur - last).seconds < self.proxyOptions['throttle_down_peer']['log_request_delay']:
+                        mydict['peers'][peerIP]['count'] += 1
+                    else:
+                        mydict['peers'][peerIP]['count'] = 0
+
+                    if mydict['peers'][peerIP]['count'] > self.proxyOptions['throttle_down_peer']['requests_threshold']:
+                        logit = False
+
+        if logit or self.proxyOptions['debug']:
+            self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
+                color=col, 
+                forced = True,
+                noprefix = True
+            )
         return ret
 
     @staticmethod
@@ -1020,6 +1042,18 @@ class ProxyPlugin(IProxyPlugin):
         if not self.proxyOptions['report_only'] and self.proxyOptions['mitigate_replay_attack']:
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 mydict[self.computeRequestHash(req, req_body)] = 1
+
+        if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
+            key = req.client_address[0]
+
+            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+                if key not in mydict['peers'].keys():
+                    mydict['peers'][key] = {
+                        'last': 0,
+                        'count': 0,
+                    }
+
+                mydict['peers'][key]['last'] = datetime.now().timestamp()
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
             len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0 and \

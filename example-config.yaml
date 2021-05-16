@@ -96,6 +96,24 @@ log_dropped: False
 
 
 #
+# Throttle down number of log entries emitted for single Peer to lower I/O overhead.
+#
+# When you operate your Beacon in interactive mode, the RedWarden can go crazy with logging
+# all of the allowed requests. We can throttle that down to minimize I/O and CPU impact.
+#
+# This option specifies number of seconds to wait before adding next log entry for specific IP,
+# regardless of whether it was allowed or dropped.
+#
+# Default:
+#       log_request_delay: 30
+#       requests_threshold: 5
+#
+throttle_down_peer:
+  log_request_delay: 30
+  requests_threshold: 5
+
+
+#
 # What to do with the request originating not conforming to Beacon, whitelisting or 
 # ProxyPass inclusive statements: 
 #   - 'redirect' it to another host with (HTTP 301), 

@@ -1061,6 +1061,8 @@ class ProxyPlugin(IProxyPlugin):
 
                 last = prev[peerIP]['last']
                 elapsed = time.time() - last
+
+                if elapsed < 0: elapsed = 0
                 
                 if int(elapsed) > int(self.proxyOptions['throttle_down_peer']['log_request_delay']):
                     prev[peerIP]['count'] = 0

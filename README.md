@@ -222,19 +222,19 @@ Consider following simple profile:
 
 ```
 http-get {
-        set uri "/api/abc";
-        client {
+    set uri "/api/abc";
+    client {
 
-                header "Accept-Encoding" "gzip, deflate";
+        header "Accept-Encoding" "gzip, deflate";
 
-                metadata {
-                        base64url;
-                        netbios;
-                        base64url;
-                        parameter "auth";
-                }
+        metadata {
+            base64url;
+            netbios;
+            base64url;
+            parameter "auth";
         }
-        ...
+    }
+    ...
 ```
 
 You see this `Accept-Encoding`? Every Beacon request has to come up with that Header and that value. What happens if your Beacon hits CloudFlare systems and they emit a request that will be stripped from that Header or will have `Accept-Encoding: gzip` instead? Teamserver will drop the request on the spot.
@@ -276,7 +276,7 @@ protect_these_headers_from_tampering:
 
 All settings were moved to the external file:
 ```
-$ python3 RedWarden.py --config example-config.yaml
+$ python3 RedWarden.py -c example-config.yaml
 
   [INFO] 19:21:42: Loading 1 plugin...
   [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
@@ -424,7 +424,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 - Add Proxy authentication and authorization logic on CONNECT/relay.
 - Add Mobile users targeted redirection
 - Add configuration options to define custom HTTP headers to be injected, or ones to be removed
-- Add configuration options to require specifiec HTTP headers to be present in requests passing ProxyPass criteria.
+- Add configuration options to require specific HTTP headers to be present in requests passing ProxyPass criteria.
 
 ### Author
 

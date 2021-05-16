@@ -600,9 +600,13 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     def __init__(self, req, origreq):
                         self.status = myreq.status_code
                         self.response_version = origreq.protocol_version
+                        self.headers = {}
                         self.headers = myreq.headers.copy()
                         self.reason = myreq.reason
                         self.msg = self.headers
+
+                        if type(self.headers) != dict:
+                            self.headers = {}
 
                 res = MyResponse(myreq, self)
                 self.response_headers = res.headers
@@ -630,6 +634,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
    
                 self.request.connection.no_keep_alive = True
 
+                if not hasattr(res, 'headers'):
+                    setattr(res, 'headers', {})
+
                 self.response_headers = res.headers
                 self._send_error(502)
                 #if options['debug']: raise
@@ -639,6 +646,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 logger.err("Could not proxy request: ({})".format(str(e)))
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
+
+                if not hasattr(res, 'headers'):
+                    setattr(res, 'headers', {})
                     
                 self.request.connection.no_keep_alive = True
                 self.response_headers = res.headers

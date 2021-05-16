@@ -427,12 +427,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             with SqliteDict(plugins.malleable_redirector.ProxyPlugin.DynamicWhitelistFile) as mydict:
                 if 'peers' in mydict.keys():
                     peerIP = plugins.malleable_redirector.ProxyPlugin.get_peer_ip(self.request)
-                    
+
                     if peerIP in mydict['peers'].keys():
                         prev = mydict.get('peers', {})
                         if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:
                             self.suppress_log_entry = True
-
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])

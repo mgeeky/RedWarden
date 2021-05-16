@@ -1068,7 +1068,10 @@ class ProxyPlugin(IProxyPlugin):
                     }
 
                 last = prev[peerIP]['last']
-                prev[peerIP]['last'] = time.time()
+
+                if prev[peerIP]['count'] < self.proxyOptions['throttle_down_peer']['requests_threshold']:
+                    prev[peerIP]['last'] = time.time()
+                    
                 mydict['peers'] = prev
 
                 elapsed = time.time() - last

@@ -1049,6 +1049,7 @@ class ProxyPlugin(IProxyPlugin):
             key = req.client_address[0]
 
             with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
+                breakpoint()
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
                     

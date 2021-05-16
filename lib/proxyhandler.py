@@ -1024,7 +1024,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 #logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
                 origheaders = dict(req.headers).copy()
 
-                handler.logger = logger
+                instance.logger = logger
                 req_body_current = handler(req, req_body_current)
 
                 altered = (req_body != req_body_current and req_body_current is not None)
@@ -1064,7 +1064,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     origheaders = res.headers.copy()
                 except: pass
 
-                handler.logger = logger
+                instance.logger = logger
                 res_body_current = handler(req, req_body, res, res_body_current)
                 
                 altered = (res_body_current != res_body)

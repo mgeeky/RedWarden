@@ -35,6 +35,7 @@ from tornado.httpclient import AsyncHTTPClient
 import tornado.web
 import tornado.httpserver
 
+from sqlitedict import SqliteDict
 import plugins.malleable_redirector
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

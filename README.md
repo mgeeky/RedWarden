@@ -110,7 +110,7 @@ drop_action: reset
 Then, the program can be launched by giving it a path to the config file:
 
 ```
-$ python3 RedWarden.py -c config.yaml
+bash$ sudo python3 RedWarden.py -c config.yaml
 
   [INFO] 19:21:42: Loading 1 plugin...
   [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
@@ -145,7 +145,6 @@ The above output contains a line pointing out that there has been an unauthorize
   [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
   [...]
 ```
-
 
 
 ## Use Cases

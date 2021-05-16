@@ -85,6 +85,69 @@ bash $ sudo pip3 install -r requirements.txt
 ```
 
 
+## Usage
+
+### Example usage
+
+The minimal RedWarden's **config.yaml** configuration file could contain:
+
+```
+port:
+  - 80/http
+  - 443/https
+
+profile: jquery-c2.3.14.profile
+
+ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
+ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
+
+teamserver_url:
+  - 1.2.3.4:8080
+
+drop_action: reset
+```
+
+Then, the program can be launched by giving it a path to the config file:
+
+```
+$ python3 RedWarden.py -c config.yaml
+
+  [INFO] 19:21:42: Loading 1 plugin...
+  [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
+  [INFO] 19:21:42: Preparing SSL certificates and keys for https traffic interception...
+  [INFO] 19:21:42: Using provided CA key file: ca-cert/ca.key
+  [INFO] 19:21:42: Using provided CA certificate file: ca-cert/ca.crt
+  [INFO] 19:21:42: Using provided Certificate key: ca-cert/cert.key
+  [INFO] 19:21:42: Serving http proxy on: 0.0.0.0, port: 80...
+  [INFO] 19:21:42: Serving https proxy on: 0.0.0.0, port: 443...
+  [INFO] 19:21:42: [REQUEST] GET /jquery-3.3.1.min.js
+  [INFO] 19:21:42: == Valid malleable http-get request inbound.
+  [INFO] 19:21:42: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
+  [INFO] 19:21:42: [RESPONSE] HTTP 200 OK, length: 5543
+  [INFO] 19:21:45: [REQUEST] GET /jquery-3.3.1.min.js
+  [INFO] 19:21:45: == Valid malleable http-get request inbound.
+  [INFO] 19:21:45: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
+  [INFO] 19:21:45: [RESPONSE] HTTP 200 OK, length: 5543
+  [INFO] 19:21:46: [REQUEST] GET /
+  [...]
+  [ERROR] 19:24:46: [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  [...]
+  [INFO] 19:24:46: [RESPONSE] HTTP 301 Moved Permanently, length: 212
+  [INFO] 19:24:48: [REQUEST] GET /jquery-3.3.1.min.js
+  [INFO] 19:24:48: == Valid malleable http-get request inbound.
+  [INFO] 19:24:48: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
+  [...]
+```
+
+The above output contains a line pointing out that there has been an unauthorized, not compliant with our C2 profile inbound request, which got dropped due to incompatible User-Agent string presented:
+```
+  [...]
+  [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
+  [...]
+```
+
+
+
 ## Use Cases
 
 ### Impose IP Geolocation on your Beacon traffic originators
@@ -283,67 +346,6 @@ By setting this header in RedWarden configuration section dubbed `protect_these_
 #
 protect_these_headers_from_tampering:
   - Accept-Encoding
-```
-
-## Usage
-
-### Example usage
-
-The minimal RedWarden's **config.yaml** configuration file could contain:
-
-```
-port:
-  - 80/http
-  - 443/https
-
-profile: jquery-c2.3.14.profile
-
-ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
-ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
-
-teamserver_url:
-  - 1.2.3.4:8080
-
-drop_action: reset
-```
-
-Then, the program can be launched by giving it a path to the config file:
-
-```
-$ python3 RedWarden.py -c config.yaml
-
-  [INFO] 19:21:42: Loading 1 plugin...
-  [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
-  [INFO] 19:21:42: Preparing SSL certificates and keys for https traffic interception...
-  [INFO] 19:21:42: Using provided CA key file: ca-cert/ca.key
-  [INFO] 19:21:42: Using provided CA certificate file: ca-cert/ca.crt
-  [INFO] 19:21:42: Using provided Certificate key: ca-cert/cert.key
-  [INFO] 19:21:42: Serving http proxy on: 0.0.0.0, port: 80...
-  [INFO] 19:21:42: Serving https proxy on: 0.0.0.0, port: 443...
-  [INFO] 19:21:42: [REQUEST] GET /jquery-3.3.1.min.js
-  [INFO] 19:21:42: == Valid malleable http-get request inbound.
-  [INFO] 19:21:42: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
-  [INFO] 19:21:42: [RESPONSE] HTTP 200 OK, length: 5543
-  [INFO] 19:21:45: [REQUEST] GET /jquery-3.3.1.min.js
-  [INFO] 19:21:45: == Valid malleable http-get request inbound.
-  [INFO] 19:21:45: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
-  [INFO] 19:21:45: [RESPONSE] HTTP 200 OK, length: 5543
-  [INFO] 19:21:46: [REQUEST] GET /
-  [...]
-  [ERROR] 19:24:46: [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
-  [...]
-  [INFO] 19:24:46: [RESPONSE] HTTP 301 Moved Permanently, length: 212
-  [INFO] 19:24:48: [REQUEST] GET /jquery-3.3.1.min.js
-  [INFO] 19:24:48: == Valid malleable http-get request inbound.
-  [INFO] 19:24:48: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
-  [...]
-```
-
-The above output contains a line pointing out that there has been an unauthorized, not compliant with our C2 profile inbound request, which got dropped due to incompatible User-Agent string presented:
-```
-  [...]
-  [DROP, reason:1] inbound User-Agent differs from the one defined in C2 profile.
-  [...]
 ```
 
 

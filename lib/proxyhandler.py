@@ -503,6 +503,21 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         origin = (scheme, inbound_origin)
         neworigin = (scheme, netloc)
 
+        class MyResponse(http.client.HTTPResponse):
+            def __init__(self, req, origreq):
+                self.headers = {}
+                self.msg = self.headers
+                self.response_version = origreq.protocol_version
+
+                if req != None:
+                    self.status = req.status_code
+                    self.headers = req.headers.copy()
+                    self.reason = req.reason
+                else:
+                    self.status = origreq.status
+                    self.reason = origreq.reason
+                    self.reason = origreq.headers.copy()
+
         if not dont_fetch_response:
             try:
                 assert scheme in ('http', 'https')
@@ -595,21 +610,6 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     
                     if self.options['debug']:
                         raise
-
-                class MyResponse(http.client.HTTPResponse):
-                    def __init__(self, req, origreq):
-                        self.headers = {}
-                        self.msg = self.headers
-                        self.response_version = origreq.protocol_version
-
-                        if req != None:
-                            self.status = req.status_code
-                            self.headers = req.headers.copy()
-                            self.reason = req.reason
-                        else:
-                            self.status = origreq.status
-                            self.reason = origreq.reason
-                            self.reason = origreq.headers.copy()
 
                 res = MyResponse(myreq, self)
                 self.response_headers = res.headers

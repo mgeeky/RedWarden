@@ -441,7 +441,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 if peerIP not in mydict.get('peers', {}):
                     prev[peerIP] = {
                         'last': time.time(),
-                        'count': 0
+                        'count': 1
                     }
 
                 else:
@@ -452,11 +452,11 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     prev[peerIP]['count'] += 1
                     
                     if int(elapsed) > int(self.options['throttle_down_peer']['log_request_delay']):
-                        prev[peerIP]['count'] = 0
+                        prev[peerIP]['count'] = 1
                         self.suppress_log_entry = False
                         self.options['verbose'] = logger.options['verbose'] = self.origverbose
 
-                    if prev[peerIP]['count'] < self.options['throttle_down_peer']['requests_threshold']:
+                    if prev[peerIP]['count'] <= self.options['throttle_down_peer']['requests_threshold']:
                         prev[peerIP]['last'] = time.time()
                     else:
                         self.suppress_log_entry = True

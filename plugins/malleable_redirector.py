@@ -41,6 +41,7 @@ import random
 import os.path
 import ipaddress
 import yaml, json
+import time
 
 from urllib.parse import urlparse, parse_qsl, parse_qs, urlsplit
 from IProxyPlugin import *
@@ -768,10 +769,10 @@ class ProxyPlugin(IProxyPlugin):
 
                 if peerIP in mydict['peers'].keys():
                     last = mydict['peers'][peerIP]['last']
-                    cur = datetime.now()
+                    cur = time.time()
 
                     prev = mydict.get('peers', {})
-                    elapsed = int((cur - last).seconds)
+                    elapsed = (cur - last)
 
                     if elapsed < self.proxyOptions['throttle_down_peer']['log_request_delay']:
                         prev[peerIP]['count'] += 1
@@ -1065,7 +1066,7 @@ class ProxyPlugin(IProxyPlugin):
                         'count': 0
                     }
 
-                prev['last'] = datetime.now()
+                prev['last'] = time.time()
                 mydict['peers'] = prev
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \

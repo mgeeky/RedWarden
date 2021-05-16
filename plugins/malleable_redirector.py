@@ -403,7 +403,6 @@ class ProxyPlugin(IProxyPlugin):
             mydict['whitelisted_ips'] = []
             mydict['peers'] = {}
 
-
     @staticmethod
     def get_name():
         return 'malleable_redirector'
@@ -764,6 +763,9 @@ class ProxyPlugin(IProxyPlugin):
 
         if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+                if 'peers' not in mydict.keys():
+                    mydict['peers'] = {}
+
                 if peerIP in mydict['peers'].keys():
                     last = mydict['peers'][peerIP]['last']
                     cur = datetime.now().timestamp()
@@ -1047,6 +1049,9 @@ class ProxyPlugin(IProxyPlugin):
             key = req.client_address[0]
 
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+                if 'peers' not in mydict.keys():
+                    mydict['peers'] = {}
+                    
                 if key not in mydict['peers'].keys():
                     mydict['peers'][key] = {
                         'last': 0,

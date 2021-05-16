@@ -457,11 +457,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         self.options['verbose'] = logger.options['verbose'] = self.origverbose
 
                     if prev[peerIP]['count'] < self.options['throttle_down_peer']['requests_threshold']:
-                        pass
+                        prev[peerIP]['last'] = time.time()
                     else:
                         self.suppress_log_entry = True
                         self.options['verbose'] = logger.options['verbose'] = False
-                        prev[peerIP]['last'] = time.time()
 
                 mydict['peers'] = prev
 

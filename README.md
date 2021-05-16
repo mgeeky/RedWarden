@@ -116,7 +116,7 @@ drop_action: reset
 
 Then, the program can be launched by giving it a path to the config file:
 
-```bash
+```shell
 bash$ sudo python3 RedWarden.py -c config.yaml
 
   [INFO] 19:21:42: Loading 1 plugin...
@@ -171,7 +171,7 @@ Your Pre-Phish/OSINT results indicate that:
 
 You can use RedWarden's utility `lib/ipLookupHelper.py` to collect IP Geo metadata about these two addresses:
 
-```bash
+```shell
 bash$ python3 ipLookupHelper.py
 
 Usage: ./ipLookupHelper.py <ipaddress> [malleable-redirector-config]
@@ -183,7 +183,7 @@ IP address. If second param is not given - no
 
 The former brings:
 
-```bash
+```shell
 bash$ python3 ipLookupHelper.py 89.64.64.150
 [dbg] Following IP Lookup providers will be used: ['ip_api_com', 'ipapi_co']
 [.] Lookup of: 89.64.64.150
@@ -226,7 +226,7 @@ bash$ python3 ipLookupHelper.py 89.64.64.150
 
 and the latter gives:
 
-```bash
+```shell
 bash$ python3 ipLookupHelper.py 59.99.140.76
 [dbg] Following IP Lookup providers will be used: ['ip_api_com', 'ipapi_co']
 [dbg] Read 1 cached entries from file.

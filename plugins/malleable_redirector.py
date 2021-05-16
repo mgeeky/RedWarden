@@ -750,7 +750,7 @@ class ProxyPlugin(IProxyPlugin):
                 self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests'] = {}
 
 
-    def report(self, ret, ts = '', peerIP = '', path = '', userAgentValue = ''):
+    def report(self, ret, ts = '', peerIP = '', path = '', userAgentValue = '', reason = ''):
         prefix = 'ALLOW'
         col = 'green'
 
@@ -769,7 +769,7 @@ class ProxyPlugin(IProxyPlugin):
             ret = False
 
         if not self.req.suppress_log_entry:
-            self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
+            self.logger.info('[{}, {}, {}, r:{}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, reason, path, userAgentValue), 
                 color=col, 
                 forced = True,
                 noprefix = True
@@ -1266,7 +1266,7 @@ The document has moved
                         return (True, respJson)
                     else:
                         self.logger.info(msg, color='green')
-                        return (True, self.report(False, ts, peerIP, req.uri, userAgentValue))
+                        return (True, self.report(False, ts, peerIP, req.uri, userAgentValue, '1'))
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
             len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0:
@@ -1284,7 +1284,7 @@ The document has moved
                         return (True, respJson)
                     else:
                         self.logger.info(msg, color='green')
-                        return (True, self.report(False, ts, peerIP, req.uri, userAgentValue))
+                        return (True, self.report(False, ts, peerIP, req.uri, userAgentValue, '2'))
 
         if self.proxyOptions['ban_blacklisted_ip_addresses']:
             for cidr, _comment in self.banned_ips.items():
@@ -1322,7 +1322,7 @@ The document has moved
                         else:
                             self.drop_reason(msg)
                             self.printPeerInfos(peerIP)
-                            return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                            return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '4a'))
 
                     else:
                         self.logger.dbg(f'The peer with IP: {peerIP} (rev_ip: {reverseIp}) would be banned if there was no blacklist override entry ({entry}).')
@@ -1355,7 +1355,7 @@ The document has moved
                         else:
                             self.drop_reason(msg)
                             self.printPeerInfos(peerIP)
-                            return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                            return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '4b'))
 
             except Exception as e:
                 pass
@@ -1393,7 +1393,7 @@ The document has moved
                             else:
                                 self.drop_reason(msg)
                                 self.printPeerInfos(peerIP)
-                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '2'))
 
 
                 if self.proxyOptions['policy']['drop_http_banned_header_value']:
@@ -1423,7 +1423,7 @@ The document has moved
                             else:
                                 self.drop_reason(msg)
                                 self.printPeerInfos(peerIP)
-                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '3'))
 
         if self.proxyOptions['verify_peer_ip_details']:
             try:
@@ -1457,7 +1457,7 @@ The document has moved
                                         return (True, respJson)
                                     else:
                                         self.drop_reason(msg)
-                                        return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                                        return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '4c'))
 
             except Exception as e:
                 self.logger.err(f'IP Lookup failed for some reason on IP ({peerIP}): {e}', color='cyan')
@@ -1476,7 +1476,7 @@ The document has moved
                         return (True, respJson)
                     else:
                         self.drop_reason(msg)
-                        return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                        return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '4d'))
 
             except Exception as e:
                 self.logger.err(f'IP Geolocation determinant failed for some reason on IP ({peerIP}): {e}', color='cyan')
@@ -1507,7 +1507,7 @@ The document has moved
                                 return (True, respJson)
                             else:
                                 self.drop_reason(msg)
-                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue))
+                                return (True, self.report(True, ts, peerIP, req.uri, userAgentValue, '4e'))
 
                 except Exception as e:
                     self.logger.dbg(f"Exception was thrown during drop_ipgeo_metadata_containing_banned_keywords verifcation:\n\t({e})")
@@ -1553,7 +1553,7 @@ The document has moved
                         ts, peerIP, num, url, host, opts
                     ), color='green')
                     self.printPeerInfos(peerIP)
-                    self.report(False, ts, peerIP, req.uri, req.headers.get('User-Agent'))
+                    self.report(False, ts, peerIP, req.uri, req.headers.get('User-Agent'), '0')
 
                     #del req.headers['Host']
                     #req.headers['Host'] = host
@@ -1593,7 +1593,7 @@ The document has moved
                     self.drop_reason(f'[DROP, {ts}, reason:1, {peerIP}] inbound User-Agent differs from the one defined in C2 profile.')
                     self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
                         userAgentValue, self.malleable.config['useragent']))
-                return self.report(True, ts, peerIP, req.uri, userAgentValue)
+                return self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
         else:
             self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='magenta')
 
@@ -1601,7 +1601,7 @@ The document has moved
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
                 if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
                     self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
-                    return self.report(True, ts, peerIP, req.uri, userAgentValue)
+                    return self.report(True, ts, peerIP, req.uri, userAgentValue, '0')
 
         fetched_uri = ''
         fetched_host = req.headers['Host']
@@ -1652,8 +1652,10 @@ The document has moved
 
                     malleable_meta['variant'] = variant
 
-                    if self._client_request_inspect(section, variant, req, req_body, malleable_meta, ts, peerIP): 
-                        return self.report(True, ts, peerIP, req.uri, userAgentValue)
+                    (ret, reason) = self._client_request_inspect(section, variant, req, req_body, malleable_meta, ts, peerIP)
+
+                    if ret:
+                        return self.report(True, ts, peerIP, req.uri, userAgentValue, reason)
 
                     if self.is_request:
                         self.logger.info('== Valid malleable {} (variant: {}) request inbound.'.format(section, variant))
@@ -1663,11 +1665,11 @@ The document has moved
 
             if (not found) and (self.proxyOptions['policy']['drop_malleable_unknown_uris']):
                 self.drop_reason('[DROP, {}, reason:11a, {}] Requested URI does not align any of Malleable defined variants: "{}"'.format(ts, peerIP, req.uri))
-                return self.report(True, ts, peerIP, req.uri, userAgentValue)
+                return self.report(True, ts, peerIP, req.uri, userAgentValue, '11a')
         else:
             self.logger.dbg("(No malleable profile) Request contents validation skipped, as there was no profile provided.", color='magenta')
 
-        return self.report(False, ts, peerIP, req.uri, userAgentValue)
+        return self.report(False, ts, peerIP, req.uri, userAgentValue, '0')
 
     def printPeerInfos(self, peerIP, returnInstead = False):
         global alreadyPrintedPeers
@@ -1693,11 +1695,12 @@ The document has moved
 
     def _client_request_inspect(self, section, variant, req, req_body, malleable_meta, ts, peerIP):
         uri = req.uri
+        reason = '0'
         rehdrskeys = [x.lower() for x in req.headers.keys()]
 
         if self.malleable == None:
             self.logger.dbg("(No malleable profile) Request contents validation skipped, as there was no profile provided.", color='magenta')
-            return False
+            return (False, reason)
 
         self.logger.dbg("Deep request inspection of URI ({}) parsed as section:{}, variant:{}".format(
                 req.uri, section, variant
@@ -1764,14 +1767,16 @@ The document has moved
                                 break
                 if not found:
                     self.drop_reason('[DROP, {}, reason:11b, {}] Requested URI does not align any of Malleable defined variants: "{}"'.format(ts, peerIP, req.uri))
-                    return True
+                    reason = '11b'
+                    return (True, reason)
 
             if section.lower() == 'http-stager' and \
                 (('uri_x64' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x64']) or
                     ('uri_x86' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x86'])):
                 if 'host_stage' in self.malleable.config.keys() and self.malleable.config['host_stage'] == 'false':
                     self.drop_reason('[DROP, {}, reason:11c, {}] Requested URI referes to http-stager section however Payload staging was disabled: "{}"'.format(ts, peerIP, req.uri))
-                return True
+                    reason = '11c'
+                return (True, reason)
 
 
             hdrs2 = {}
@@ -1795,7 +1800,8 @@ The document has moved
                         req.headers[k] = hdrs2[k.lower()]
                     else:
                         self.drop_reason('[DROP, {}, reason:5, {}] HTTP request did not contain expected header: "{}"'.format(ts, peerIP, k))
-                        return True
+                        reason = '5'
+                        return (True, reason)
 
                 if v not in req.headers.values() \
                     and self.proxyOptions['policy']['drop_malleable_without_expected_header_value']:
@@ -1820,7 +1826,8 @@ The document has moved
 
                         else:
                             self.drop_reason('[DROP, {}, reason:6, {}] HTTP request did not contain expected header value: "{}: {}"'.format(ts, peerIP, k, v))
-                            return True
+                            reason = '6'
+                            return (True, reason)
 
             for _block in foundblocks:
                 if _block in configblock['client'].keys():
@@ -1831,7 +1838,8 @@ The document has moved
                         if (metadata['header'].lower() not in rehdrskeys) \
                         and self.proxyOptions['policy']['drop_malleable_without_expected_request_section']:
                             self.drop_reason('[DROP, {}, reason:7, {}] HTTP request did not contain expected {} section header: "{}"'.format(ts, peerIP, _block, metadata['header']))
-                            return True
+                            reason = '7'
+                            return (True, reason)
 
                         if rehdrskeys.count(metadata['header'].lower()) == 1:
                             metadatacontainer = req.headers[metadata['header']]
@@ -1845,7 +1853,8 @@ The document has moved
                         if metadata['parameter'] not in out.keys() \
                         and self.proxyOptions['policy']['drop_malleable_without_request_section_in_uri']:
                             self.drop_reason('[DROP, {}, reason:8, {}] HTTP request was expected to contain {} section with parameter in URI: "{}"'.format(ts, peerIP, _block, metadata['parameter']))
-                            return True
+                            reason = '8'
+                            return (True, reason)
 
                         metadatacontainer = [metadata['parameter'], out[metadata['parameter']][0]]
 
@@ -1865,16 +1874,18 @@ The document has moved
                                 and self.proxyOptions['policy']['drop_malleable_without_prepend_pattern']:
                                     self.drop_reason('[DROP, {}, reason:9, {}] Did not found prepend pattern: "{}"'.format(ts, peerIP, p))
                                     if len(metadata['prepend']) > 1:
-                                        self.logger.err('Caution: Your malleable profile defines multiple prepend patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one prepend value.')
-                                    return True
+                                        self.logger.dbg('Caution: Your malleable profile defines multiple prepend patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one prepend value.')
+                                    reason = '9'
+                                    return (True, reason)
 
                         elif type(metadata['prepend']) == str:
                             if metadata['prepend'] not in metadatacontainer \
                                 and self.proxyOptions['policy']['drop_malleable_without_prepend_pattern']:
                                 self.drop_reason('[DROP, {}, reason:9, {}] Did not found prepend pattern: "{}"'.format(ts, peerIP, metadata['prepend']))
                                 if len(metadata['prepend']) > 1:
-                                        self.logger.err('Caution: Your malleable profile defines multiple prepend patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one prepend value.')
-                                return True
+                                        self.logger.dbg('Caution: Your malleable profile defines multiple prepend patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one prepend value.')
+                                reason = '9'
+                                return (True, reason)
 
                     if 'append' in metadata.keys():
                         if type(metadata['append']) == list:
@@ -1883,23 +1894,26 @@ The document has moved
                                 and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                     self.drop_reason('[DROP, {}, reason:10, {}] Did not found append pattern: "{}"'.format(ts, peerIP, p))
                                     if len(metadata['append']) > 1:
-                                        self.logger.err('Caution: Your malleable profile defines multiple append patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one append value.')
-                                    return True
+                                        self.logger.dbg('Caution: Your malleable profile defines multiple append patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one append value.')
+                                    reason = '10'
+                                    return (True, reason)
 
                         elif type(metadata['append']) == str:
                             if metadata['append'] not in metadatacontainer \
                                 and self.proxyOptions['policy']['drop_malleable_without_apppend_pattern']:
                                 self.drop_reason('[DROP, {}, reason:10, {}] Did not found append pattern: "{}"'.format(ts, peerIP, metadata['append']))
                                 if len(metadata['append']) > 1:
-                                    self.logger.err('Caution: Your malleable profile defines multiple append patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one append value.')
-                                return True
+                                    self.logger.dbg('Caution: Your malleable profile defines multiple append patterns. This is known to cause connectivity issues between Teamserver and Beacon! Try to use only one append value.')
+                                reason = '10'
+                                return (True, reason)
 
         else:
             self.logger.err('_client_request_inspect: No section ({}) or variant ({}) specified or ones provided are invalid!'.format(section, variant))
-            return True
+            return (True, '11')
 
         self.logger.dbg('[{}: ALLOW] Peer\'s request is accepted'.format(peerIP), color='green')
-        return False
+        reason = '0'
+        return (False, reason)
 
     def checkIfHiddenAPICall(self, req, req_body):
         if 'malleable_redirector_hidden_api_endpoint' in self.proxyOptions.keys() and \

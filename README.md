@@ -437,14 +437,15 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 
 - It _may_ add a slight overhead to the interactive sleep throughput
 - ProxyPass processing logic is far from perfect and is _really_ buggy (and oh boy its ugly!).
-- Weird forms of configuration files can derail RedWarden parser and make it complain. Easiest approach to overcome this would be to copy `example-config.yaml` on work on it instead.
+- Weird forms of configuration files can derail RedWarden parser and make it complain. Easiest approach to overcome this would be to copy `example-config.yaml` and work on it instead.
 
 ## TODO
 
+- Research possibility to use Threat Intelligence feeds to nefarious purposes - like for instance detecting Security Vendors based on IPs
 - Add support for MaxMind GeoIP database/API
 - Implement support for JA3 signatures in both detection & blocking and impersonation to fake nginx/Apache2/custom setups.
 - Add some unique beacons tracking logic to offer flexilibity of refusing staging and communication processes at the proxy's own discretion
-- Introduce day of time constraint when offering redirection capabilities
+- Introduce day of time constraint when offering redirection capabilities (_proxy only during office hours_)
 - Add Proxy authentication and authorization logic on CONNECT/relay.
 - Add Mobile users targeted redirection
 - Add configuration options to define custom HTTP headers to be injected, or ones to be removed

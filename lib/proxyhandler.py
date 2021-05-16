@@ -1165,9 +1165,9 @@ def init(opts, VERSION):
 
     if options['log'] and options['log'] != None and options['log'] != sys.stdout:
         if options['tee']:
-            self.logger.info("Teeing stdout output to {} log file.".format(options['log']))
+            logger.info("Teeing stdout output to {} log file.".format(options['log']))
         else:
-            self.logger.info("Writing output to {} log file.".format(options['log']))
+            logger.info("Writing output to {} log file.".format(options['log']))
 
     monkeypatching(logger)
 

@@ -436,6 +436,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     
                 prev = mydict.get('peers', {})
                 peerIP = plugins.malleable_redirector.ProxyPlugin.get_peer_ip(self.request)
+                elapsed = 0
 
                 if peerIP not in mydict.get('peers', {}):
                     prev[peerIP] = {

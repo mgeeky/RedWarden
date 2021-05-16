@@ -165,9 +165,9 @@ action_url:
 #
 proxy_pass:
   # These are example proxy_pass definitions:
-  - /foobar\d*  bing.com
-  - /myip       http://ip-api.com/json/
-  - /alwayspass google.com nodrop
+  #- /foobar\d*  bing.com
+  #- /myip       http://ip-api.com/json/
+  #- /alwayspass google.com nodrop
 
 
 #

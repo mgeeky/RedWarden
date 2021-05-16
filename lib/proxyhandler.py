@@ -329,6 +329,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             print(line)
 
     def _internal_my_handle_request(self, *args, **kwargs):
+        global logger
+
         handler = self._my_handle_request
         if self.request.method.lower() == 'connect':
             handler = self.connectMethod
@@ -342,7 +344,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
-        self.options['verbose'] = self.logger.options['verbose'] = self.origverbose
+        self.options['verbose'] = logger.options['verbose'] = self.origverbose
 
         self.response_status = 0
         self.response_reason = ''
@@ -397,6 +399,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.request.connection.stream.close()
 
     def _my_handle_request(self):
+        global logger
+
         if self.request.uri == self.options['proxy_self_url']:
             logger.dbg('Sending CA certificate.')
             self.send_cacert()
@@ -408,7 +412,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         content_length = int(self.request.headers.get('Content-Length', 0))
         if not self.options['allow_invalid']:
             if not ProxyRequestHandler.isValidRequest(self.request, self.request.body):
-                self.logger.dbg('[DROP] Invalid HTTP request from: {}'.format(self.client_address[0]))
+                logger.dbg('[DROP] Invalid HTTP request from: {}'.format(self.client_address[0]))
                 return
 
         req_body_modified = ""
@@ -436,7 +440,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         if peerIP in prev.keys():
                             if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:
                                 self.suppress_log_entry = True
-                                self.options['verbose'] = self.logger.options['verbose'] = False
+                                self.options['verbose'] = logger.options['verbose'] = False
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
@@ -1020,7 +1024,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 #logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
                 origheaders = dict(req.headers).copy()
 
-                handler.logger = self.logger
+                handler.logger = logger
                 req_body_current = handler(req, req_body_current)
 
                 altered = (req_body != req_body_current and req_body_current is not None)
@@ -1060,7 +1064,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     origheaders = res.headers.copy()
                 except: pass
 
-                handler.logger = self.logger
+                handler.logger = logger
                 res_body_current = handler(req, req_body, res, res_body_current)
                 
                 altered = (res_body_current != res_body)

@@ -768,7 +768,7 @@ class ProxyPlugin(IProxyPlugin):
 
                 if peerIP in mydict['peers'].keys():
                     last = mydict['peers'][peerIP]['last']
-                    cur = datetime.now().timestamp()
+                    cur = datetime.now()
 
                     prev = mydict.get('peers', {})
 
@@ -1064,7 +1064,7 @@ class ProxyPlugin(IProxyPlugin):
                         'count': 0
                     }
 
-                prev['last'] = datetime.now().timestamp()
+                prev['last'] = datetime.now()
                 mydict['peers'] = prev
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \

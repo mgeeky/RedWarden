@@ -771,10 +771,11 @@ class ProxyPlugin(IProxyPlugin):
                     cur = datetime.now()
 
                     prev = mydict.get('peers', {})
+                    elapsed = int((cur - last).seconds)
 
-                    if (cur - last).seconds < self.proxyOptions['throttle_down_peer']['log_request_delay']:
+                    if elapsed < self.proxyOptions['throttle_down_peer']['log_request_delay']:
                         prev[peerIP]['count'] += 1
-                    else:
+                    else:`
                         prev[peerIP]['count'] = 0
 
                     if prev[peerIP]['count'] > self.proxyOptions['throttle_down_peer']['requests_threshold']:

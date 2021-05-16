@@ -44,7 +44,7 @@ import yaml, json
 import time
 
 from urllib.parse import urlparse, parse_qsl, parse_qs, urlsplit
-from IProxyPlugin import *
+from plugins.IProxyPlugin import *
 from sqlitedict import SqliteDict
 from lib.ipLookupHelper import IPLookupHelper, IPGeolocationDeterminant
 from datetime import datetime

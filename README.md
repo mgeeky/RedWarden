@@ -289,9 +289,28 @@ protect_these_headers_from_tampering:
 
 ### Example usage
 
-All settings were moved to the external file:
+The minimal RedWarden's **config.yaml** configuration file could contain:
+
 ```
-$ python3 RedWarden.py -c example-config.yaml
+port:
+  - 80/http
+  - 443/https
+
+profile: jquery-c2.3.14.profile
+
+ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
+ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
+
+teamserver_url:
+  - 1.2.3.4:8080
+
+drop_action: reset
+```
+
+Then, the program can be launched by giving it a path to the config file:
+
+```
+$ python3 RedWarden.py -c config.yaml
 
   [INFO] 19:21:42: Loading 1 plugin...
   [INFO] 19:21:42: Plugin "malleable_redirector" has been installed.
@@ -318,25 +337,6 @@ $ python3 RedWarden.py -c example-config.yaml
   [INFO] 19:24:48: == Valid malleable http-get request inbound.
   [INFO] 19:24:48: Plugin redirected request from [code.jquery.com] to [1.2.3.4:8080]
   [...]
-```
-
-Where **example-config.yaml** contains:
-
-```
-verbose: True
-
-port:
-  - 80/http
-  - 443/https
-
-profile: jquery-c2.3.14.profile
-
-# Let's Encrypt certificates
-ssl_cacert: /etc/letsencrypt/live/attacker.com/fullchain.pem
-ssl_cakey: /etc/letsencrypt/live/attacker.com/privkey.pem
-
-teamserver_url:
-  - 1.2.3.4:8080
 ```
 
 The above output contains a line pointing out that there has been an unauthorized, not compliant with our C2 profile inbound request, which got dropped due to incompatible User-Agent string presented:

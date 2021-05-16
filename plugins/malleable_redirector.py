@@ -762,10 +762,9 @@ class ProxyPlugin(IProxyPlugin):
             ret = False
 
         if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
-            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+            with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
-                    mydict.commit()
 
                 if peerIP in mydict['peers'].keys():
                     last = mydict['peers'][peerIP]['last']
@@ -775,8 +774,6 @@ class ProxyPlugin(IProxyPlugin):
                         mydict['peers'][peerIP]['count'] += 1
                     else:
                         mydict['peers'][peerIP]['count'] = 0
-
-                    mydict.commit()
 
                     if mydict['peers'][peerIP]['count'] > self.proxyOptions['throttle_down_peer']['requests_threshold']:
                         logit = False
@@ -1051,18 +1048,16 @@ class ProxyPlugin(IProxyPlugin):
         if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
             key = req.client_address[0]
 
-            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
+            with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
-                    mydict.commit()
                     
                 if key not in mydict['peers'].keys():
                     mydict['peers'][key] = {
                         'last': 0,
-                        'count': 0,
+                        'count': 0
                     }
 
-            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile, autocommit=True) as mydict:
                 mydict['peers'][key]['last'] = datetime.now().timestamp()
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \

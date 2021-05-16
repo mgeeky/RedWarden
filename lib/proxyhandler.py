@@ -463,15 +463,13 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         self.suppress_log_entry = True
                         self.options['verbose'] = False
 
-                    logger.options.update(self.options)
-
                 mydict['peers'] = prev
-
-                print(logger.options)
 
                 logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
                         peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
                     ), color = 'yellow')
+
+        logger.options.update(self.options)
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])

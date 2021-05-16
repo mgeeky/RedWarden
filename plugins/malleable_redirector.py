@@ -1066,8 +1066,15 @@ class ProxyPlugin(IProxyPlugin):
                         'count': 0
                     }
 
+                last = prev['last']
                 prev['last'] = time.time()
                 mydict['peers'] = prev
+
+                elapsed = time.time() - last
+
+                self.logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
+                        peerIP, prev['past'], elapsed, prev['count']
+                    ), color = 'yellow')
 
         if self.proxyOptions['policy']['allow_dynamic_peer_whitelisting'] and \
             len(self.proxyOptions['add_peers_to_whitelist_if_they_sent_valid_requests']) > 0 and \

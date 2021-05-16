@@ -17,10 +17,10 @@ debug: False
 
 # Redirect RedWarden's output to file. Default: stdout.
 # Creates a file in the same directory that this config file is situated.
-output: redirector.log
+output: redwarden_redirector.log
 
 # Write web server access attempts in Apache2 access.log format into this file.
-access_log: access.log
+access_log: redwarden_access.log
 
 # If 'output' is specified, tee program's output to file and stdout at the same time.
 # Default: False
@@ -58,6 +58,7 @@ drop_invalid_http_requests: True
 #
 profile: malleable.profile
 
+
 #
 # (Required) Address where to redirect legitimate inbound beacon requests.
 # A.k.a. TeamServer's Listener bind address, in a form of:
@@ -85,12 +86,14 @@ teamserver_url:
 #
 report_only: False
 
+
 #
 # Log full bodies of dropped requests.
 #
 # Default: False
 #
 log_dropped: False
+
 
 #
 # What to do with the request originating not conforming to Beacon, whitelisting or 
@@ -106,6 +109,7 @@ log_dropped: False
 #
 drop_action: redirect
 
+
 #
 # If someone who is not a beacon hits the proxy, or the inbound proxy does not meet 
 # malleable profile's requirements - where we should proxy/redirect his requests. 
@@ -120,6 +124,7 @@ drop_action: redirect
 #
 action_url: 
   - https://google.com
+
 
 #
 # ProxyPass alike functionality known from mod_proxy.
@@ -187,6 +192,7 @@ proxy_pass:
 #
 remove_superfluous_headers: True
 
+
 #
 # Every time malleable_redirector decides to pass request to the Teamserver, as it conformed
 # malleable profile's contract, a MD5 sum may be computed against that request and saved in sqlite
@@ -246,6 +252,7 @@ add_peers_to_whitelist_if_they_sent_valid_requests:
 #
 ban_blacklisted_ip_addresses: True
 
+
 #
 # Specifies external list of CIDRs with IPv4 addresses to ban. Each entry in that file
 # can contain a single IPv4, a CIDR or a line with commentary in following format:
@@ -255,6 +262,7 @@ ban_blacklisted_ip_addresses: True
 #
 ip_addresses_blacklist_file: data/banned_ips.txt
 
+
 #
 # Specifies external list of keywords to ban during reverse-IP lookup, User-Agents or 
 # HTTP headers analysis stage. The file can contain lines beginning with '#' to mark comments.
@@ -262,6 +270,7 @@ ip_addresses_blacklist_file: data/banned_ips.txt
 # Default: data/banned_words.txt
 #
 banned_agents_words_file: data/banned_words.txt
+
 
 #
 # Specifies external list of phrases that should override banned phrases in case of ambiguity.
@@ -271,6 +280,7 @@ banned_agents_words_file: data/banned_words.txt
 # Default: data/banned_words_override.txt
 #
 override_banned_agents_file: data/banned_words_override.txt
+
 
 #
 # Ban peers based on their IPv4 address' resolved ISP/Organization value or other details. 
@@ -286,6 +296,7 @@ override_banned_agents_file: data/banned_words_override.txt
 # Default: True
 #
 verify_peer_ip_details: True
+
 
 #
 # Specifies a list of API keys for supported API details collection platforms. 
@@ -354,6 +365,7 @@ ip_geolocation_requirements:
   country_code:
   city:
   timezone:
+
 
 #
 # Fine-grained requests dropping policy - lets you decide which checks

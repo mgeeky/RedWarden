@@ -1,6 +1,6 @@
 # RedWarden - Flexible CobaltStrike Malleable Redirector
 
-(previously [proxy2's](https://github.com/mgeeky/proxy2) _malleable_redirectory_ plugin)
+(previously known as [proxy2's](https://github.com/mgeeky/proxy2) _malleable_redirector_ plugin)
 
 **Let's raise the bar in C2 redirectors IR resiliency, shall we?**
 
@@ -71,6 +71,19 @@ drop_action: redirect
 ```
 
 Use wisely, stay safe.
+
+### Requirements
+
+This program can run only on Linux systems as it uses fork to spawn multiple processes.
+
+Also, the `openssl` system command is expected to be installed as it is used to generate SSL certificates.
+
+Finally, install all of the Python3 PIP requirements easily with:
+
+```
+bash $ sudo pip3 install -r requirements.txt
+```
+
 
 ## Use Cases
 

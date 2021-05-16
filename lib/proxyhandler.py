@@ -425,7 +425,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         if 'Host' not in self.request.headers.keys():
             self.request.headers['Host'] = self.request.host
 
-        if 'throttle_down_peer' in self.options.keys() and len(self.options['throttle_down_peer']) > 0:
+        if 'throttle_down_peer_logging' in self.options.keys() and len(self.options['throttle_down_peer_logging']) > 0:
             with SqliteDict(plugins.malleable_redirector.ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
@@ -447,12 +447,12 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     if elapsed < 0: elapsed = 0
                     prev[peerIP]['count'] += 1
                     
-                    if int(elapsed) > int(self.options['throttle_down_peer']['log_request_delay']):
+                    if int(elapsed) > int(self.options['throttle_down_peer_logging']['log_request_delay']):
                         prev[peerIP]['count'] = 1
                         self.request.suppress_log_entry = False
                         self.options['verbose'] = self.origverbose
 
-                    if prev[peerIP]['count'] <= self.options['throttle_down_peer']['requests_threshold']:
+                    if prev[peerIP]['count'] <= self.options['throttle_down_peer_logging']['requests_threshold']:
                         prev[peerIP]['last'] = time.time()
                     else:
                         self.request.suppress_log_entry = True

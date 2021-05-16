@@ -357,7 +357,8 @@ class ProxyPlugin(IProxyPlugin):
         'remove_superfluous_headers': True,
         'ip_details_api_keys': {},
         'ip_geolocation_requirements': {},
-        'throttle_down_peer' : {
+        
+        'throttle_down_peer_logging' : {
             'log_request_delay': 30,
             'requests_threshold': 5
         },
@@ -763,7 +764,7 @@ class ProxyPlugin(IProxyPlugin):
                 #self.logger.info(' (Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='magenta')
             ret = False
 
-        if 'throttle_down_peer' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer']) > 0:
+        if 'throttle_down_peer_logging' in self.proxyOptions.keys() and len(self.proxyOptions['throttle_down_peer_logging']) > 0:
             with SqliteDict(ProxyPlugin.DynamicWhitelistFile, autocommit=True) as mydict:
                 if 'peers' not in mydict.keys():
                     mydict['peers'] = {}
@@ -774,7 +775,7 @@ class ProxyPlugin(IProxyPlugin):
 
                     prev = mydict.get('peers', {})
 
-                    if prev[peerIP]['count'] > self.proxyOptions['throttle_down_peer']['requests_threshold']:
+                    if prev[peerIP]['count'] > self.proxyOptions['throttle_down_peer_logging']['requests_threshold']:
                         logit = False
 
         if logit or self.proxyOptions['debug']:

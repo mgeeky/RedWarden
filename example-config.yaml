@@ -108,7 +108,7 @@ log_dropped: False
 #       log_request_delay: 30
 #       requests_threshold: 5
 #
-throttle_down_peer:
+throttle_down_peer_logging:
   log_request_delay: 30
   requests_threshold: 5
 

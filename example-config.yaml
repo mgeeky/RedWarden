@@ -251,26 +251,26 @@ ban_blacklisted_ip_addresses: True
 # can contain a single IPv4, a CIDR or a line with commentary in following format:
 #     1.2.3.4/24 # Super Security System
 #
-# Default: plugins/malleable_banned_ips.txt
+# Default: data/banned_ips.txt
 #
-ip_addresses_blacklist_file: plugins/malleable_banned_ips.txt
+ip_addresses_blacklist_file: data/banned_ips.txt
 
 #
 # Specifies external list of keywords to ban during reverse-IP lookup, User-Agents or 
 # HTTP headers analysis stage. The file can contain lines beginning with '#' to mark comments.
 #
-# Default: plugins/malleable_banned_words.txt
+# Default: data/banned_words.txt
 #
-banned_agents_words_file: plugins/malleable_banned_words.txt
+banned_agents_words_file: data/banned_words.txt
 
 #
 # Specifies external list of phrases that should override banned phrases in case of ambiguity.
 # If the request was to be banned because of a ambigue phrase, the override agents file can
 # make the request pass blocking logic if it contained "allowed" phrase.
 #
-# Default: plugins/malleable_words_override.txt
+# Default: data/banned_words_override.txt
 #
-override_banned_agents_file: plugins/malleable_words_override.txt
+override_banned_agents_file: data/banned_words_override.txt
 
 #
 # Ban peers based on their IPv4 address' resolved ISP/Organization value or other details. 

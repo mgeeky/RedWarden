@@ -325,7 +325,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 with open(self.options['access_log'], 'a') as f:
                     f.write(line + '\n')
 
-        print(line)
+        if not self.suppress_log_entry:
+            print(line)
 
     def _internal_my_handle_request(self, *args, **kwargs):
         handler = self._my_handle_request
@@ -341,7 +342,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
-        self.options['verbose'] = self.origverbose
+        self.options['verbose'] = self.logger.options['verbose'] = self.origverbose
 
         self.response_status = 0
         self.response_reason = ''
@@ -435,7 +436,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                         if peerIP in prev.keys():
                             if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:
                                 self.suppress_log_entry = True
-                                self.options['verbose'] = False
+                                self.options['verbose'] = self.logger.options['verbose'] = False
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
@@ -1019,6 +1020,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 #logger.dbg("Calling `request_handler' from plugin %s" % plugin_name)
                 origheaders = dict(req.headers).copy()
 
+                handler.logger = self.logger
                 req_body_current = handler(req, req_body_current)
 
                 altered = (req_body != req_body_current and req_body_current is not None)
@@ -1058,6 +1060,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     origheaders = res.headers.copy()
                 except: pass
 
+                handler.logger = self.logger
                 res_body_current = handler(req, req_body, res, res_body_current)
                 
                 altered = (res_body_current != res_body)

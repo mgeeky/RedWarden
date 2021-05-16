@@ -453,6 +453,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     
                     if int(elapsed) > int(self.options['throttle_down_peer']['log_request_delay']):
                         prev[peerIP]['count'] = 0
+                        self.suppress_log_entry = False
+                        self.options['verbose'] = logger.options['verbose'] = self.origverbose
 
                     if prev[peerIP]['count'] < self.options['throttle_down_peer']['requests_threshold']:
                         pass

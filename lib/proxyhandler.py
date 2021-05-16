@@ -35,6 +35,8 @@ from tornado.httpclient import AsyncHTTPClient
 import tornado.web
 import tornado.httpserver
 
+import plugins.malleable_redirector
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -317,8 +319,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         line = f'{remote_host} {user_identity} {http_basic_auth} {request_timestamp} "{request_line}" {self.response_status} {self.response_length} "{http_referer}" "{http_useragent}"'
 
         if 'access_log' in self.options.keys() and self.options['access_log'] != None and len(self.options['access_log']) > 0:
-            with open(self.options['access_log'], 'a') as f:
-                f.write(line + '\n')
+            if not self.suppress_log_entry:
+                with open(self.options['access_log'], 'a') as f:
+                    f.write(line + '\n')
 
         print(line)
 
@@ -335,6 +338,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request_version = 'HTTP/1.1'
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
+        self.suppress_log_entry = False
 
         self.response_status = 0
         self.response_reason = ''
@@ -418,7 +422,17 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         if 'Host' not in self.request.headers.keys():
             self.request.headers['Host'] = self.request.host
 
-        logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
+        if 'throttle_down_peer' in self.options.keys() and len(self.options['throttle_down_peer']) > 0:
+            with SqliteDict(plugins.malleable_redirector.ProxyPlugin.DynamicWhitelistFile) as mydict:
+                if 'peers' in mydict.keys():
+                    if peerIP in mydict['peers'].keys():
+                        prev = mydict.get('peers', {})
+                        if prev[peerIP]['count'] > self.options['throttle_down_peer']['requests_threshold']:
+                            self.suppress_log_entry = True
+
+
+        if not self.suppress_log_entry:
+            logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
         self.save_handler(self.request, self.request.body, None, None)
 
         try:
@@ -759,7 +773,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.request.connection.no_keep_alive = False
             ka = 'yes'
 
-        logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
+        if not self.suppress_log_entry:
+            logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
 
         self._set_status(res.status, res.reason)
 

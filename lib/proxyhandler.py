@@ -467,6 +467,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                 mydict['peers'] = prev
 
+                print(logger.options)
+
                 logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
                         peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']
                     ), color = 'yellow')

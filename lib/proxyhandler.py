@@ -341,7 +341,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
         self.suppress_log_entry = False
-        self.options['verbose'] = origverbose
+        self.options['verbose'] = self.origverbose
 
         self.response_status = 0
         self.response_reason = ''

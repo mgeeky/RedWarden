@@ -772,17 +772,9 @@ class ProxyPlugin(IProxyPlugin):
                     cur = time.time()
 
                     prev = mydict.get('peers', {})
-                    elapsed = (cur - last)
-
-                    if elapsed < self.proxyOptions['throttle_down_peer']['log_request_delay']:
-                        prev[peerIP]['count'] += 1
-                    else:
-                        prev[peerIP]['count'] = 0
 
                     if prev[peerIP]['count'] > self.proxyOptions['throttle_down_peer']['requests_threshold']:
                         logit = False
-
-                    mydict['peers'] = prev
 
         if logit or self.proxyOptions['debug']:
             self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
@@ -1068,13 +1060,17 @@ class ProxyPlugin(IProxyPlugin):
                     }
 
                 last = prev[peerIP]['last']
+                elapsed = time.time() - last
+
+                prev[peerIP]['count'] += 1
 
                 if prev[peerIP]['count'] < self.proxyOptions['throttle_down_peer']['requests_threshold']:
                     prev[peerIP]['last'] = time.time()
-                    
-                mydict['peers'] = prev
 
-                elapsed = time.time() - last
+                if elapsed > self.proxyOptions['throttle_down_peer']['log_request_delay']:
+                    prev[peerIP]['count'] = 0
+
+                mydict['peers'] = prev
 
                 self.logger.info('Logging stats for peer {}: last: {}, elapsed: {}, count: {}'.format(
                         peerIP, prev[peerIP]['last'], elapsed, prev[peerIP]['count']

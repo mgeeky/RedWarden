@@ -391,7 +391,6 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
     def on_finish(self):
         if self.request.connection.no_keep_alive:
-            logger.dbg("Closing connection with peer due to no_keep_alive.")
             self.request.connection.stream.close()
 
     def _my_handle_request(self):
@@ -437,6 +436,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         if not self.suppress_log_entry:
             logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
+
         self.save_handler(self.request, self.request.body, None, None)
 
         try:

@@ -1055,21 +1055,20 @@ class ProxyPlugin(IProxyPlugin):
 
                 if peerIP not in mydict.get('peers', {}):
                     prev[peerIP] = {
-                        'last': 0,
+                        'last': time.time(),
                         'count': 0
                     }
 
-
-                prev[peerIP]['count'] += 1
+                last = prev[peerIP]['last']
+                elapsed = time.time() - last
+                
+                if int(elapsed) > int(self.proxyOptions['throttle_down_peer']['log_request_delay']):
+                    prev[peerIP]['count'] = 0
+                else:
+                    prev[peerIP]['count'] += 1
 
                 if prev[peerIP]['count'] < self.proxyOptions['throttle_down_peer']['requests_threshold']:
                     prev[peerIP]['last'] = time.time()
-
-                last = prev[peerIP]['last']
-                elapsed = time.time() - last
-
-                if int(elapsed) > int(self.proxyOptions['throttle_down_peer']['log_request_delay']):
-                    prev[peerIP]['count'] = 0
 
                 mydict['peers'] = prev
 

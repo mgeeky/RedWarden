@@ -185,18 +185,18 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 (stdout, stderr) = p2.communicate()
 
             except FileNotFoundError as e:
-                self.logger.err("Can't serve HTTPS traffic because there is no 'openssl' tool installed on the system!")
+                logger.err("Can't serve HTTPS traffic because there is no 'openssl' tool installed on the system!")
                 return ''
 
         else:
-            #self.logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
+            #logger.dbg('Using supplied SSL certificate: {}'.format(certpath))
             pass
 
         if not certpath or not os.path.isfile(certpath):
             if stdout or stderr:
-                self.logger.err('Openssl x509 crt request failed:\n{}'.format((stdout + stderr).decode()))
+                logger.err('Openssl x509 crt request failed:\n{}'.format((stdout + stderr).decode()))
 
-            self.logger.fatal('Could not create interception Certificate: "{}"'.format(certpath))
+            logger.fatal('Could not create interception Certificate: "{}"'.format(certpath))
             return ''
 
         return certpath
@@ -468,7 +468,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.logger.options['verbose'] = self.options['verbose']
 
         if not self.suppress_log_entry:
-            self.logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=Proxyself.logger.colors_map['green'])
+            self.logger.info('[REQUEST] {} {}'.format(self.request.method, self.request.uri), color=ProxyLogger.colors_map['green'])
 
         self.save_handler(self.request, self.request.body, None, None)
 
@@ -618,7 +618,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                     self.request.headers['Host'] = n
                 
-                #ProxyRequestHandler.filter_headers(self.request.headers)
+                #ProxyRequestHandler.filter_headers(self.request.headers, self.logger)
                 req_body = ''
                 if self.request.body == None: req_body = ''
                 else: 
@@ -798,7 +798,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         if type(res_body) == str: res_body = str.encode(res_body)
 
-        #ProxyRequestHandler.filter_headers(res.headers)
+        #ProxyRequestHandler.filter_headers(res.headers, self.logger)
         res_headers = res.headers
         self.response_status = res.status
         self.response_reason = res.reason
@@ -811,7 +811,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             ka = 'yes'
 
         if not self.suppress_log_entry:
-            self.logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=Proxyself.logger.colors_map['yellow'])
+            self.logger.info('[RESPONSE] HTTP {} {}, length: {}, keep-alive: {}'.format(res.status, res.reason, len(res_body), ka), color=ProxyLogger.colors_map['yellow'])
 
         self._set_status(res.status, res.reason)
 
@@ -837,7 +837,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             self.logger.err("Broken pipe. Client must have disconnected/timed-out.")
 
     @staticmethod
-    def filter_headers(headers):
+    def filter_headers(headers, logger):
         # http://tools.ietf.org/html/rfc2616#section-13.5.1
         hop_by_hop = (
             'connection', 
@@ -855,7 +855,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         return headers
 
     def encode_content_body(self, text, encoding):
-        self.logger.dbg('Encoding content to {}'.format(encoding))
+        logger.dbg('Encoding content to {}'.format(encoding))
         data = text
         if encoding == 'identity':
             pass
@@ -872,10 +872,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 data = brotli.compress(text)
             except Exception as e:
                 #raise Exception('Could not compress Brotli stream: "{}"'.format(str(e)))
-                self.logger.err('Could not compress Brotli stream: "{}"'.format(str(e)))
+                logger.err('Could not compress Brotli stream: "{}"'.format(str(e)))
         else:
             #raise Exception("Unknown Content-Encoding: %s" % encoding)
-            self.logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
+            logger.err('Unknown Content-Encoding: "{}"'.format(encoding))
         return data
 
     def decode_content_body(self, data, encoding):
@@ -940,22 +940,22 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
             res_header_text = "%s %d %s\n%s" % (res.response_version, res.status, res.reason, reshdrs)
 
-        self.logger.trace("==== REQUEST ====\n%s" % req_header_text, color=Proxyself.logger.colors_map['yellow'])
+        self.logger.trace("==== REQUEST ====\n%s" % req_header_text, color=ProxyLogger.colors_map['yellow'])
 
         u = urlparse(req.uri)
         if u.query:
             query_text = _parse_qsl(u.query)
-            self.logger.trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, color=Proxyself.logger.colors_map['green'])
+            self.logger.trace("==== QUERY PARAMETERS ====\n%s\n" % query_text, color=ProxyLogger.colors_map['green'])
 
         cookie = req.headers.get('Cookie', '')
         if cookie:
             cookie = _parse_qsl(re.sub(r';\s*', '&', cookie))
-            self.logger.trace("==== COOKIES ====\n%s\n" % cookie, color=Proxyself.logger.colors_map['green'])
+            self.logger.trace("==== COOKIES ====\n%s\n" % cookie, color=ProxyLogger.colors_map['green'])
 
         auth = req.headers.get('Authorization', '')
         if auth.lower().startswith('basic'):
             token = auth.split()[1].decode('base64')
-            self.logger.trace("==== BASIC AUTH ====\n%s\n" % token, color=Proxyself.logger.colors_map['red'])
+            self.logger.trace("==== BASIC AUTH ====\n%s\n" % token, color=ProxyLogger.colors_map['red'])
 
         if req_body is not None:
             req_body_text = None
@@ -978,17 +978,17 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 req_body_text = req_body
 
             if req_body_text:
-                self.logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text.strip(), color=Proxyself.logger.colors_map['white'])
+                self.logger.trace("==== REQUEST BODY ====\n%s\n" % req_body_text.strip(), color=ProxyLogger.colors_map['white'])
 
         if res is not None:
-            self.logger.trace("\n==== RESPONSE ====\n%s" % res_header_text, color=Proxyself.logger.colors_map['cyan'])
+            self.logger.trace("\n==== RESPONSE ====\n%s" % res_header_text, color=ProxyLogger.colors_map['cyan'])
 
             cookies = res.headers.get('Set-Cookie')
             if cookies:
                 if type(cookies) == list or type(cookies) == tuple:
                     cookies = '\n'.join(cookies)
 
-                self.logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=Proxyself.logger.colors_map['yellow'])
+                self.logger.trace("==== SET-COOKIE ====\n%s\n" % cookies, color=ProxyLogger.colors_map['yellow'])
 
         if res_body is not None:
             res_body_text = res_body
@@ -1009,7 +1009,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 if type(res_body) == str: res_body = str.encode(res_body)
                 m = re.search(r'<title[^>]*>\s*([^<]+?)\s*</title>', res_body.decode(errors='ignore'), re.I)
                 if m:
-                    self.logger.trace("==== HTML TITLE ====\n%s\n" % html.unescape(m.group(1)), color=Proxyself.logger.colors_map['cyan'])
+                    self.logger.trace("==== HTML TITLE ====\n%s\n" % html.unescape(m.group(1)), color=ProxyLogger.colors_map['cyan'])
             elif content_type.startswith('text/') and len(res_body) < 1024:
                 res_body_text = res_body
 
@@ -1036,7 +1036,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     else:
                         res_body_text2 = hexdump(list(res_body_text))
 
-                self.logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text2, color=Proxyself.logger.colors_map['green'])
+                self.logger.trace("==== RESPONSE BODY ====\n%s\n" % res_body_text2, color=ProxyLogger.colors_map['green'])
 
     def request_handler(self, req, req_body):
         altered = False

@@ -359,13 +359,15 @@ class ProxyPlugin(IProxyPlugin):
         'ip_geolocation_requirements': {},
 
         'throttle_down_peer_logging' : {
-            'log_request_delay': 30,
+            'log_request_delay': 60,
             'requests_threshold': 5
         },
+
         'add_peers_to_whitelist_if_they_sent_valid_requests' : {
             'number_of_valid_http_get_requests': 15,
             'number_of_valid_http_post_requests': 5
         },
+        
         'policy': {
             'allow_proxy_pass' : True,
             'allow_dynamic_peer_whitelisting' : True,

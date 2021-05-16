@@ -442,6 +442,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 - Add Mobile users targeted redirection
 - Add configuration options to define custom HTTP headers to be injected, or ones to be removed
 - Add configuration options to require specific HTTP headers to be present in requests passing ProxyPass criteria.
+- Interactive interface allowing to type simple characters controlling output logging verbosity, similarly to Nmap's
 
 ## Author
 

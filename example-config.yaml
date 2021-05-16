@@ -105,11 +105,11 @@ log_dropped: False
 # regardless of whether it was allowed or dropped.
 #
 # Default:
-#       log_request_delay: 30
+#       log_request_delay: 60
 #       requests_threshold: 5
 #
 throttle_down_peer_logging:
-  log_request_delay: 30
+  log_request_delay: 60
   requests_threshold: 5
 
 

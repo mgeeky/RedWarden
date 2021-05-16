@@ -764,7 +764,7 @@ class ProxyPlugin(IProxyPlugin):
                 #self.logger.info(' (Report-Only) =========[X] REQUEST WOULD BE BLOCKED =======', color='magenta')
             ret = False
 
-        if not self.request.suppress_log_entry:
+        if not self.req.suppress_log_entry:
             self.logger.info('[{}, {}, {}] "{}" - UA: "{}"'.format(prefix, ts, peerIP, path, userAgentValue), 
                 color=col, 
                 forced = True,

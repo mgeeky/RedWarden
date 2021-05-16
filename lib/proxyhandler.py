@@ -514,9 +514,14 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                     self.headers = req.headers.copy()
                     self.reason = req.reason
                 else:
-                    self.status = origreq.status
-                    self.reason = origreq.reason
-                    self.reason = origreq.headers.copy()
+                    if hasattr(origreq, 'status'): self.status = origreq.status
+                    else: self.status = 0
+
+                    if hasattr(origreq, 'reason'): self.reason = origreq.reason
+                    else: self.reason = ''
+
+                    if hasattr(origreq, 'headers'): self.headers = origreq.headers.copy()
+                    else: self.headers = {}
 
         if not dont_fetch_response:
             try:

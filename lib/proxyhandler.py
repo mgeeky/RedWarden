@@ -598,15 +598,18 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                 class MyResponse(http.client.HTTPResponse):
                     def __init__(self, req, origreq):
-                        self.status = myreq.status_code
-                        self.response_version = origreq.protocol_version
                         self.headers = {}
-                        self.headers = myreq.headers.copy()
-                        self.reason = myreq.reason
                         self.msg = self.headers
+                        self.response_version = origreq.protocol_version
 
-                        if type(self.headers) != dict:
-                            self.headers = {}
+                        if req != None:
+                            self.status = req.status_code
+                            self.headers = req.headers.copy()
+                            self.reason = req.reason
+                        else:
+                            self.status = origreq.status
+                            self.reason = origreq.reason
+                            self.reason = origreq.headers.copy()
 
                 res = MyResponse(myreq, self)
                 self.response_headers = res.headers
@@ -634,8 +637,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
    
                 self.request.connection.no_keep_alive = True
 
-                if not hasattr(res, 'headers'):
-                    setattr(res, 'headers', {})
+                if res == None:
+                    res = MyResponse(None, self)
 
                 self.response_headers = res.headers
                 self._send_error(502)
@@ -647,9 +650,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 if 'RemoteDisconnected' in str(e) or 'Read timed out' in str(e):
                     return
 
-                if not hasattr(res, 'headers'):
-                    setattr(res, 'headers', {})
-                    
+                if res == None:
+                    res = MyResponse(None, self)
+
                 self.request.connection.no_keep_alive = True
                 self.response_headers = res.headers
                 self._send_error(502)

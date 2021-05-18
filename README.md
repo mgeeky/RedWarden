@@ -442,6 +442,15 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 - ProxyPass processing logic is far from perfect and is _really_ buggy (and oh boy its ugly!).
 - Weird forms of configuration files can derail RedWarden parser and make it complain. Easiest approach to overcome this would be to copy `example-config.yaml` and work on it instead.
 
+
+**Caution:**
+
+The code is _ONE FUCKING BIG HELL OF A MESS_ - I know that - and there's a honest reason for that too: the project was being developed 90% throughout the actual Red Team engagements. As we all know, these sorts of engagements entail so many things to do, leaving close to no time for a proper complex tool development. Not to mention criticality of this program in project's setup. The tool initialy started as a simple proxy script written in Python2, to then evolve as a proxy with plugins, received `malleable_redirector` plugin - and since all that time I've been trying hard to keep `proxy2` maintain backwards compatibility (poor me, I was like Microsoft!). Time has come though to let it go, rebrand it and start fixing all the crap introduced.
+
+With all that said, please do express some level of compassion for me when raising issues, submitting pull requests and try to help rather than judge! :-)
+Thanks!
+
+
 ## TODO
 
 - Research possibility to use Threat Intelligence feeds to nefarious purposes - like for instance detecting Security Vendors based on IPs
@@ -454,6 +463,7 @@ If you want to see your requests and responses full bodies - set `debug` and `tr
 - Add configuration options to define custom HTTP headers to be injected, or ones to be removed
 - Add configuration options to require specific HTTP headers to be present in requests passing ProxyPass criteria.
 - Interactive interface allowing to type simple characters controlling output logging verbosity, similarly to Nmap's
+- Refactor all the codebase
 
 ## Author
 

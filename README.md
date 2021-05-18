@@ -87,7 +87,7 @@ Also, the `openssl` system command is expected to be installed as it is used to 
 
 Finally, install all of the Python3 PIP requirements easily with:
 
-```
+```shell
 bash $ sudo pip3 install -r requirements.txt
 ```
 

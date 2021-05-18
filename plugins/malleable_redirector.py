@@ -81,7 +81,7 @@ class MalleableParser:
         'ssh_pipename': "postex_ssh_####",
         'tcp_frame_header': "",
         'tcp_port': "4444",
-        'useragent': "Mozilla/5.0 (Windows NT 10.0; Trident/7.0; rv:11.0) like Gecko",
+        'useragent': "",
     }
 
     def __init__(self, logger):
@@ -1586,16 +1586,19 @@ The document has moved
         self.processProxyPass(ts, peerIP, req, False)
 
         # User-agent conformancy
-        if self.malleable != None:
-            if userAgentValue != self.malleable.config['useragent']\
-            and self.proxyOptions['policy']['drop_invalid_useragent']:
-                if self.is_request:
-                    self.drop_reason(f'[DROP, {ts}, reason:1, {peerIP}] inbound User-Agent differs from the one defined in C2 profile.')
-                    self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
-                        userAgentValue, self.malleable.config['useragent']))
-                return self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
+        if len(self.malleable.config['useragent']) > 0:
+            if self.malleable != None:
+                if userAgentValue != self.malleable.config['useragent']\
+                and self.proxyOptions['policy']['drop_invalid_useragent']:
+                    if self.is_request:
+                        self.drop_reason(f'[DROP, {ts}, reason:1, {peerIP}] inbound User-Agent differs from the one defined in C2 profile.')
+                        self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
+                            userAgentValue, self.malleable.config['useragent']))
+                    return self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
+            else:
+                self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='magenta')
         else:
-            self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='magenta')
+            self.logger.dbg("User-agent test skipped, as there was no User-Agent global variable defined in input Malleable Profile.", color='magenta')
 
         if self.proxyOptions['mitigate_replay_attack']:
             with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:

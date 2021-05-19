@@ -436,6 +436,21 @@ Turning `debug: True` will swamp your console buffer with plenty of log lines de
 If you want to see your requests and responses full bodies - set `debug` and `trace` to true and get buried in logging burden!
 
 
+## FAQ
+
+**- Can this program run without Malleable Profile?**
+
+Yes it can. However request inspection logic will be turned off, the rest should work fine: IP Geolocation enforcement, reverse-lookup logic, banned IPs list, etc.
+
+**- Can this program be easily adapted to other C2 frameworks as well? Like Mythic, Covenant, etc?**
+
+Easily no. With some efforts - yes. As I've described below, the tool is written badly that will make other C2s adaptation a pain. However that's totally doable given some time and effort.
+
+**- My packets are getting dropped. Why?**
+
+Try to enable `debug: True` and `trace: True` to collect as many log as possible. Then you would need to go through logs and inspect what's going on. Do the packets look exactly how you expected them in your Malleable profile? Or maybe there was a subtle tamperation along the network that causes RedWarden to drop the packet (and it could make Teamserver drop it as well?).
+
+
 ## Known Issues
 
 - It _may_ add a slight overhead to the interactive sleep throughput
@@ -465,6 +480,7 @@ Thanks!
 - Add configuration options to define custom HTTP headers to be injected, or ones to be removed
 - Add configuration options to require specific HTTP headers to be present in requests passing ProxyPass criteria.
 - Interactive interface allowing to type simple characters controlling output logging verbosity, similarly to Nmap's
+- Rewrite Malleable profile parser logic to [pyMalleableC2](https://github.com/Porchetta-Industries/pyMalleableC2). When I first started coding my own parser logic, there was no such toolkit on Github.
 - Refactor all the codebase
 
 ## Author

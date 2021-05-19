@@ -1,6 +1,6 @@
 #
 # Words from this file OVERRIDE words from banned_words.txt and from 
-# banned_words.txt (based on reverse IP lookup result) wordlists.
+# banned_ips.txt (based on reverse IP lookup result) wordlists.
 #
 # Consider situation where the request originates from Azure Functions serverless 
 # redirector. Such request will egress from IP with geolocation's organization

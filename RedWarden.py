@@ -201,8 +201,13 @@ def main():
                 foosock = tornado.netutil.bind_sockets(p, address = bind)
                 servers.append((bind, p, scheme.lower() == 'https', foosock, options))
 
+            except OSError as e:
+                logger.err('Could not bind to specified TCP port: {}\nException: {}\n'.format(port, e))
+                raise
+                return False
+
             except Exception as e:
-                logger.err('Specified port ({}) is not a valid number in range of 1-65535!'.format(port))
+                logger.err('Specified port ({}) is not a valid number in range of 1-65535!\n'.format(port))
                 raise
                 return False
 

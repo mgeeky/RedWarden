@@ -132,10 +132,17 @@ def parse_options(opts, version):
     else:
         opts['log'] = sys.stdout
 
-    if opts['log'] and opts['log'] != sys.stdout: opts['log'] = os.path.normpath(opts['log'])
-    if opts['cakey']: opts['cakey'] = os.path.normpath(opts['cakey'])
-    if opts['certdir']: opts['certdir'] = os.path.normpath(opts['certdir'])
-    if opts['certkey']: opts['certkey'] = os.path.normpath(opts['certkey'])
+    if opts['log'] and opts['log'] != sys.stdout: 
+        opts['log'] = os.path.normpath(opts['log'])
+
+    if opts['cakey']: 
+        opts['cakey'] = os.path.normpath(opts['cakey'])
+
+    if opts['certdir']: 
+        opts['certdir'] = os.path.normpath(opts['certdir'])
+
+    if opts['certkey']: 
+        opts['certkey'] = os.path.normpath(opts['certkey'])
 
 def parseParametersFromConfigFile(_params):
     parametersRequiringDirectPath = (
@@ -150,6 +157,13 @@ def parseParametersFromConfigFile(_params):
         'ssl_certkey',
         'ssl_cakey',
         'ssl_cacert',
+    )
+
+    parametersWithPathThatMayNotExist = (
+        'log',
+        'output',
+        'access_log',
+        'ssl_certdir'
     )
 
     translateParamNames = {
@@ -210,7 +224,17 @@ def parseParametersFromConfigFile(_params):
         for paramName in parametersRequiringDirectPath:
             if paramName in outparams.keys() and \
                 outparams[paramName] != '' and outparams[paramName] != None:
-                outparams[paramName] = os.path.join(configBasePath, outparams[paramName])
+                p1 = outparams[paramName]
+                if not os.path.isfile(outparams[paramName]):
+                    outparams[paramName] = os.path.join(configBasePath, outparams[paramName])
+                    p = ''
+                    if paramName in translateParamNames.values():
+                        p = list(translateParamNames.keys())[list(translateParamNames.values()).index(paramName)]
+
+                    if not os.path.isfile(outparams[paramName]) and \
+                        not ((paramName in parametersWithPathThatMayNotExist) or (p in parametersWithPathThatMayNotExist)):
+                        p2 = outparams[paramName]
+                        raise Exception(f'\n\nCould not find file pointed to by "{paramName}" / "{p}" parameter in specified config file!\nTried these paths:\n\t- {p1}\n\t- {p2}\n\nMake sure to correct the path of this parameter in your config file.')
 
         return outparams
 

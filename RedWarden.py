@@ -175,11 +175,18 @@ def main():
             options['port'].append('8080/http')
 
         servers = []
+        portsBound = set()
 
         for port in options['port']:
             p = 0
             scheme = 'http'
             bind = ''
+
+            if port in portsBound:
+                logger.err(f'TCP Port {port} already bound. Possibly a duplicate configuration line. Skipping it.')
+                continue
+
+            portsBound.add(port)
 
             try:
                 _port = port

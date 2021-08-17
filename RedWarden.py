@@ -23,6 +23,8 @@
 #           added options to protected HTTP headers, apply fine-grained DROP policy, and plenty more.
 #   0.6     rewritten RedWarden from BaseHTTPServer (SimpleHTTPServer) to Tornado, improved
 #           support for proxy_pass allowing to fetch responses cross-scheme
+#   0.8     fixed two issues with config param processing logic and added support for multi-line 
+#           prepend/append instructions in Malleable profiles.
 #
 # Author:
 #   Mariusz B. / mgeeky, '16-'21
@@ -32,7 +34,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.7'
+VERSION = '0.8'
 
 import sys, os
 

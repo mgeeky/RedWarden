@@ -287,6 +287,60 @@ class MalleableParser:
                 linenum += 1
                 continue
 
+            # Finds: prepend "value" / append "value"
+            if re.match(r'^\s*(?:append|prepend)\s+"', line, re.I):
+                self.logger.dbg(f'Found beginning of prepend/append instruction (line: {linenum}): ' + line[:30])
+
+                lineidx = 0
+                cancont = False
+                values = []
+                
+                while lineidx < 100 and lineidx + linenum < len(self.datalines):
+                    if re.match('.*";\s*$', self.datalines[lineidx + linenum]):
+                        self.logger.dbg(f'Found end of prepend/append instruction at line: {linenum+lineidx}')
+
+                        longline = ''.join(self.datalines[linenum : linenum + lineidx + 1])
+
+                        m = compregexes['prepend-append-value'].match(longline, re.I|re.M)
+                        if m:
+                            self.logger.dbg(f'Extracted multi-line prepend/append instruction.')
+
+                            paramname = m.groups()[0]
+                            paramval = m.groups()[1].replace('\\\\', '\\')
+                            values.append(paramval)
+
+                            if values == []:
+                                values = ''
+                            elif len(values) == 1:
+                                values = values[0]
+
+                            if paramname in parsed.keys():
+                                if type(parsed[paramname]) == list:
+                                    parsed[paramname].append(values)
+                                else:
+                                    parsed[paramname] = [parsed[paramname], values]
+                            else:
+                                if type(values) == list:
+                                    parsed[paramname] = [values, ]
+                                else:
+                                    parsed[paramname] = values
+
+                            linenum += lineidx + 1
+                            pos += len(longline)
+                            matched = 'prepend-append'
+                            cancont = True
+
+                        else:
+                            self.logger.dbg(f'Extracted prepend/append instruction IS NOT valid!')
+                            self.logger.dbg(f'\n---------------------\n{longline}\n---------------------')
+
+                        break
+
+                    lineidx += 1
+
+                if cancont:
+                    continue
+
             a = linenum
             b = linenum+1
 

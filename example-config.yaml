@@ -415,9 +415,9 @@ policy:
   # [IP: DROP, reason:8] HTTP request was expected to contain (metadata|id|output) section with parameter in URI:
   drop_malleable_without_request_section_in_uri: True
   # [IP: DROP, reason:9] Did not found append pattern:
-  drop_malleable_without_prepend_pattern: True
+  drop_malleable_without_prepend_pattern: False
   # [IP: DROP, reason:10] Did not found append pattern:
-  drop_malleable_without_apppend_pattern: True
+  drop_malleable_without_apppend_pattern: False
   # [IP: DROP, reason:11] Requested URI does not aligns any of Malleable defined variants:
   drop_malleable_unknown_uris: True
   # [IP: DROP, reason:12] HTTP request was expected to contain <> section with URI-append containing prepend/append fragments

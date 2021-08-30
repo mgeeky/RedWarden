@@ -41,6 +41,8 @@ def parse_options(opts, version):
         help="Specifies output log file.", metavar="PATH", type=str)
     parser.add_argument("-A", "--access-log", dest='access_log', 
         help="Specifies where to write access attempts in Apache2 combined log format.", metavar="PATH", type=str)
+    parser.add_argument("--access-log-format", dest='access_log_format', 
+        help="Specifies pre-defined format for access log lines. Supported values: apache2, redelk.", choices=('apache2', 'redelk'), metavar="PATH", type=str)
     parser.add_argument("-B", "--bind", dest='bind', metavar='NAME',
         help="Specifies proxy's binding address along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening port number (123/https). Default: "+ opts['bind'] +".", 
         type=str, default=opts['bind'])

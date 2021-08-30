@@ -313,12 +313,54 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         http_useragent = '-'
 
         if len(self.request.headers.get('Referer', '')) > 0:
-            http_referer = self.request.headers.get('Referer', '')
+            http_referer = self.request.headers.get('Referer', '-')
 
         if len(self.request.headers.get('User-Agent', '')) > 0:
-            http_useragent = self.request.headers.get('User-Agent', '')
+            http_useragent = self.request.headers.get('User-Agent', '-')
 
-        line = f'{remote_host} {user_identity} {http_basic_auth} {request_timestamp} "{request_line}" {self.response_status} {self.response_length} "{http_referer}" "{http_useragent}"'
+        line = ''
+
+        if 'access_log_format' in self.options.keys():
+            if self.options['access_log_format'].lower() == 'apache2':
+                # src: https://httpd.apache.org/docs/2.4/logs.html
+                # LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\"" combined
+                line = f'{remote_host} {user_identity} {http_basic_auth} {request_timestamp} "{request_line}" {self.response_status} {self.response_length} "{http_referer}" "{http_useragent}"'
+
+            elif self.options['access_log_format'].lower() == 'redelk':
+                # src: https://github.com/outflanknl/RedELK/wiki/Redirector-installation#Apache%20specifics
+                # LogFormat "%t %{hostname}e apache[%P]: frontend:%{frontend_name}e/%A:%{local}p backend:%{backend_name}e client:%h:%{remote}p xforwardedfor:%{X-Forwarded-For}i headers:{%{User-Agent}i|%{Host}i|%{X-Forwarded-For}i|%{X-Forwarded-Proto}i|%{X-Host}i|%{Forwarded}i|%{Via}i|} statuscode:%s request:%r" redelklogformat
+                hostname = socket.gethostname()
+                if not hostname:
+                    hostname = '-'
+                pid = os.getpid()
+
+                frontend_name = os.environ.get('frontend_name', '-')
+                backend_name = os.environ.get('backend_name', '-')
+                
+                if frontend_name == '-' and 'redelk_frontend_name' in self.options.keys():
+                    frontend_name = self.options['redelk_frontend_name']
+
+                if backend_name == '-' and 'redelk_backend_name' in self.options.keys():
+                    backend_name = self.options['redelk_backend_name']
+                
+                local_address = socket.gethostbyname(socket.gethostname())
+                local_port = self.request.server_port
+                x_forwarded_for = self.request.headers.get('X-Forwarded-For', '-')
+
+                # %{User-Agent}i|%{Host}i|%{X-Forwarded-For}i|%{X-Forwarded-Proto}i|%{X-Host}i|%{Forwarded}i|%{Via}i|
+                hdr_host = self.request.headers.get('Host', '-')
+                hdr_xforwardedproto = self.request.headers.get('X-Forwarded-Proto', '-')
+                hdr_xhost = self.request.headers.get('X-Host', '-')
+                hdr_forwarded = self.request.headers.get('Forwarded', '-')
+                hdr_via = self.request.headers.get('Via', '-')
+                headers_string = f"{http_useragent}|{hdr_host}|{x_forwarded_for}|{hdr_xforwardedproto}|{hdr_xhost}|{hdr_forwarded}|{hdr_via}|"
+                
+                try:
+                    remote_host_port = self.request.connection.stream.socket.getpeername()[1]
+                except:
+                    remote_host_port = 0
+
+                line = f'{request_timestamp} {hostname} apache[{pid}]: frontend:{frontend_name}/{local_address}:{local_port} backend:{backend_name} client:{remote_host}:{remote_host_port} xforwardedfor:{x_forwarded_for} headers:{{{headers_string}}} statuscode:{self.response_status} request:{request_line}'
 
         if 'access_log' in self.options.keys() and self.options['access_log'] != None and len(self.options['access_log']) > 0:
             if not self.request.suppress_log_entry:

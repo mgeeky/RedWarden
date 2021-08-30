@@ -22,6 +22,20 @@ output: redwarden_redirector.log
 # Write web server access attempts in Apache2 access.log format into this file.
 access_log: redwarden_access.log
 
+# Switches between one of the following pre-defined log formats:
+# - 'apache2' combined access_log
+# - 'redelk' log format
+access_log_format: apache2
+
+#
+# If RedWarden is to be integrated with RedElk, following two variables will have to be set
+# according to this redirector server role.
+#
+# frontend name can be whatever you like
+#redelk_frontend_name:
+# 
+#redelk_backend_name:
+
 # If 'output' is specified, tee program's output to file and stdout at the same time.
 # Default: False
 tee: True

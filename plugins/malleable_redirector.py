@@ -1837,6 +1837,10 @@ The document has moved
 
 
             hdrs2 = {}
+
+            if not 'header' in configblock['client'].keys():
+                configblock['client']['header'] = []
+
             for h in configblock['client']['header']:
                 hdrs2[h[0].lower()] = h[1]
 

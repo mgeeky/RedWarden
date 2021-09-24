@@ -319,6 +319,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             http_useragent = self.request.headers.get('User-Agent', '-')
 
         line = ''
+        override_suppress_log = False
 
         if 'access_log_format' in self.options.keys():
             if self.options['access_log_format'].lower() == 'apache2':
@@ -329,19 +330,23 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
             elif self.options['access_log_format'].lower() == 'redelk':
                 # src: https://github.com/outflanknl/RedELK/wiki/Redirector-installation#Apache%20specifics
                 # LogFormat "%t %{hostname}e apache[%P]: frontend:%{frontend_name}e/%A:%{local}p backend:%{backend_name}e client:%h:%{remote}p xforwardedfor:%{X-Forwarded-For}i headers:{%{User-Agent}i|%{Host}i|%{X-Forwarded-For}i|%{X-Forwarded-Proto}i|%{X-Host}i|%{Forwarded}i|%{Via}i|} statuscode:%s request:%r" redelklogformat
+
                 hostname = socket.gethostname()
-                if not hostname:
-                    hostname = '-'
                 pid = os.getpid()
 
-                frontend_name = os.environ.get('frontend_name', '-')
-                backend_name = os.environ.get('backend_name', '-')
+                frontend_name = 'http-redwarden'
+
+                backend_name_c2 = 'c2'
+                backend_name_decoy = 'decoy'
                 
-                if frontend_name == '-' and 'redelk_frontend_name' in self.options.keys():
+                if 'redelk_frontend_name' in self.options.keys():
                     frontend_name = self.options['redelk_frontend_name']
 
-                if backend_name == '-' and 'redelk_backend_name' in self.options.keys():
-                    backend_name = self.options['redelk_backend_name']
+                if 'redelk_backend_name_c2' in self.options.keys():
+                    backend_name_c2 = self.options['redelk_backend_name_c2']
+
+                if 'redelk_backend_name_decoy' in self.options.keys():
+                    backend_name_decoy = self.options['redelk_backend_name_decoy']
                 
                 local_address = socket.gethostbyname(socket.gethostname())
                 local_port = self.request.server_port
@@ -360,10 +365,17 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 except:
                     remote_host_port = 0
 
+                backend_name = backend_name_decoy
+
+                if self.request.redirected_to_c2:
+                    backend_name = backend_name_c2
+
                 line = f'{request_timestamp} {hostname} apache[{pid}]: frontend:{frontend_name}/{local_address}:{local_port} backend:{backend_name} client:{remote_host}:{remote_host_port} xforwardedfor:{x_forwarded_for} headers:{{{headers_string}}} statuscode:{self.response_status} request:{request_line}'
 
+                override_suppress_log = True
+
         if 'access_log' in self.options.keys() and self.options['access_log'] != None and len(self.options['access_log']) > 0:
-            if not self.request.suppress_log_entry:
+            if not self.request.suppress_log_entry or override_suppress_log:
                 with open(self.options['access_log'], 'a') as f:
                     f.write(line + '\n')
 
@@ -384,6 +396,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         self.request.server_port = self.server_port
         self.request.server_bind = self.server_bind
         self.request.suppress_log_entry = False
+        self.request.redirected_to_c2 = False
         self.options['verbose'] = self.origverbose
 
         self.response_status = 0

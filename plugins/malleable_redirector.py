@@ -949,6 +949,7 @@ class ProxyPlugin(IProxyPlugin):
 
         self.logger.dbg('Redirecting to "{}"'.format(req.uri))
 
+        req.redirected_to_c2 = True
         req.headers[proxy2_metadata_headers['ignore_response_decompression_errors']] = "1"
         req.headers[proxy2_metadata_headers['override_host_header']] = newhost
 
@@ -1837,6 +1838,10 @@ The document has moved
 
 
             hdrs2 = {}
+
+            if not 'header' in configblock['client'].keys():
+                configblock['client']['header'] = []
+
             for h in configblock['client']['header']:
                 hdrs2[h[0].lower()] = h[1]
 

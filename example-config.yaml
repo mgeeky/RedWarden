@@ -28,13 +28,28 @@ access_log: redwarden_access.log
 access_log_format: apache2
 
 #
-# If RedWarden is to be integrated with RedElk, following two variables will have to be set
+# ===================================
+# RedELK Integration
+#
+#
+# If RedWarden is to be integrated with RedElk, following three variables will have to be set
 # according to this redirector server role.
 #
-# frontend name can be whatever you like
-#redelk_frontend_name:
-# 
-#redelk_backend_name:
+
+# Label marking packets coming from this specific Proxy server.
+# Can be anything, but nice candidates are:
+# - http, http-proxy, http-trackingpixel1, phishingwebsite, etc
+redelk_frontend_name: http-redwarden
+
+# Label for packets that are passed to the C2 server.
+# This value MUST start with "c2" and cannot contain spaces.
+redelk_backend_name_c2: c2
+
+# Label for packets that are NOT passed to the C2 (they either dropped, redirected, proxied away).
+# This value MUST start wtih "decoy" and cannot contain spaces.
+redelk_backend_name_decoy: decoy
+
+# ===================================
 
 # If 'output' is specified, tee program's output to file and stdout at the same time.
 # Default: False

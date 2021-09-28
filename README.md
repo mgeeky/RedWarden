@@ -498,5 +498,5 @@ This and other projects are outcome of sleepless nights and **plenty of hard wor
 ```   
    Mariusz Banach / mgeeky, '19-'21
    <mb [at] binary-offensive.com>
-   (https://github.com/mgeeky)
+   (https://github.com/mgeeky) 
 ```

@@ -35,7 +35,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.9'
+VERSION = '0.9.1'
 
 import sys, os
 

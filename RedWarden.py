@@ -25,6 +25,7 @@
 #           support for proxy_pass allowing to fetch responses cross-scheme
 #   0.8     fixed two issues with config param processing logic and added support for multi-line 
 #           prepend/append instructions in Malleable profiles.
+#   0.9     added support for RedELK logs generation.
 #
 # Author:
 #   Mariusz B. / mgeeky, '16-'21
@@ -34,7 +35,7 @@
 #   (now obsoleted)
 #
 
-VERSION = '0.8'
+VERSION = '0.9'
 
 import sys, os
 
@@ -63,6 +64,10 @@ options = {
     'proxy_self_url': 'http://RedWarden.test/',
     'timeout': 90,
     'access_log' : '',
+    'access_log_format' : 'apache2',
+    'redelk_frontend_name' : 'http-redwarden',
+    'redelk_backend_name_c2' : 'c2',
+    'redelk_backend_name_decoy' : 'decoy',
     'no_ssl': False,
     'drop_invalid_http_requests': True,
     'no_proxy': False,

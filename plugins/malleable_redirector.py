@@ -101,6 +101,7 @@ class MalleableParser:
             with open(path, 'r') as f:
                 self.data = f.read().replace('\r\n', '\n')
                 self.datalines = self.data.split('\n')
+                self.datalines.append('\n')
 
         except FileNotFoundError as e:
             self.logger.fatal("Malleable profile specified in redirector's config file (profile) doesn't exist: ({})".format(path))
@@ -555,7 +556,10 @@ class ProxyPlugin(IProxyPlugin):
                 self.malleable = MalleableParser(self.logger)
 
                 self.logger.dbg(f'Parsing input Malleable profile: ({self.proxyOptions["profile"]})')
-                if not self.malleable.parse(self.proxyOptions['profile']):
+
+                profilePath = self.proxyOptions['profile']
+
+                if not self.malleable.parse(profilePath):
                     self.logger.fatal('Could not parse specified Malleable C2 profile!')
 
             if not profileSkipped and (not self.proxyOptions['action_url'] or len(self.proxyOptions['action_url']) == 0):
@@ -949,6 +953,7 @@ class ProxyPlugin(IProxyPlugin):
 
         self.logger.dbg('Redirecting to "{}"'.format(req.uri))
 
+        req.redirected_to_c2 = True
         req.headers[proxy2_metadata_headers['ignore_response_decompression_errors']] = "1"
         req.headers[proxy2_metadata_headers['override_host_header']] = newhost
 

@@ -43,9 +43,9 @@ def parse_options(opts, version):
         help="Specifies where to write access attempts in Apache2 combined log format.", metavar="PATH", type=str)
     parser.add_argument("--access-log-format", dest='access_log_format', 
         help="Specifies pre-defined format for access log lines. Supported values: apache2, redelk.", choices=('apache2', 'redelk'), metavar="PATH", type=str)
-    parser.add_argument("--redelk-backend-c2", dest='redelk_backend_name_c2', 
+    parser.add_argument("--redelk-backend-c2", dest='redelk_backend_name_c2', default='c2',
         help="Backend name (label) for packets that are to be passed to C2 server. Must start with 'c2' phrase.", metavar="NAME", type=str)
-    parser.add_argument("--redelk-backend-decoy", dest='redelk_backend_name_decoy', 
+    parser.add_argument("--redelk-backend-decoy", dest='redelk_backend_name_decoy', default='decoy',
         help="Backend name (label) for packets that are NOT to be passed to C2 server. Must start with 'decoy' phrase.", metavar="NAME", type=str)
     parser.add_argument("-B", "--bind", dest='bind', metavar='NAME',
         help="Specifies proxy's binding address along with protocol to serve (http/https). If scheme is specified here, don't add another scheme specification to the listening port number (123/https). Default: "+ opts['bind'] +".", 
@@ -150,14 +150,32 @@ def parse_options(opts, version):
     if opts['certkey']: 
         opts['certkey'] = os.path.normpath(opts['certkey'])
 
-    if not opts['redelk_backend_name_c2'].startswith('c2'):
-        raise Exception('[ERROR] redelk_backend_name_c2 option must start with "c2"!')
+    if 'redelk_backend_name_c2' in opts.keys():
+        if not opts['redelk_backend_name_c2'].startswith('c2'):
+            raise Exception('[ERROR] redelk_backend_name_c2 option must start with "c2"!')
 
-    if not opts['redelk_backend_name_decoy'].startswith('decoy'):
-        raise Exception('[ERROR] redelk_backend_name_decoy option must start with "decoy"!')
+    if 'redelk_backend_name_decoy' in opts.keys():
+        if not opts['redelk_backend_name_decoy'].startswith('decoy'):
+            raise Exception('[ERROR] redelk_backend_name_decoy option must start with "decoy"!')
 
-    if opts['redelk_backend_name_c2'].find(' ') != -1 or opts['redelk_backend_name_decoy'].find(' ') != -1:
-        raise Exception('[ERROR] redelk_backend_name_c2 and redelk_backend_name_decoy options cannot contain spaces!')
+    if 'redelk_backend_name_c2' in opts.keys() and 'redelk_backend_name_decoy' in opts.keys():
+        if opts['redelk_backend_name_c2'].find(' ') != -1 or opts['redelk_backend_name_decoy'].find(' ') != -1:
+            raise Exception('[ERROR] redelk_backend_name_c2 and redelk_backend_name_decoy options cannot contain spaces!')
+
+    if 'profile' in opts.keys() and opts['profile'] != None:
+        profile = opts['profile']
+
+        if not os.path.isfile(profile) and 'config' in opts.keys() and os.path.isfile(opts['config']):
+            p = os.path.normpath(os.path.join(os.path.dirname(opts['config']), opts['profile']))
+
+            if not os.path.isfile(p):
+                p = os.path.normpath(os.path.join(os.path.join(os.path.dirname(__file__), '..'), opts['profile']))
+
+
+            if os.path.isfile(p):
+                print('[.] Found Malleable C2 profile at: "{}"'.format(p))
+                opts['profile'] = p
+
 
 def parseParametersFromConfigFile(_params):
     parametersRequiringDirectPath = (

@@ -41,7 +41,7 @@ def parse_options(opts, version):
         help="Specifies output log file.", metavar="PATH", type=str)
     parser.add_argument("-A", "--access-log", dest='access_log', 
         help="Specifies where to write access attempts in Apache2 combined log format.", metavar="PATH", type=str)
-    parser.add_argument("--access-log-format", dest='access_log_format', 
+    parser.add_argument("--access-log-format", dest='access_log_format', default='apache2',
         help="Specifies pre-defined format for access log lines. Supported values: apache2, redelk.", choices=('apache2', 'redelk'), metavar="PATH", type=str)
     parser.add_argument("--redelk-backend-c2", dest='redelk_backend_name_c2', default='c2',
         help="Backend name (label) for packets that are to be passed to C2 server. Must start with 'c2' phrase.", metavar="NAME", type=str)

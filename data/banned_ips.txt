@@ -2040,17 +2040,23 @@
 103.245.47.20 # MiscContributions:@ztgrace
 182.75.165.176/30 # MiscContributions:@ztgrace
 
-173.94.0.0/16 # OtherVThosts
-8.34.0.0/16 # OtherVThosts
-8.35.0.0/16 # OtherVThosts
-92.0.0.0/8 # OtherVThosts
-93.0.0.0/8 # OtherVThosts
-94.0.0.0/8 # OtherVThosts
-95.0.0.0/8 # OtherVThosts
-96.0.0.0/8 # OtherVThosts
-97.0.0.0/8 # OtherVThosts
-98.0.0.0/8 # OtherVThosts
-99.0.0.0/8 # OtherVThosts
+#
+# Disabled. More context here:
+#   https://github.com/mgeeky/RedWarden/issues/10#issuecomment-941690930
+# and here:
+#	https://gist.github.com/curi0usJack/971385e8334e189d93a6cb4671238b10#gistcomment-3734057
+#
+# 173.94.0.0/16 # OtherVThosts
+# 8.34.0.0/16 # OtherVThosts
+# 8.35.0.0/16 # OtherVThosts
+# 92.0.0.0/8 # OtherVThosts
+# 93.0.0.0/8 # OtherVThosts
+# 94.0.0.0/8 # OtherVThosts
+# 95.0.0.0/8 # OtherVThosts
+# 96.0.0.0/8 # OtherVThosts
+# 97.0.0.0/8 # OtherVThosts
+# 98.0.0.0/8 # OtherVThosts
+# 99.0.0.0/8 # OtherVThosts
 
 150.70.0.0/22 # TrendMicro
 150.70.104.0/22 # TrendMicro

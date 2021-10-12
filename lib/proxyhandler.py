@@ -322,6 +322,9 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         override_suppress_log = False
 
         if 'access_log_format' in self.options.keys():
+            if self.options['access_log_format'] == None:
+                self.options['access_log_format'] = 'apache2'
+
             if self.options['access_log_format'].lower() == 'apache2':
                 # src: https://httpd.apache.org/docs/2.4/logs.html
                 # LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\"" combined

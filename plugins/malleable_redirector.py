@@ -81,7 +81,7 @@ class MalleableParser:
         'ssh_pipename': "postex_ssh_####",
         'tcp_frame_header': "",
         'tcp_port': "4444",
-        'useragent': "",
+        'useragent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.158 Safari/537.36",
     }
 
     def __init__(self, logger):
@@ -1634,7 +1634,6 @@ The document has moved
     def drop_check(self, req, req_body, malleable_meta):
         peerIP = ProxyPlugin.get_peer_ip(req)
         ts = datetime.now().strftime('%Y-%m-%d/%H:%M:%S')
-        userAgentValue = req.headers.get('User-Agent')
 
         self.processProxyPass(ts, peerIP, req, True)
 
@@ -1644,26 +1643,7 @@ The document has moved
         
         self.processProxyPass(ts, peerIP, req, False)
 
-        # User-agent conformancy
-        if len(self.malleable.config['useragent']) > 0:
-            if self.malleable != None:
-                if userAgentValue != self.malleable.config['useragent']\
-                and self.proxyOptions['policy']['drop_invalid_useragent']:
-                    if self.is_request:
-                        self.drop_reason(f'[DROP, {ts}, reason:1, {peerIP}] inbound User-Agent differs from the one defined in C2 profile.')
-                        self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
-                            userAgentValue, self.malleable.config['useragent']))
-                    return self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
-            else:
-                self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='magenta')
-        else:
-            self.logger.dbg("User-agent test skipped, as there was no User-Agent global variable defined in input Malleable Profile.", color='magenta')
-
-        if self.proxyOptions['mitigate_replay_attack']:
-            with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
-                if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
-                    self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
-                    return self.report(True, ts, peerIP, req.uri, userAgentValue, '0')
+        userAgentValue = req.headers.get('User-Agent')
 
         fetched_uri = ''
         fetched_host = req.headers['Host']
@@ -1705,7 +1685,9 @@ The document has moved
                                                 fetched_host = v
                                                 break
                                 break
-                    if found: break
+                    if found: 
+                        break
+
 
                 if found:
                     malleable_meta['host'] = fetched_host if len(fetched_host) > 0 else req.headers['Host'],
@@ -1715,6 +1697,8 @@ The document has moved
                     malleable_meta['variant'] = variant
 
                     (ret, reason) = self._client_request_inspect(section, variant, req, req_body, malleable_meta, ts, peerIP)
+
+                    userAgentValue = req.headers.get('User-Agent')
 
                     if ret:
                         return self.report(True, ts, peerIP, req.uri, userAgentValue, reason)
@@ -1836,7 +1820,7 @@ The document has moved
                 (('uri_x64' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x64']) or
                     ('uri_x86' in configblock.keys() and malleable_meta['uri'] == configblock['uri_x86'])):
                 if 'host_stage' in self.malleable.config.keys() and self.malleable.config['host_stage'] == 'false':
-                    self.drop_reason('[DROP, {}, reason:11c, {}] Requested URI referes to http-stager section however Payload staging was disabled: "{}"'.format(ts, peerIP, req.uri))
+                    self.drop_reason('[DROP, {}, reason:11c, {}] Requested URI refers to http-stager section however Payload staging was disabled: "{}"'.format(ts, peerIP, req.uri))
                     reason = '11c'
                 return (True, reason)
 
@@ -1848,6 +1832,50 @@ The document has moved
 
             for h in configblock['client']['header']:
                 hdrs2[h[0].lower()] = h[1]
+
+            if 'useragent' in self.malleable.config.keys() and len(self.malleable.config['useragent']) > 0:
+                hdrs2['user-agent'] = self.malleable.config['useragent']
+            else:
+                hdrs2['user-agent'] = MalleableParser.GlobalOptionsDefaults['useragent']
+
+            userAgentValue = req.headers.get('User-Agent')
+
+            if 'protect_these_headers_from_tampering' in self.proxyOptions.keys() and \
+                len(self.proxyOptions['protect_these_headers_from_tampering']) > 0 and \
+                    'user-agent' in [x.lower() for x in self.proxyOptions['protect_these_headers_from_tampering']]:
+
+                oldUserAgent = req.headers.get('User-Agent')
+                expectedUserAgent = hdrs2['user-agent']
+
+                if oldUserAgent != expectedUserAgent:
+                    self.logger.dbg('Inbound request had User-Agent ({}) however ({}) was expected. Since this header was marked for protection - restoring expected value.'.format(
+                        oldUserAgent, expectedUserAgent
+                    ))
+
+                    del req.headers['User-Agent']
+                    req.headers['User-Agent'] = expectedUserAgent
+                    userAgentValue = expectedUserAgent
+
+            # User-agent conformancy
+            if len(self.malleable.config['useragent']) > 0:
+                    if userAgentValue != self.malleable.config['useragent']\
+                    and self.proxyOptions['policy']['drop_invalid_useragent']:
+                        if self.is_request:
+                            self.drop_reason(f'[DROP, {ts}, reason:1, {peerIP}] inbound User-Agent differs from the one defined in C2 profile.')
+                            self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
+                                userAgentValue, self.malleable.config['useragent']))
+                        return self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
+                else:
+                    self.logger.dbg("(No malleable profile) User-agent test skipped, as there was no profile provided.", color='magenta')
+            else:
+                self.logger.dbg("User-agent test skipped, as there was no User-Agent global variable defined in input Malleable Profile.", color='magenta')
+
+            if self.proxyOptions['mitigate_replay_attack']:
+                with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
+                    if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
+                        self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
+                        return self.report(True, ts, peerIP, req.uri, userAgentValue, '0')
+
 
             for header in configblock['client']['header']:
                 k, v = header

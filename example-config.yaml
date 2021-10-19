@@ -443,9 +443,9 @@ policy:
   drop_malleable_without_expected_request_section: True
   # [IP: DROP, reason:8] HTTP request was expected to contain (metadata|id|output) section with parameter in URI:
   drop_malleable_without_request_section_in_uri: True
-  # [IP: DROP, reason:9] Did not found append pattern:
+  # [IP: DROP, reason:9] Did not found append pattern (this logic is known to cause troubles, use with caution):
   drop_malleable_without_prepend_pattern: False
-  # [IP: DROP, reason:10] Did not found append pattern:
+  # [IP: DROP, reason:10] Did not found append pattern (this logic is known to cause troubles, use with caution):
   drop_malleable_without_apppend_pattern: False
   # [IP: DROP, reason:11] Requested URI does not aligns any of Malleable defined variants:
   drop_malleable_unknown_uris: True
@@ -454,12 +454,15 @@ policy:
 
 
 #
+# This option repairs Beacon requests's header value by restoring to what was expected in Malleable C2 profile.
+#
 # If RedWarden validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
 #   "[IP: DROP, reason:6] HTTP request did not contain expected header value:"
 #
-# and senses some header is missing or was overwritten along the wire, the request will be dropped. We can relax this policy
-# a bit however, since there are situations in which Cache systems (such as Cloudflare) could tamper with our requests thus
-# breaking Malleable contracts. What we can do is to specify list of headers, that should be overwritten back to their values
+# and detects some header is missing or was overwritten along the wire, the request will be dropped. 
+#
+# We can relax this policy a bit however, since there are situations in which Cache systems (such as Cloudflare) could tamper with our 
+# requests thus breaking Malleable contracts. What we can do is to specify list of headers, that should be overwritten back to their values
 # defined in provided Malleable profile.
 #
 # So for example, if our profile expects:
@@ -472,13 +475,12 @@ policy:
 # detect that and set that header's value back to what was expected in Malleable profile.
 #
 # In order to protect Accept-Encoding header, as an example, the following configuration could be used:
-#   protect_these_headers_from_tampering:
+#   repair_these_headers:
 #     - Accept-Encoding
-#
 #
 # Default: <empty-list>
 #
-#protect_these_headers_from_tampering:
+#repair_these_headers:
 #  - Accept-Encoding
 
 

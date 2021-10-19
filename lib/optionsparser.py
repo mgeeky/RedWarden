@@ -209,6 +209,15 @@ def parseParametersFromConfigFile(_params):
         'ssl_cacert' : 'cacert',
         'ssl_cacn' : 'cacn',
         'drop_invalid_http_requests': 'allow_invalid',
+        'repair_these_headers': 'protect_these_headers_from_tampering',
+        'restore_these_headers': 'protect_these_headers_from_tampering',
+        'redelk_frontend': 'redelk_frontend_name',
+        'redelk_backend_c2': 'redelk_backend_name_c2',
+        'redelk_backend_decoy': 'redelk_backend_name_decoy',
+        'throttle_peer_logging': 'throttle_down_peer_logging',
+        'proxypass': 'proxy_pass',
+        'remove_unnecessary_headers': 'remove_superfluous_headers',
+        'anti_replay_attack': 'mitigate_replay_attack',
     }
 
     valuesThatNeedsToBeList = (

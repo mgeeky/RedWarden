@@ -324,16 +324,19 @@ http-get {
 
 You see this `Accept-Encoding`? Every Beacon request has to come up with that Header and that value. What happens if your Beacon hits CloudFlare systems and they emit a request that will be stripped from that Header or will have `Accept-Encoding: gzip` instead? Teamserver will drop the request on the spot.
 
-By setting this header in RedWarden configuration section dubbed `protect_these_headers_from_tampering` you can safe your connection.:
+By setting this header in RedWarden configuration section dubbed `repair_these_headers` you can safe your connection.:
 
 ```yaml
+#
+# This option repairs Beacon requests's header value by restoring to what was expected in Malleable C2 profile.
 #
 # If RedWarden validates inbound request's HTTP headers, according to policy drop_malleable_without_expected_header_value:
 #   "[IP: DROP, reason:6] HTTP request did not contain expected header value:"
 #
-# and senses some header is missing or was overwritten along the wire, the request will be dropped. We can relax this policy
-# a bit however, since there are situations in which Cache systems (such as Cloudflare) could tamper with our requests thus
-# breaking Malleable contracts. What we can do is to specify list of headers, that should be overwritten back to their values
+# and detects some header is missing or was overwritten along the wire, the request will be dropped. 
+#
+# We can relax this policy a bit however, since there are situations in which Cache systems (such as Cloudflare) could tamper with our 
+# requests thus breaking Malleable contracts. What we can do is to specify list of headers, that should be overwritten back to their values
 # defined in provided Malleable profile.
 #
 # So for example, if our profile expects:
@@ -346,13 +349,12 @@ By setting this header in RedWarden configuration section dubbed `protect_these_
 # detect that and set that header's value back to what was expected in Malleable profile.
 #
 # In order to protect Accept-Encoding header, as an example, the following configuration could be used:
-#   protect_these_headers_from_tampering:
+#   repair_these_headers:
 #     - Accept-Encoding
-#
 #
 # Default: <empty-list>
 #
-protect_these_headers_from_tampering:
+repair_these_headers:
   - Accept-Encoding
 ```
 

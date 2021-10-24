@@ -10,7 +10,7 @@
 # IP address. If second param is not given - no IP Geolocation evaluation will be performed.
 #
 # Author:
-#   Mariusz B. / mgeeky, 20
+#   Mariusz Banach / mgeeky, 20
 #   <mb@binary-offensive.com>
 #
 

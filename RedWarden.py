@@ -28,7 +28,7 @@
 #   0.9     added support for RedELK logs generation.
 #
 # Author:
-#   Mariusz B. / mgeeky, '16-'21
+#   Mariusz Banach / mgeeky, '16-'21
 #   <mb@binary-offensive.com>
 #
 #   (originally based on: @inaz2 implementation: https://github.com/futuresimple/proxy2)
@@ -169,7 +169,7 @@ def main():
     :: RedWarden - Keeps your malleable C2 packets slipping through AVs,
                    EDRs, Blue Teams and club bouncers like nothing else!
 
-    by Mariusz B. / mgeeky, '19-'21
+    by Mariusz Banach / mgeeky, '19-'21
     <mb [at] binary-offensive.com>
 
     v{}

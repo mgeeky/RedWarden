@@ -27,7 +27,7 @@
 #   - yaml
 #
 # Author:
-#   Mariusz B. / mgeeky, '19-'20
+#   Mariusz Banach / mgeeky, '19-'20
 #   <mb@binary-offensive.com>
 #
 

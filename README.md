@@ -498,7 +498,7 @@ This and other projects are outcome of sleepless nights and **plenty of hard wor
 ## Author
 
 ```   
-   Mariusz B. / mgeeky, '19-'21
+   Mariusz Banach / mgeeky, '19-'21
    <mb [at] binary-offensive.com>
    (https://github.com/mgeeky) 
 ```

@@ -373,10 +373,12 @@ class MalleableParser:
                     if a not in self.config[k]:
                         self.config[k][a] = {
                             'header' : [],
+                            'parameter' : [],
                             'variant' : 'default',
                         }
                     else:
                         if 'header' not in self.config[k][a].keys(): self.config[k][a]['header'] = []
+                        if 'parameter' not in self.config[k][a].keys(): self.config[k][a]['parameter'] = []
                         if 'variant' not in self.config[k][a].keys(): self.config[k][a]['variant'] = 'default'
 
         for k, v in MalleableParser.GlobalOptionsDefaults.items():
@@ -1833,6 +1835,12 @@ The document has moved
             for h in configblock['client']['header']:
                 hdrs2[h[0].lower()] = h[1]
 
+            if not 'parameter' in configblock['client'].keys():
+                configblock['client']['parameter'] = []
+
+            for h in configblock['client']['parameter']:
+                hdrs2[h[0].lower()] = h[1]
+
             if 'useragent' in self.malleable.config.keys() and len(self.malleable.config['useragent']) > 0:
                 hdrs2['user-agent'] = self.malleable.config['useragent']
             else:
@@ -1922,6 +1930,24 @@ The document has moved
                             self.drop_reason('[DROP, {}, reason:6, {}] HTTP request did not contain expected header value: "{}: {}"'.format(ts, peerIP, k, v))
                             reason = '6'
                             return (True, reason)
+
+            for parameter in configblock['client']['parameter']:
+                k, v = parameter
+
+                out = parse_qs(urlsplit(req.uri).query)
+
+                if k not in out.keys() \
+                    and self.proxyOptions['policy']['drop_malleable_without_request_section_in_uri']:
+                        self.drop_reason('[DROP, {}, reason:8, {}] HTTP request was expected to contain {} section with parameter in URI: "{}"'.format(ts, peerIP, _block, metadata['parameter']))
+                        reason = '8'
+                        return (True, reason)
+
+                if v not in out[k][0] \
+                    and self.proxyOptions['policy']['drop_malleable_without_expected_header_value']:
+                    ret = True
+                    self.drop_reason('[DROP, {}, reason:6, {}] HTTP request did not contain expected uri value: "{}: {}"'.format(ts, peerIP, k, v))
+                    reason = '6'
+                    return (True, reason)
 
             for _block in foundblocks:
                 if _block in configblock['client'].keys():

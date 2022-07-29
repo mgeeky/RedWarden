@@ -10,10 +10,10 @@
 #
 # Changelog:
 #   0.1     original fork from inaz2 repository.
-#   0.2     added plugins loading functionality, 
+#   0.2     added plugins loading functionality,
 #           ssl interception as a just-in-time setup,
-#           more elastic logging facilities, 
-#           separation of program options in form of a globally accessible dictonary, 
+#           more elastic logging facilities,
+#           separation of program options in form of a globally accessible dictonary,
 #           program's help text with input parameters handling,
 #   0.3     added python3 support, enhanced https capabilities and added more versatile
 #           plugins support.
@@ -23,7 +23,7 @@
 #           added options to protected HTTP headers, apply fine-grained DROP policy, and plenty more.
 #   0.6     rewritten RedWarden from BaseHTTPServer (SimpleHTTPServer) to Tornado, improved
 #           support for proxy_pass allowing to fetch responses cross-scheme
-#   0.8     fixed two issues with config param processing logic and added support for multi-line 
+#   0.8     fixed two issues with config param processing logic and added support for multi-line
 #           prepend/append instructions in Malleable profiles.
 #   0.9     added support for RedELK logs generation.
 #
@@ -41,9 +41,9 @@ import sys, os
 
 import logging
 import tornado.web
-import tornado.ioloop
 import tornado.httpserver
 import tornado.netutil
+import asyncio
 
 from lib.proxylogger import ProxyLogger
 from lib.proxyhandler import *
@@ -52,7 +52,7 @@ from lib.proxyhandler import *
 normpath = lambda p: os.path.normpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), p))
 
 
-# Global options dictonary, that will get modified after parsing 
+# Global options dictonary, that will get modified after parsing
 # program arguments. Below state represents default values.
 options = {
     'bind': 'http://0.0.0.0',
@@ -87,9 +87,13 @@ def create_ssl_context():
     ssl_ctx  = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     ssl_ctx.load_cert_chain(options['cacert'], options['cakey'])
 
-    return ssl_ctx 
+    return ssl_ctx
 
-def serve_proxy(bind, port, _ssl, foosock):
+async def server_loop(servers):
+    # Schedule calls *concurrently*:
+    L = await asyncio.gather(*servers)
+
+async def serve_proxy(bind, port, _ssl, foosock):
     ProxyRequestHandler.protocol_version = "HTTP/1.1"
     scheme = None
     certpath = ''
@@ -105,7 +109,7 @@ def serve_proxy(bind, port, _ssl, foosock):
         else:
             bind = options['bind']
 
-    if _ssl: 
+    if _ssl:
         scheme = 'https'
 
     if scheme == None: scheme = 'http'
@@ -130,14 +134,14 @@ def serve_proxy(bind, port, _ssl, foosock):
         else:
             raise
 
-    logger.info("Serving proxy on: {}://{}:{} ...".format(scheme, bind, port), 
+    logger.info("Serving proxy on: {}://{}:{} ...".format(scheme, bind, port),
         color=ProxyLogger.colors_map['yellow'])
 
     server = None
     if scheme == 'https':
         ssl_ctx = create_ssl_context()
         server = tornado.httpserver.HTTPServer(
-            app, 
+            app,
             ssl_options=ssl_ctx,
             idle_connection_timeout = options['timeout'],
             body_timeout = options['timeout'],
@@ -150,6 +154,7 @@ def serve_proxy(bind, port, _ssl, foosock):
             )
 
     server.add_sockets(foosock)
+    await asyncio.Event().wait()
 
 def main():
     global options
@@ -160,12 +165,12 @@ def main():
 
         logger.info(r'''
 
-    ____           ___       __               __         
-   / __ \___  ____/ / |     / /___ __________/ /__  ____ 
+    ____           ___       __               __
+   / __ \___  ____/ / |     / /___ __________/ /__  ____
   / /_/ / _ \/ __  /| | /| / / __ `/ ___/ __  / _ \/ __ \
  / _, _/  __/ /_/ / | |/ |/ / /_/ / /  / /_/ /  __/ / / /
-/_/ |_|\___/\__,_/  |__/|__/\__,_/_/   \__,_/\___/_/ /_/ 
-    
+/_/ |_|\___/\__,_/  |__/|__/\__,_/_/   \__,_/\___/_/ /_/
+
     :: RedWarden - Keeps your malleable C2 packets slipping through AVs,
                    EDRs, Blue Teams and club bouncers like nothing else!
 
@@ -175,7 +180,6 @@ def main():
     v{}
 
 '''.format(VERSION))
-
 
         threads = []
         if len(options['port']) == 0:
@@ -229,10 +233,10 @@ def main():
         # advanced multi-process:
         tornado.process.fork_processes(0)
 
+        statements = []
         for srv in servers:
-            serve_proxy(srv[0], srv[1], srv[2], srv[3])
-
-        tornado.ioloop.IOLoop.current().start()
+            statements.append(serve_proxy(srv[0], srv[1], srv[2], srv[3]))
+        asyncio.run(server_loop(statements))
 
     except KeyboardInterrupt:
         logger.info('\nProxy serving interrupted by user.', noprefix=True)

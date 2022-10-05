@@ -239,8 +239,8 @@ def parseParametersFromConfigFile(_params):
         with open(outparams['config']) as f:
             try:
                 config = yaml.load(f, Loader=yaml.FullLoader)
-            except:
-                config = yaml.load(f)
+            except Exception as e:
+                self.logger.fatal(f'Could not parse {f} YAML file:\n\n{e}\n\n')
 
         outparams.update(config)
 

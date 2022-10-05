@@ -600,8 +600,8 @@ def main(argv):
         with open(conf) as f:
             try:
                 config = yaml.load(f, Loader=yaml.FullLoader)
-            except:
-                config = yaml.load(f)
+            except Exception as e:
+                self.logger.fatal(f'Could not parse {f} YAML file:\n\n{e}\n\n')
 
         deter = IPGeolocationDeterminant(logger, config['ip_geolocation_requirements'])
         out = deter.determine(result)

@@ -506,8 +506,10 @@ class ProxyPlugin(IProxyPlugin):
             try:
                 if not self.proxyOptions['config'] and self.proxyOptions['redir_config'] != '':
                     with open(self.proxyOptions['redir_config']) as f:
-                        #redirectorConfig = yaml.load(f, Loader=yaml.FullLoader)
-                        redirectorConfig = yaml.load(f)
+                        try:
+                            redirectorConfig = yaml.load(f, Loader=yaml.FullLoader)
+                        except Exception as e:
+                            self.logger.fatal(f'Could not parse redirector {f} YAML file:\n\n{e}\n\n')
 
                     self.proxyOptions.update(redirectorConfig)
 

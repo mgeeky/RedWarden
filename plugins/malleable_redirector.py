@@ -1873,7 +1873,11 @@ The document has moved
                                 self.drop_reason(f'[DROP, {ts}, reason:1, {peerIP}] inbound User-Agent differs from the one defined in C2 profile.')
                                 self.logger.dbg('Inbound UA: "{}", Expected: "{}"'.format(
                                     userAgentValue, self.malleable.config['useragent']))
-                            return self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
+                            ret = self.report(True, ts, peerIP, req.uri, userAgentValue, '1')
+                            if ret == True:
+                                return (True, '1')
+                            else:
+                                return (False, '0')
                 else:
                     self.logger.dbg("User-agent test skipped, as there was no User-Agent global variable defined in input Malleable Profile.", color='magenta')
             else:
@@ -1883,7 +1887,11 @@ The document has moved
                 with SqliteDict(ProxyPlugin.RequestsHashesDatabaseFile) as mydict:
                     if mydict.get(self.computeRequestHash(req, req_body), 0) != 0:
                         self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
-                        return self.report(True, ts, peerIP, req.uri, userAgentValue, '0')
+                        ret = self.report(True, ts, peerIP, req.uri, userAgentValue, '0')
+                        if ret == True:
+                            return (True, '0')
+                        else:
+                            return (False, '0')
 
             for header in configblock['client']['header']:
                 k, v = header

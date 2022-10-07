@@ -483,6 +483,17 @@ policy:
 #repair_these_headers:
 #  - Accept-Encoding
 
+#
+# This option specifies which headers coming from Teamserver responses should be removed before
+# reaching Beacon process. With Cobalt Strike 4.7+ I noticed that Teamserver removes Content-Encoding header
+# automatically without any notice, thus violating our malleable http-(get|post).server contract.
+# Since RedWarden followed the contract, Beacon was either dropping responses or decompressing them incorrectly.
+#
+# Either way, with Cobalt Strike 4.7+ we need to remove Content-Encoding header from responses to keep on going.
+#
+remove_these_response_headers:
+  - Content-Encoding
+
 
 #
 # Malleable Redirector plugin can act as a basic oracle API responding to calls

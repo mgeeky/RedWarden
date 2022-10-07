@@ -606,6 +606,7 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         origin = (scheme, inbound_origin)
         neworigin = (scheme, netloc)
+        res_msg_hdrs = {}
 
         class MyResponse(http.client.HTTPResponse):
             def __init__(self, req, origreq):
@@ -722,6 +723,10 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
                 res = MyResponse(myreq, self)
                 self.response_headers = res.headers
+                res_msg_hdrs = res.msg.copy()
+
+                if len(res.msg) == 0 and len(res.headers) > 0:
+                    res_msg_hdrs = res.headers.copy()
 
                 res_body = ""
                 if ignore_response_decompression_errors:
@@ -768,8 +773,8 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
                 if options['debug']: raise
                 return
 
-            setattr(res, 'headers', res.msg)
-            self.response_headers = res.msg
+            setattr(res, 'headers', res_msg_hdrs)
+            self.response_headers = res_msg_hdrs
 
             content_encoding = res.headers.get('Content-Encoding', 'identity')
             if ignore_response_decompression_errors: 
@@ -788,6 +793,20 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
 
         newuri = self.request.uri
         self.request.uri = origuri
+
+        reskeys = [x.lower() for x in res.headers.keys()]
+
+        # if content_encoding == 'identity' and 'content-encoding' in reskeys:
+        #     self.logger.dbg('Removed Content-Encoding response header.')
+        #     del res.headers['Content-Encoding']
+
+        if plugins.IProxyPlugin.proxy2_metadata_headers['remove_response_headers'] in reskeys:
+            hdrs = res.headers[IProxyPlugin.proxy2_metadata_headers['remove_response_headers']]
+            self.logger.dbg('Removing these response headers: ' + hdrs)
+
+            hdrsList = hdrs.split(',')
+            for h in hdrsList:
+                del res.headers[h]
 
         if type(modified) == bool:
             modified |= (newuri != origuri)

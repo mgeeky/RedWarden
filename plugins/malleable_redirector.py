@@ -268,6 +268,7 @@ class MalleableParser:
                         except Exception as e:
                             self.logger.fatal(f'Could not process line as ([set] parameter ["value", ...] :\n\n\t{line}\n\nMake sure your line doesnt include apostrophes, or other characters breaking compregexes["parameter-value"] regex.')
 
+
                 if values == []:
                     values = ''
                 elif len(values) == 1:
@@ -412,6 +413,7 @@ class ProxyPlugin(IProxyPlugin):
         'mitigate_replay_attack': False,
         'whitelisted_ip_addresses' : [],
         'protect_these_headers_from_tampering' : [],
+        'remove_these_response_headers' : [],
         'verify_peer_ip_details': True,
         'malleable_redirector_hidden_api_endpoint' : '',
         'remove_superfluous_headers': True,
@@ -963,6 +965,10 @@ class ProxyPlugin(IProxyPlugin):
         req.redirected_to_c2 = True
         req.headers[proxy2_metadata_headers['ignore_response_decompression_errors']] = "1"
         req.headers[proxy2_metadata_headers['override_host_header']] = newhost
+
+        if 'remove_these_response_headers' in self.proxyOptions.keys() and len(self.proxyOptions['remove_these_response_headers']) > 0:
+            removeThese = ','.join([x.lower() for x in self.proxyOptions['remove_these_response_headers']])
+            req.headers[proxy2_metadata_headers['remove_response_headers']] = removeThese            
 
         if 'host' in malleable_meta.keys() and len(malleable_meta['host']) > 0:
             req.headers[proxy2_metadata_headers['domain_front_host_header']] = malleable_meta['host']

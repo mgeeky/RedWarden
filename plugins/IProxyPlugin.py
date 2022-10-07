@@ -12,6 +12,7 @@ proxy2_metadata_headers = {
     'override_host_header' : 'X-Proxy2-Override-Host-Header',
     'domain_front_host_header' : 'X-Proxy2-Domain-Front-Host-Header',
     'keep_alive_this_connection' : 'X-Proxy2-Keep-Alive',
+    'remove_response_headers' : 'X-Proxy2-Remove-Response-Headers',
 }
 
 class DropConnectionException(Exception):

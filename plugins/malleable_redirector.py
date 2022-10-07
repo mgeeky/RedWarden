@@ -262,8 +262,11 @@ class MalleableParser:
 
                 else: 
                     for n in compregexes['parameter-value'].finditer(restofline):
-                        paramval = list(filter(lambda x: x != None, n.groups()[1:]))[0]
-                        values.append(paramval.replace('\\\\', '\\'))
+                        try:
+                            paramval = list(filter(lambda x: x != None, n.groups()[1:]))[0]
+                            values.append(paramval.replace('\\\\', '\\'))
+                        except Exception as e:
+                            self.logger.fatal(f'Could not process line as ([set] parameter ["value", ...] :\n\n\t{line}\n\nMake sure your line doesnt include apostrophes, or other characters breaking compregexes["parameter-value"] regex.')
 
                 if values == []:
                     values = ''
@@ -1891,7 +1894,7 @@ The document has moved
                         self.drop_reason(f'[DROP, {ts}, reason:0, {peerIP}] identical request seen before. Possible Replay-Attack attempt.')
                         ret = self.report(True, ts, peerIP, req.uri, userAgentValue, '0')
                         if ret == True:
-                            return (True, '0')
+                            return (True, '0') 
                         else:
                             return (False, '0')
 

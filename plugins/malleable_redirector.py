@@ -1193,11 +1193,12 @@ class ProxyPlugin(IProxyPlugin):
             hdrs = ''
 
             for h in self.proxyOptions['remove_these_response_headers']:
-                if h in res.headers:
+                if h in res.headers.keys():
                     del res.headers[h]
                     hdrs += h + ', '
 
-            self.logger.dbg('Removed these response headers: ' + hdrs)
+            if len(hdrs) > 0:
+                self.logger.dbg('Removed these response headers: ' + hdrs)
 
         req.connection.no_keep_alive = False
 

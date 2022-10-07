@@ -1190,13 +1190,14 @@ class ProxyPlugin(IProxyPlugin):
         res.headers[proxy2_metadata_headers['override_response_content_encoding']] = 'identity'
 
         if 'remove_these_response_headers' in self.proxyOptions.keys() and len(self.proxyOptions['remove_these_response_headers']) > 0:
-            hdrs = ','.join([x.lower() for x in self.proxyOptions['remove_these_response_headers']])
-            self.logger.dbg('Removing these response headers: ' + hdrs)
+            hdrs = ''
 
-            hdrsList = hdrs.split(',')
-            
-            for h in hdrsList:
-                del res.headers[h]
+            for h in self.proxyOptions['remove_these_response_headers']:
+                if h in res.headers:
+                    del res.headers[h]
+                    hdrs += h + ', '
+
+            self.logger.dbg('Removed these response headers: ' + hdrs)
 
         req.connection.no_keep_alive = False
 

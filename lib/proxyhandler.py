@@ -794,20 +794,6 @@ class ProxyRequestHandler(tornado.web.RequestHandler):
         newuri = self.request.uri
         self.request.uri = origuri
 
-        reskeys = [x.lower() for x in res.headers.keys()]
-
-        # if content_encoding == 'identity' and 'content-encoding' in reskeys:
-        #     self.logger.dbg('Removed Content-Encoding response header.')
-        #     del res.headers['Content-Encoding']
-
-        if plugins.IProxyPlugin.proxy2_metadata_headers['remove_response_headers'] in reskeys:
-            hdrs = res.headers[IProxyPlugin.proxy2_metadata_headers['remove_response_headers']]
-            self.logger.dbg('Removing these response headers: ' + hdrs)
-
-            hdrsList = hdrs.split(',')
-            for h in hdrsList:
-                del res.headers[h]
-
         if type(modified) == bool:
             modified |= (newuri != origuri)
 

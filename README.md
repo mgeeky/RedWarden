@@ -359,6 +359,23 @@ repair_these_headers:
 ```
 
 
+### Remove problematic Response Headers
+
+With Cobalt Strike 4.7+ I noticed that Teamserver removes Content-Encoding header automatically without any notice, thus violating our malleable `http-(get|post).server` contract. 
+
+Since RedWarden followed the contract, Beacon was either dropping responses or decompressing them incorrectly.
+
+This option specifies which headers coming from Teamserver responses should be removed before reaching Beacon process:
+
+```yaml
+
+remove_these_response_headers:
+  - Content-Encoding
+```
+
+RedWarden will now remove `Content-Encoding` header by default from Teamserver responses, to maintain operability with CS4.7+ versions.
+
+
 ### Example outputs
 
 Let's take a look at the output the proxy produces.

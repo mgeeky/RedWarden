@@ -966,10 +966,6 @@ class ProxyPlugin(IProxyPlugin):
         req.headers[proxy2_metadata_headers['ignore_response_decompression_errors']] = "1"
         req.headers[proxy2_metadata_headers['override_host_header']] = newhost
 
-        if 'remove_these_response_headers' in self.proxyOptions.keys() and len(self.proxyOptions['remove_these_response_headers']) > 0:
-            removeThese = ','.join([x.lower() for x in self.proxyOptions['remove_these_response_headers']])
-            req.headers[proxy2_metadata_headers['remove_response_headers']] = removeThese            
-
         if 'host' in malleable_meta.keys() and len(malleable_meta['host']) > 0:
             req.headers[proxy2_metadata_headers['domain_front_host_header']] = malleable_meta['host']
 
@@ -1192,6 +1188,15 @@ class ProxyPlugin(IProxyPlugin):
         # so that the proxy will not encode it to gzip (or anything specified) and just
         # return the response as-is, in an "Content-Encoding: identity" kind of fashion
         res.headers[proxy2_metadata_headers['override_response_content_encoding']] = 'identity'
+
+        if 'remove_these_response_headers' in self.proxyOptions.keys() and len(self.proxyOptions['remove_these_response_headers']) > 0:
+            hdrs = ','.join([x.lower() for x in self.proxyOptions['remove_these_response_headers']])
+            self.logger.dbg('Removing these response headers: ' + hdrs)
+
+            hdrsList = hdrs.split(',')
+            
+            for h in hdrsList:
+                del res.headers[h]
 
         req.connection.no_keep_alive = False
 
